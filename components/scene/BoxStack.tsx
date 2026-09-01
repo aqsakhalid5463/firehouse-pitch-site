@@ -52,14 +52,14 @@ export function BoxStack() {
               ior={1.4}
               chromaticAberration={0.06}
               backside
-              color="#FFE7D2"
+              color={COLORS.glassTint}
             />
           </mesh>
         ) : (
           <mesh key={i} position={box.position} rotation={[0, box.rotation, 0]}>
             <boxGeometry args={box.size} />
             <meshStandardMaterial
-              color="#8A6B4F"
+              color={COLORS.crateWood}
               roughness={0.85}
               metalness={0.05}
               emissive={COLORS.fireRed}

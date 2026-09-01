@@ -9,6 +9,7 @@ import { BoxStack } from './BoxStack';
 import { Embers } from './Embers';
 import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
+import { COLORS } from '@/lib/constants';
 
 export function SceneCanvas() {
   const enabled = useCanvasEnabled();
@@ -33,8 +34,8 @@ export function SceneCanvas() {
         <ThemeSync />
         <CameraRig />
         <ambientLight intensity={0.4} />
-        <pointLight position={[2, 3, 4]} intensity={8} color="#FF8A3D" />
-        <pointLight position={[-3, -1, 2]} intensity={4} color="#E23D28" />
+        <pointLight position={[2, 3, 4]} intensity={8} color={COLORS.emberAmber} />
+        <pointLight position={[-3, -1, 2]} intensity={4} color={COLORS.fireRed} />
         <directionalLight position={[0, 6, 3]} intensity={0.8} />
         <BoxStack />
         <Embers />

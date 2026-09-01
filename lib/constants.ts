@@ -18,6 +18,8 @@ export const COLORS = {
   bone: '#F4F0E9',
   fireRed: '#E23D28',
   emberAmber: '#FF8A3D',
+  glassTint: '#FFE7D2',
+  crateWood: '#8A6B4F',
 } as const;
 
 export const SECTIONS = {

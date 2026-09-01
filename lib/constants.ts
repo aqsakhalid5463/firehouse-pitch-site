@@ -26,6 +26,10 @@ export const COLORS = {
   truckWheel: '#141418',
   truckCargo: '#9C7B5C',
   headlightWhite: '#FFF1D8',
+  cardboardTan: '#C69A6D',
+  cardboardTanDark: '#B08654',
+  packingTape: '#E8D3AC',
+  boxSeam: '#7A5A3A',
 } as const;
 
 export const SECTIONS = {

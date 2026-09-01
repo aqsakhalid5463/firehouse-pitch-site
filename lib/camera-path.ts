@@ -51,9 +51,14 @@ const HOME_POSITIONS: Vec3[] = [
   [0, 1.4, 10.0],
 ];
 
+// The first two keyframes (the hero rest pose and early assembly) are
+// pulled right to balance the box stack, which now sits in the right
+// third of the frame (see BoxStack's HERO_OFFSET) instead of dead
+// centre — without this the composition reads lopsided even though the
+// boxes themselves are no longer covering the headline.
 const HOME_TARGETS: Vec3[] = [
-  [0, -0.35, 0],
-  [0.2, -0.1, 0],
+  [0.55, -0.35, 0],
+  [0.5, -0.1, 0],
   [0, 0.15, 0],
   [0, 0.1, 0],
   [-0.8, 0.2, 0],

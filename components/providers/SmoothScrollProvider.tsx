@@ -43,6 +43,30 @@ export function SmoothScrollProvider({
       return () => window.removeEventListener('scroll', onScroll);
     }
 
+    // ScrollTrigger's default autoRefreshEvents includes a native 'resize'
+    // listener that fires on every pixel of a drag-resize, and on mobile
+    // fires when the URL bar shows/hides on scroll — refreshing on every
+    // one of those is expensive and, on mobile, would rebuild the pin on
+    // essentially every scroll. Drop 'resize' from the default set and
+    // drive refreshes ourselves below, debounced and width-gated.
+    ScrollTrigger.config({
+      autoRefreshEvents: 'DOMContentLoaded,load,visibilitychange',
+    });
+
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      // Mobile browsers resize the viewport (innerHeight) when the URL bar
+      // shows/hides while scrolling. That is not a layout change our
+      // viewport-relative pins care about, so only refresh when the width
+      // actually changes (real resize / rotation), not on every height wobble.
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 200);
+    };
+    window.addEventListener('resize', onResize);
+
     const lenis = new Lenis({ duration: 1.1, smoothWheel: true });
 
     lenis.on('scroll', ({ scroll, limit, velocity }) => {
@@ -66,6 +90,8 @@ export function SmoothScrollProvider({
       gsap.ticker.remove(tick);
       gsap.ticker.lagSmoothing(500, 33);
       lenis.destroy();
+      window.removeEventListener('resize', onResize);
+      clearTimeout(resizeTimer);
     };
   }, []);
 

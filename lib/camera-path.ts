@@ -51,13 +51,28 @@ function sampleSpline(points: Vec3[], p: number): Vec3 {
 // worked for a side-on view now put the rear door uncomfortably close
 // to the camera. Pulling these three back keeps the whole truck (cab to
 // open door) comfortably in frame.
+//
+// Keyframes 4-5 cover the departure. The truck's own transform
+// (TruckAssembly's computeTruckGroupTransform) carries its world X from
+// 0 to -0.6 as it drives away down world -Z, and it is already held
+// dead-parallel to the road (DOWN_ROAD_YAW) for the whole of this move.
+// For the rear door to read square-on rather than skewed, the camera's
+// line of sight has to run parallel to that heading — i.e. straight
+// down -Z — which means the camera position's X and the look-at
+// target's X must land on the *same* value (round 14: they used to
+// diverge, at x=1.0 → 0 for the camera vs x=-0.8 → -1.6 for the
+// target, which cut diagonally across the road and exposed the truck's
+// side no matter how correct its yaw was). Keyframe 4 eases partway
+// into that alignment so the swing into the square-on view is gradual,
+// and keyframe 5 lands both X values on the truck's own departure lane
+// (-0.6) exactly.
 const HOME_POSITIONS: Vec3[] = [
   [0, 0.65, 6.0],
   [0.3, 0.6, 8.8],
   [-0.5, 0.9, 9.8],
   [0.2, 0.7, 9.4],
-  [1.0, 0.9, 9.4],
-  [0, 1.4, 10.0],
+  [-0.3, 1.1, 9.7],
+  [-0.6, 1.3, 10.4],
 ];
 
 // The first two keyframes (the hero rest pose and early assembly) are
@@ -65,13 +80,19 @@ const HOME_POSITIONS: Vec3[] = [
 // third of the frame (see BoxStack's HERO_OFFSET) instead of dead
 // centre — without this the composition reads lopsided even though the
 // boxes themselves are no longer covering the headline.
+//
+// Keyframes 4-5: see the comment on HOME_POSITIONS above — these two
+// targets converge their X onto the camera's own X (rather than sitting
+// further left, as they used to) and push out along -Z to sit far down
+// the road, so camera→target runs parallel to the truck's departure
+// heading instead of cutting across it.
 const HOME_TARGETS: Vec3[] = [
   [0.55, -0.35, 0],
   [0.5, -0.1, 0],
   [0, 0.15, 0],
   [0, 0.1, 0],
-  [-0.8, 0.2, 0],
-  [-1.6, 0.3, 0],
+  [-0.5, 0.25, -4],
+  [-0.6, 0.3, -18],
 ];
 
 // Calmer, shorter, stays wide.

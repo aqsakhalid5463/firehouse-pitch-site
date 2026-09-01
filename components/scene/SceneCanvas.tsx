@@ -5,6 +5,9 @@ import { PerformanceMonitor } from '@react-three/drei';
 import { useState } from 'react';
 import { CameraRig } from './CameraRig';
 import { ThemeSync } from './ThemeSync';
+import { BoxStack } from './BoxStack';
+import { Embers } from './Embers';
+import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 
 export function SceneCanvas() {
@@ -31,11 +34,11 @@ export function SceneCanvas() {
         <CameraRig />
         <ambientLight intensity={0.4} />
         <pointLight position={[2, 3, 4]} intensity={8} color="#FF8A3D" />
-        {/* Placeholder — replaced by the real scene in Task 6. */}
-        <mesh>
-          <boxGeometry args={[1.2, 1.2, 1.2]} />
-          <meshStandardMaterial color="#E23D28" roughness={0.4} />
-        </mesh>
+        <pointLight position={[-3, -1, 2]} intensity={4} color="#E23D28" />
+        <directionalLight position={[0, 6, 3]} intensity={0.8} />
+        <BoxStack />
+        <Embers />
+        {!degraded && <Effects />}
       </Canvas>
     </div>
   );

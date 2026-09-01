@@ -25,6 +25,8 @@ export const COLORS = {
   truckBoxBody: '#D8D2C6',
   truckWheel: '#141418',
   truckCargo: '#9C7B5C',
+  headlightWhite: '#FFF1D8',
+  asphaltHaze: '#3A1712',
 } as const;
 
 export const SECTIONS = {

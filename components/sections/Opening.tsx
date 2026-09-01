@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
@@ -27,8 +27,18 @@ const STEPS = [
 export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
+  // The pinned-scroll height only ever applies when GSAP is actually
+  // driving the pin. `reduced` itself resolves synchronously on the
+  // client (see use-reduced-motion.ts), which is one render ahead of the
+  // server's always-false HTML — using it directly in this section's
+  // className would hydrate mismatched. `collapsed` instead starts false
+  // (matching the server) and is only ever set inside an effect, so the
+  // dead-scroll fix lands after hydration completes, the same way
+  // Counter.tsx corrects its SSR-safe initial value post-mount.
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    setCollapsed(reduced);
     if (!root.current) return;
     // Reduced motion starts `false` on first render (the media query is
     // read after mount), so without this guard the timeline below would
@@ -112,8 +122,15 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
   }, [reduced]);
 
   return (
-    <section ref={root} className="relative h-[350vh] px-6">
-      <div data-pin className="relative flex h-screen flex-col justify-center overflow-hidden pb-24">
+    <section ref={root} className={collapsed ? 'relative min-h-screen px-6' : 'relative h-[350vh] px-6'}>
+      <div
+        data-pin
+        className={
+          collapsed
+            ? 'relative flex flex-col justify-center gap-16 py-24'
+            : 'relative flex h-screen flex-col justify-center overflow-hidden pb-24'
+        }
+      >
         <div data-hero-copy>{heroCopy}</div>
 
         <div id="process" className="mx-auto mt-auto w-full max-w-7xl">

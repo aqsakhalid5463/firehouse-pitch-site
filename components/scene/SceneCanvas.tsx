@@ -7,7 +7,7 @@ import { CameraRig } from './CameraRig';
 import { ThemeSync } from './ThemeSync';
 import { BoxStack } from './BoxStack';
 import { TruckAssembly } from './TruckAssembly';
-import { Embers } from './Embers';
+import { Highway } from './Highway';
 import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 import { COLORS } from '@/lib/constants';
@@ -43,7 +43,7 @@ export function SceneCanvas() {
         <directionalLight position={[0, 6, 3]} intensity={0.8} />
         <BoxStack />
         <TruckAssembly />
-        <Embers />
+        <Highway />
         {!degraded && <Effects />}
       </Canvas>
     </div>

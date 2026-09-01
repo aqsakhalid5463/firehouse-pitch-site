@@ -100,9 +100,18 @@ export const DOOR_ENTRY_LOCAL: Vec3 = [3.4, 0.15, 0];
 // values below are floor (-0.41) plus each box's own world half-height
 // divided by TRUCK_LOAD_SCALE, so the boxes actually sit on the floor,
 // not embedded in it or floating above it.
+//
+// The z offsets (the bay's side-to-side axis) are kept well inside the
+// interior side walls, which sit at local z = ±0.835 (± 0.518 world
+// once TRUCK_LOAD_SCALE is applied): a box's world half-depth is never
+// scaled down the way its position is, so these offsets were re-picked
+// against BoxStack's current (smaller) box sizes to leave real
+// clearance on both sides instead of poking through a wall — the
+// previous, larger boxes at z = 0.22 / -0.28 cleared the wall by less
+// than a box's own half-depth and clipped through it.
 export const CARGO_REST_LOCAL: Vec3[] = [
-  [0.55, -0.41 + 0.4 / TRUCK_LOAD_SCALE, 0.22],
-  [-0.05, -0.41 + 0.32 / TRUCK_LOAD_SCALE, -0.28],
+  [0.55, -0.41 + 0.23 / TRUCK_LOAD_SCALE, 0.12],
+  [-0.05, -0.41 + 0.18 / TRUCK_LOAD_SCALE, -0.15],
 ];
 
 /** Rotates+scales a truck-local point into world space for a given yaw/scale/origin. */
@@ -335,8 +344,16 @@ export function TruckAssembly() {
           <meshStandardMaterial color={COLORS.fireRed} roughness={0.45} metalness={0.25} />
         </RoundedBox>
 
-        {/* Windshield */}
-        <mesh position={[0.45, 0.32, 0]} rotation={[0, 0, -0.32]}>
+        {/* Windshield — mounted on the cab's -X face, the true nose end
+            (see the truck-local axis note above the CHASSIS/CAB/BODY
+            consts): the previous build had this whole feature cluster
+            mirrored onto +X, the face nearest the cargo body, which put
+            the windshield/grille/headlights toward the tail instead of
+            the nose and made the truck read as facing the camera
+            (rather than away) during assembly. Rotation sign flipped to
+            match the mirrored position so the rake still leans the
+            right way. */}
+        <mesh position={[-0.45, 0.32, 0]} rotation={[0, 0, 0.32]}>
           <boxGeometry args={[0.06, 0.62, 1.42]} />
           <meshStandardMaterial
             color={COLORS.truckGlass}
@@ -346,23 +363,23 @@ export function TruckAssembly() {
           />
         </mesh>
         {/* Side windows */}
-        <mesh position={[0.02, 0.34, 0.86]}>
+        <mesh position={[-0.02, 0.34, 0.86]}>
           <boxGeometry args={[0.86, 0.42, 0.03]} />
           <meshStandardMaterial color={COLORS.truckGlass} roughness={0.15} metalness={0.55} />
         </mesh>
-        <mesh position={[0.02, 0.34, -0.86]}>
+        <mesh position={[-0.02, 0.34, -0.86]}>
           <boxGeometry args={[0.86, 0.42, 0.03]} />
           <meshStandardMaterial color={COLORS.truckGlass} roughness={0.15} metalness={0.55} />
         </mesh>
 
-        {/* Grille */}
-        <mesh position={[0.66, -0.28, 0]}>
+        {/* Grille — nose face (-X), see note above. */}
+        <mesh position={[-0.66, -0.28, 0]}>
           <boxGeometry args={[0.04, 0.34, 1.1]} />
           <meshStandardMaterial color={COLORS.truckGrille} roughness={0.5} metalness={0.6} />
         </mesh>
 
-        {/* Headlights */}
-        <mesh position={[0.66, -0.1, 0.62]}>
+        {/* Headlights — nose face (-X), see note above. */}
+        <mesh position={[-0.66, -0.1, 0.62]}>
           <boxGeometry args={[0.05, 0.16, 0.24]} />
           <meshStandardMaterial
             color={COLORS.headlightWhite}
@@ -371,7 +388,7 @@ export function TruckAssembly() {
             roughness={0.3}
           />
         </mesh>
-        <mesh position={[0.66, -0.1, -0.62]}>
+        <mesh position={[-0.66, -0.1, -0.62]}>
           <boxGeometry args={[0.05, 0.16, 0.24]} />
           <meshStandardMaterial
             color={COLORS.headlightWhite}
@@ -381,12 +398,12 @@ export function TruckAssembly() {
           />
         </mesh>
 
-        {/* Side mirrors */}
-        <mesh position={[0.55, 0.28, 0.92]}>
+        {/* Side mirrors — nose end (-X), see note above. */}
+        <mesh position={[-0.55, 0.28, 0.92]}>
           <boxGeometry args={[0.16, 0.2, 0.04]} />
           <meshStandardMaterial color={COLORS.truckChrome} roughness={0.3} metalness={0.8} />
         </mesh>
-        <mesh position={[0.55, 0.28, -0.92]}>
+        <mesh position={[-0.55, 0.28, -0.92]}>
           <boxGeometry args={[0.16, 0.2, 0.04]} />
           <meshStandardMaterial color={COLORS.truckChrome} roughness={0.3} metalness={0.8} />
         </mesh>

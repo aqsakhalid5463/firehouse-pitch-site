@@ -29,13 +29,21 @@ type BoxSpec = {
   restRotationY: number;
 };
 
-// Two large boxes (down from four) — big enough to read clearly as hero
-// props, and sized to actually fit through the truck's rear door
-// opening and sit on its cargo floor once they arrive (see
-// TruckAssembly's CARGO_REST_LOCAL / door geometry).
+// Two moving cartons — sized like large boxes a person could actually
+// carry, not "as tall as the truck's whole cargo body" (a prior round's
+// over-correction). These sizes are WORLD units and are never scaled
+// down by TRUCK_LOAD_SCALE (see the useFrame loop below — box scale
+// stays at 1 throughout), while the cargo bay's *interior* is the
+// truck's own local geometry shrunk by that same TRUCK_LOAD_SCALE
+// (~0.62). At that scale the bay's clear interior is only ~1.04 world
+// units wide and ~1.13 tall, so anything close to those numbers pokes
+// through a wall or the roof the instant it's off-centre even slightly
+// — the previous 0.95/0.8/0.9 box was already most of the bay's own
+// width and height. These are small enough to sit inside with real
+// clearance on every side (verified against CARGO_REST_LOCAL below).
 const BOX_SPECS: BoxSpec[] = [
-  { size: [0.95, 0.8, 0.9], color: COLORS.cardboardTan, restRotationY: 0.08 },
-  { size: [0.78, 0.64, 0.74], color: COLORS.cardboardTanDark, restRotationY: -0.16 },
+  { size: [0.52, 0.46, 0.48], color: COLORS.cardboardTan, restRotationY: 0.08 },
+  { size: [0.42, 0.36, 0.4], color: COLORS.cardboardTanDark, restRotationY: -0.16 },
 ];
 
 // Hero "at rest" local offsets — box 2 stacked on box 1, exactly as a

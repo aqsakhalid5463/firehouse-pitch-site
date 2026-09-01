@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { getScrollProgress } from '@/lib/scroll-store';
+import { clamp01 } from '@/lib/scroll-math';
 import { COLORS } from '@/lib/constants';
 
 type Box = {
@@ -34,9 +35,13 @@ export function BoxStack() {
     const p = getScrollProgress();
     group.current.rotation.y += delta * 0.12;
     group.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
-    // Recedes as the camera pulls back toward the services grid.
-    const scale = 1 - p * 0.45;
-    group.current.scale.setScalar(Math.max(0.4, scale));
+    // Recedes as the camera pulls back toward the services grid, then
+    // fades out fully before the Move as One truck assembles in the same
+    // spot so the two don't visually collide.
+    const recede = 1 - p * 0.45;
+    const fadeOut = 1 - clamp01((p - 0.36) / 0.06);
+    group.current.visible = fadeOut > 0.01;
+    group.current.scale.setScalar(Math.max(0.4, recede) * fadeOut);
   });
 
   return (

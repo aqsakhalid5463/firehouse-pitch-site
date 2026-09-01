@@ -20,6 +20,11 @@ export const COLORS = {
   emberAmber: '#FF8A3D',
   glassTint: '#FFE7D2',
   crateWood: '#8A6B4F',
+  truckChassis: '#2A2A2F',
+  truckWindshield: '#12121A',
+  truckBoxBody: '#D8D2C6',
+  truckWheel: '#141418',
+  truckCargo: '#9C7B5C',
 } as const;
 
 export const SECTIONS = {

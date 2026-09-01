@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { CameraRig } from './CameraRig';
 import { ThemeSync } from './ThemeSync';
 import { BoxStack } from './BoxStack';
+import { TruckAssembly } from './TruckAssembly';
 import { Embers } from './Embers';
 import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
@@ -38,6 +39,7 @@ export function SceneCanvas() {
         <pointLight position={[-3, -1, 2]} intensity={4} color={COLORS.fireRed} />
         <directionalLight position={[0, 6, 3]} intensity={0.8} />
         <BoxStack />
+        <TruckAssembly />
         <Embers />
         {!degraded && <Effects />}
       </Canvas>

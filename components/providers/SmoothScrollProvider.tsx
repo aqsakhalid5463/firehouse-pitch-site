@@ -2,9 +2,13 @@
 
 import { useEffect } from 'react';
 import Lenis from 'lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useScrollStore } from '@/lib/scroll-store';
 import { normalizeScroll } from '@/lib/scroll-math';
 import { themeAt } from '@/lib/theme';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export function SmoothScrollProvider({
   children,
@@ -43,17 +47,23 @@ export function SmoothScrollProvider({
 
     lenis.on('scroll', ({ scroll, limit, velocity }) => {
       publish(limit > 0 ? Math.min(1, Math.max(0, scroll / limit)) : 0, velocity);
+      // Keep ScrollTrigger's pin/progress calculations synced to Lenis's
+      // virtual scroll position on every Lenis tick, not just native
+      // 'scroll' events, or pinning desyncs / stutters against the smoothing.
+      ScrollTrigger.update();
     });
 
-    let raf = 0;
-    const loop = (time: number) => {
-      lenis.raf(time);
-      raf = requestAnimationFrame(loop);
+    // Drive Lenis from GSAP's own ticker (instead of a separate rAF loop) so
+    // Lenis and ScrollTrigger advance on the exact same frame. Two competing
+    // rAF loops is what causes janky pinning / early-late pin release.
+    const tick = (time: number) => {
+      lenis.raf(time * 1000);
     };
-    raf = requestAnimationFrame(loop);
+    gsap.ticker.add(tick);
+    gsap.ticker.lagSmoothing(0);
 
     return () => {
-      cancelAnimationFrame(raf);
+      gsap.ticker.remove(tick);
       lenis.destroy();
     };
   }, []);

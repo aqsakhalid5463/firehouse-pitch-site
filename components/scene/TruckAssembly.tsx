@@ -5,8 +5,8 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { getScrollProgress } from '@/lib/scroll-store';
-import { clamp01, lerp } from '@/lib/scroll-math';
-import { COLORS } from '@/lib/constants';
+import { clamp01, lerp, rangeProgress } from '@/lib/scroll-math';
+import { COLORS, SECTIONS } from '@/lib/constants';
 
 type Part = {
   position: [number, number, number];
@@ -49,6 +49,10 @@ function partProgress(local: number, at: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+// Fraction of the dissolve (SECTIONS.guarantees) at which the truck
+// starts leaving; the truck is fully off-frame by the dissolve's end.
+const EXIT_START = 0.53;
+
 export function TruckAssembly() {
   const group = useRef<THREE.Group>(null);
   const refs = useRef<(THREE.Mesh | null)[]>([]);
@@ -60,12 +64,17 @@ export function TruckAssembly() {
     // reached, 1 once it releases) — robust to the page's total height
     // changing as later tasks add sections after this one.
     const local = getMoveAsOneProgress();
-    // The exit is deliberately driven off the *global* dissolve clock
-    // (same range themeAt uses), not pin-local progress: it must stay
-    // welded to the background turning cream at any page height, and the
-    // pin's release point is not guaranteed to coincide with that.
-    const globalP = getScrollProgress();
-    const exit = clamp01((globalP - 0.68) / 0.07);
+    // The exit is deliberately driven off the dissolve's own clock
+    // (SECTIONS.guarantees, the same range themeAt uses), not pin-local
+    // progress: it must stay welded to the background turning cream at
+    // any page height, and the pin's release point is not guaranteed to
+    // coincide with that. The truck leaves over the final stretch of the
+    // dissolve, so it is gone by the time the page is fully cream —
+    // remapped from EXIT_START..1 of the dissolve fraction onto 0..1,
+    // rather than a hand-picked sub-range of global progress, so it can
+    // never drift from themeAt's clock.
+    const dissolve = rangeProgress(getScrollProgress(), SECTIONS.guarantees);
+    const exit = clamp01((dissolve - EXIT_START) / (1 - EXIT_START));
 
     if (group.current) {
       // Fades in quickly once the pin engages (individual parts also start

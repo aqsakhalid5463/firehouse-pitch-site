@@ -42,14 +42,21 @@ export function RevealText({
 
   return (
     <Tag ref={root as never} className={className}>
-      {children.split(' ').map((word, i) => (
-        <span key={i} className="inline-block overflow-hidden align-bottom">
-          <span data-word className="inline-block">
-            {word}
-            {' '}
+      {children.split(' ').flatMap((word, i, words) => {
+        const wrapped = (
+          <span
+            key={`word-${i}`}
+            className="inline-block overflow-hidden align-bottom"
+          >
+            <span data-word className="inline-block">
+              {word}
+            </span>
           </span>
-        </span>
-      ))}
+        );
+        // The trailing space must live outside the overflow-hidden wrapper,
+        // or the browser collapses it and words run together.
+        return i < words.length - 1 ? [wrapped, ' '] : [wrapped];
+      })}
     </Tag>
   );
 }

@@ -1,0 +1,25 @@
+import Link from 'next/link';
+import { BUSINESS } from '@/lib/constants';
+
+export function Nav() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 mix-blend-difference">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 text-white">
+        <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase">
+          Firehouse
+        </Link>
+        <div className="flex items-center gap-8 text-sm">
+          <Link href="/" className="hidden sm:inline hover:opacity-70">
+            Home
+          </Link>
+          <Link href="/about" className="hidden sm:inline hover:opacity-70">
+            About
+          </Link>
+          <a href={BUSINESS.phoneHref} className="hover:opacity-70">
+            {BUSINESS.phone}
+          </a>
+        </div>
+      </nav>
+    </header>
+  );
+}

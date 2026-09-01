@@ -20,3 +20,24 @@ test('home page renders with no console errors', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('footer carries the real contact details', async ({ request }) => {
+  const html = await (await request.get('/')).text();
+  expect(html).toContain('2535-B Texas 121 E, State #140, Lewisville, TX 75056');
+  expect(html).toContain('support@firehousemovers.com');
+  expect(html).toContain('Firehouse Movers Inc.');
+});
+
+test('all six service names are in the server HTML', async ({ request }) => {
+  const html = await (await request.get('/')).text();
+  for (const name of [
+    'Local Moving',
+    'Long-Distance',
+    'Residential',
+    'Commercial',
+    'Packing',
+    'Storage',
+  ]) {
+    expect(html).toContain(name);
+  }
+});

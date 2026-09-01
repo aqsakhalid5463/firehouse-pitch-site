@@ -30,6 +30,13 @@ export const COLORS = {
   cardboardTanDark: '#B08654',
   packingTape: '#E8D3AC',
   boxSeam: '#7A5A3A',
+  truckGlass: '#0A0C12',
+  truckChrome: '#C7CBD1',
+  truckTyre: '#0C0C0F',
+  truckRim: '#8A8E96',
+  truckGrille: '#1D1D22',
+  tailLightRed: '#C81E1E',
+  tailLightGlow: '#FF3B2E',
 } as const;
 
 export const SECTIONS = {

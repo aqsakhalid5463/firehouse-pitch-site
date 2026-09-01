@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { getScrollProgress } from '@/lib/scroll-store';
 import { themeAt } from '@/lib/theme';
 import { COLORS } from '@/lib/constants';
+import { getExitProgress } from '@/lib/move-as-one-progress';
 
 // Three lanes: a dashed centre line and two edge-reflector lines. Kept
 // well under the old 2,600-point budget — two draw calls total, no
@@ -180,16 +181,23 @@ export function Highway() {
 
   useFrame((_, delta) => {
     const opacity = themeAt(getScrollProgress()).emberOpacity;
+    // Ramps the dash/mote streaming speed up to 1.6x during the truck's
+    // drive-away so the whole highway feels like it accelerates with it —
+    // subtle (eased, capped), meant to register as energy rather than a
+    // speed-up glitch.
+    const exit = getExitProgress();
+    const speedBoost = 1 + 0.6 * (exit * exit);
+    const boostedDelta = delta * speedBoost;
 
     const dashMat = dashPoints.current?.material as THREE.ShaderMaterial | undefined;
     if (dashMat) {
-      dashMat.uniforms.uTime.value += delta;
+      dashMat.uniforms.uTime.value += boostedDelta;
       dashMat.uniforms.uOpacity.value = opacity;
     }
 
     const moteMat = motePoints.current?.material as THREE.ShaderMaterial | undefined;
     if (moteMat) {
-      moteMat.uniforms.uTime.value += delta;
+      moteMat.uniforms.uTime.value += boostedDelta;
       moteMat.uniforms.uOpacity.value = opacity;
     }
   });

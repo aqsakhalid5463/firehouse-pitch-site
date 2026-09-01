@@ -20,3 +20,19 @@ export function setMoveAsOneProgress(value: number): void {
 export function getMoveAsOneProgress(): number {
   return local;
 }
+
+/**
+ * Fraction of the pin's own local progress at which the truck starts
+ * driving away down the road; it is fully gone by local = 1 (pin
+ * release). Shared with Highway so the lane-dash streaming speed can
+ * ramp up in lockstep with the truck's departure instead of the two
+ * being tuned independently and drifting out of sync.
+ */
+export const EXIT_START = 0.75;
+
+/** 0 before the departure begins, 1 by the moment the pin releases. */
+export function getExitProgress(): number {
+  const span = 1 - EXIT_START;
+  if (span <= 0) return local >= EXIT_START ? 1 : 0;
+  return Math.min(1, Math.max(0, (local - EXIT_START) / span));
+}

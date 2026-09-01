@@ -78,7 +78,12 @@ const DOOR_OPEN_END = 0.4;
 const DOOR_CLOSE_START = 0.75;
 const DOOR_CLOSE_END = 0.82;
 const DOOR_SLAT_COUNT = 7;
-const DOOR_OPEN_LIFT = 2.05; // clears the 0.91-high roofline with margin
+const DOOR_OPEN_LIFT = 2.05; // nominal travel; clamped per-slat by DOOR_COIL_Y below
+// The body's roof sits at y = 0.91 (see the roof mesh below). A roller
+// door coils onto a barrel just under that ceiling, not into open sky —
+// DOOR_COIL_Y is where each slat's rise gets clamped so the coil forms
+// flush against the underside of the roof instead of floating above it.
+const DOOR_COIL_Y = 0.74;
 
 // Cargo loads in 0.40..0.75 of the pin's progress, in lockstep with the
 // hero box stack scaling down into the bay in BoxStack — the two should
@@ -232,13 +237,18 @@ export function TruckAssembly() {
     doorSlatRefs.current.forEach((slat, i) => {
       if (!slat) return;
       const baseY = -0.8 + i * 0.24;
-      slat.position.y = baseY + doorT * DOOR_OPEN_LIFT;
-      // A rigid vertical translate alone reads ambiguously — the whole
-      // identically-striped block just shifts within the frame, which
-      // doesn't obviously register as "opening" against the roofline
-      // above it. Shrinking each slat toward the coil as it rises (real
-      // roller doors wind onto a barrel above the opening) makes the
-      // door visibly recede instead of merely relocate.
+      // Each slat rises toward the coil under the roof, but is clamped
+      // to DOOR_COIL_Y so it can never pass the ceiling and end up
+      // floating in open air above the truck — it stacks into a coil
+      // flush against the underside of the roof instead. Slats that
+      // start higher up (larger i) reach the clamp sooner, which is
+      // exactly how a real roller door's upper slats arrive at the
+      // barrel first.
+      slat.position.y = Math.min(baseY + doorT * DOOR_OPEN_LIFT, DOOR_COIL_Y);
+      // Shrinking each slat toward the coil as it rises (real roller
+      // doors wind onto a barrel above the opening) makes the door
+      // visibly recede/compress into that coil instead of merely
+      // relocating as a rigid block.
       slat.scale.y = lerp(1, 0.12, doorT);
     });
 
@@ -374,11 +384,16 @@ export function TruckAssembly() {
         {/* Interior cargo light: a real truck's box has one, and without
             it the dark cavity swallows the boxes travelling into it —
             the loading beat needs them legible against the cavity, not
-            just barely-lit dots. */}
+            just barely-lit dots. Kept low-intensity with a short falloff
+            distance so it reads as a practical light illuminating a dark
+            cavity (bright near the door, falling off toward the back
+            wall) rather than blowing the whole interior out to a flat
+            white lightbox — a much higher intensity here previously did
+            exactly that. */}
         <pointLight
-          position={[0.4, 0.6, 0]}
-          intensity={3.5}
-          distance={3}
+          position={[0.55, 0.65, 0]}
+          intensity={0.9}
+          distance={2.2}
           decay={2}
           color={COLORS.headlightWhite}
         />

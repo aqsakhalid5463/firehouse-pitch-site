@@ -11,10 +11,10 @@ import { COLORS } from '@/lib/constants';
 // well under the old 2,600-point budget — two draw calls total, no
 // per-frame allocation, all motion driven by uTime in the vertex shader.
 const DASH_COUNT = 260;
-const MOTE_COUNT = 220;
+const MOTE_COUNT = 140;
 
 const DASH_RANGE = 60; // depth span the dashes loop across
-const DASH_NEAR = 9; // z at which dashes fade out (closest to camera)
+const DASH_NEAR = 11; // z at which dashes fade out (closest to camera)
 const DASH_FAR = -DASH_RANGE + DASH_NEAR; // z at which dashes fade back in
 
 const MOTE_RANGE = 44;
@@ -75,7 +75,7 @@ const moteVertexShader = /* glsl */ `
     // Billboard by displacing in view space so the streak always faces
     // the camera, elongated along local x to read as a passing light
     // rather than a round spark.
-    mv.xy += position.xy * vec2(aScale * 1.6, aScale * 0.16);
+    mv.xy += position.xy * vec2(aScale * 2.4, aScale * 0.14);
     gl_Position = projectionMatrix * mv;
 
     float fadeNear = smoothstep(${MOTE_NEAR.toFixed(1)}, ${(MOTE_NEAR - 4.0).toFixed(1)}, z);
@@ -148,7 +148,7 @@ export function Highway() {
       offsets[i * 3 + 1] = -0.6 + Math.random() * 2.2;
       offsets[i * 3 + 2] = Math.random() * MOTE_RANGE;
       speeds[i] = 3.5 + Math.random() * 4;
-      scales[i] = 0.05 + Math.random() * 0.09;
+      scales[i] = 0.09 + Math.random() * 0.14;
     }
 
     geometry.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3));

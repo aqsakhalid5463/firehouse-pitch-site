@@ -27,7 +27,7 @@ export function Effects() {
       />
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL}
-        offset={[0.0004, 0.0006]}
+        offset={[0.00018, 0.00028]}
       />
       <Vignette eskil={false} offset={0.25} darkness={0.6} />
     </EffectComposer>

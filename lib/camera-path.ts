@@ -43,8 +43,8 @@ function sampleSpline(points: Vec3[], p: number): Vec3 {
 // release / services start, 0.6 guarantees/dissolve, 0.8 testimonials,
 // 1.0 CTA.
 const HOME_POSITIONS: Vec3[] = [
-  [0, 0.2, 6.0],
-  [0.3, 0.5, 6.6],
+  [0, 0.65, 6.0],
+  [0.3, 0.6, 6.6],
   [-0.5, 0.9, 7.6],
   [0.2, 0.7, 7.2],
   [1.0, 0.9, 8.4],
@@ -52,8 +52,8 @@ const HOME_POSITIONS: Vec3[] = [
 ];
 
 const HOME_TARGETS: Vec3[] = [
-  [0, 0, 0],
-  [0.2, 0.1, 0],
+  [0, -0.35, 0],
+  [0.2, -0.1, 0],
   [0, 0.15, 0],
   [0, 0.1, 0],
   [-0.8, 0.2, 0],

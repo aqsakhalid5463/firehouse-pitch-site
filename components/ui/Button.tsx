@@ -15,7 +15,7 @@ export function Button({
     'inline-flex items-center justify-center rounded-full px-7 py-3.5 text-sm font-semibold tracking-wide transition-all duration-300';
   const styles =
     variant === 'primary'
-      ? 'bg-fire text-white hover:brightness-110 hover:shadow-[0_0_36px_-6px_#E23D28]'
+      ? 'bg-fire text-white hover:brightness-110 hover:shadow-[0_0_36px_-6px_var(--color-fire)]'
       : 'border border-current/30 hover:border-current/70';
 
   const external = href.startsWith('tel:') || href.startsWith('mailto:');

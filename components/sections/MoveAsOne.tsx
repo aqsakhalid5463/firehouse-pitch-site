@@ -19,7 +19,14 @@ export function MoveAsOne() {
   const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (reduced || !root.current) return;
+    if (!root.current) return;
+    // Reduced motion starts `false` on first render (the media query is
+    // read after mount), so without this guard the timeline below would
+    // be created and `gsap.set(steps, { opacity: 0 })` would paint one
+    // frame before this effect re-runs and reverts it — a visible flash.
+    // Skip entirely once we know reduced motion is on; the steps then
+    // keep their natural (visible, static) markup opacity.
+    if (reduced) return;
     const ctx = gsap.context(() => {
       const steps = gsap.utils.toArray<HTMLElement>('[data-step]');
 
@@ -64,7 +71,21 @@ export function MoveAsOne() {
       });
       applyProgress(trigger.progress);
     }, root);
-    return () => ctx.revert();
+    return () => {
+      // `gsap.set` calls inside `applyProgress` fire from ScrollTrigger's
+      // `onUpdate`, outside gsap.context's synchronous collection window,
+      // so ctx.revert() does not know about them and won't undo them.
+      // Clear the inline styles it left behind explicitly, or toggling
+      // reduced motion mid-scroll (or unmounting mid-scroll) can strand
+      // the steps at opacity 0 / offset.
+      const steps = gsap.utils.toArray<HTMLElement>('[data-step]', root.current ?? undefined);
+      gsap.set(steps, { clearProps: 'opacity,y' });
+      ctx.revert();
+      // The truck must not render fully assembled after this section
+      // unmounts (e.g. reduced motion toggled mid-scroll) — reset the
+      // shared bridge value so TruckAssembly reads 0 again.
+      setMoveAsOneProgress(0);
+    };
   }, [reduced]);
 
   return (

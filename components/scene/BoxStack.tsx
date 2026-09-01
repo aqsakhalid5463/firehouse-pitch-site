@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { getScrollProgress } from '@/lib/scroll-store';
+import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { clamp01 } from '@/lib/scroll-math';
 import { COLORS } from '@/lib/constants';
 
@@ -37,9 +38,12 @@ export function BoxStack() {
     group.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
     // Recedes as the camera pulls back toward the services grid, then
     // fades out fully before the Move as One truck assembles in the same
-    // spot so the two don't visually collide.
+    // spot so the two don't visually collide. The fade is gated on the
+    // truck's own pin-relative progress (not global page fraction, which
+    // drifts as later tasks add sections after this one) so the crates
+    // are reliably gone before the truck arrives, at any page height.
     const recede = 1 - p * 0.45;
-    const fadeOut = 1 - clamp01((p - 0.36) / 0.06);
+    const fadeOut = 1 - clamp01(getMoveAsOneProgress() / 0.05);
     group.current.visible = fadeOut > 0.01;
     group.current.scale.setScalar(Math.max(0.4, recede) * fadeOut);
   });

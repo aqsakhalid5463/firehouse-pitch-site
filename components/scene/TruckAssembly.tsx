@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
+import { getScrollProgress } from '@/lib/scroll-store';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS } from '@/lib/constants';
 
@@ -59,16 +60,24 @@ export function TruckAssembly() {
     // reached, 1 once it releases) — robust to the page's total height
     // changing as later tasks add sections after this one.
     const local = getMoveAsOneProgress();
+    // The exit is deliberately driven off the *global* dissolve clock
+    // (same range themeAt uses), not pin-local progress: it must stay
+    // welded to the background turning cream at any page height, and the
+    // pin's release point is not guaranteed to coincide with that.
+    const globalP = getScrollProgress();
+    const exit = clamp01((globalP - 0.68) / 0.07);
 
     if (group.current) {
       // Fades in quickly once the pin engages (individual parts also start
       // invisible at local=0, this just softens the whole-group pop-in).
       const show = clamp01(local / 0.03);
-      group.current.visible = show > 0.01;
+      // Past local >= 1 (pin released) the truck has fully driven off;
+      // switch it off explicitly rather than relying on frustum culling.
+      group.current.visible = show > 0.01 && local < 1;
       group.current.scale.setScalar(0.85 * show);
-      // Drives out of frame left in the final stretch of the pin, as the
-      // background finishes dissolving to the light theme.
-      group.current.position.x = -12 * clamp01((local - 0.9) / 0.1);
+      // Drives out of frame left as the background dissolves to the light
+      // theme, in lockstep with themeAt over SECTIONS.guarantees.
+      group.current.position.x = -12 * exit;
       group.current.rotation.y = lerp(-0.5, -0.15, local);
     }
 

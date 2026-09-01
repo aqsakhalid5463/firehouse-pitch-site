@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
@@ -9,7 +9,7 @@ import { getMoveAsOneProgress, getExitProgress } from '@/lib/move-as-one-progres
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 
-type Vec3 = [number, number, number];
+export type Vec3 = [number, number, number];
 
 type AssemblyPiece = {
   from: Vec3;
@@ -44,30 +44,65 @@ const WHEEL_RADIUS = 0.36;
 // wheelBottomLocal is the unscaled distance from the group's own origin
 // down to the tyre contact patch.
 const wheelBottomLocal = WHEEL_POSITIONS[0][1] - WHEEL_RADIUS;
-function truckGroundY(scale: number): number {
+export function truckGroundY(scale: number): number {
   return ROAD_SURFACE_Y - scale * wheelBottomLocal;
 }
 
+// The base uniform scale the truck group sits at once its pop-in ramp
+// (`show`) has finished (see useFrame below) and before departure's
+// recede-scale kicks in — i.e. the scale in effect for the whole
+// assembly + load window. Exported so BoxStack can convert truck-local
+// cargo coordinates into world space for the same "at rest, mid-load"
+// truck pose without duplicating the constant.
+export const TRUCK_LOAD_SCALE = 0.62;
+
 // The truck's local -X is its nose (cab, headlights face +X so the
 // grille/lights point toward the tail — the truck's front is -X) and
-// local +X is the rear roller door. At rotation.y = -PI/2 the assembly
-// is dead-parallel with the road (local -X points down world -Z, the
-// same direction Highway streams its dashes and the departure recedes
-// toward) with the door facing world +Z, straight at the camera. That
-// reads correctly for the final departure commit, but held for the
-// whole assembly + load it flattens the truck into a straight-on
-// silhouette — the cab, sides and door all foreshorten onto the same
-// sightline, so the tan body colour barely shows and the shot reads as
-// a near-black slab. ASSEMBLY_YAW backs off 20° from dead-on: still
-// unmistakably oriented along the road (nothing like the old ~-15°
-// display pose), but enough off-axis that the side wall and the open
-// door are both legible together, satisfying "immediately face the
-// road" without sacrificing "the door should be visible" during the
-// load. The truck holds ASSEMBLY_YAW for the whole assembly + load,
-// then rotates the rest of the way to dead-parallel as it commits to
-// leaving.
+// local +X is the rear roller door. DOWN_ROAD_YAW (-PI/2) is dead-parallel
+// with the road: local -X points down world -Z (the same direction
+// Highway streams its dashes and the departure recedes toward), the
+// door faces world +Z straight at the camera, and no side wall is
+// visible at all. That is the *only* orientation the truck may be at
+// once it starts moving (see the exit block in useFrame) — the client
+// was explicit that no side of the truck should ever be visible while
+// it drives away.
+//
+// Held for the whole assembly + load, dead-on flattens the truck into a
+// straight-on silhouette where the cab, sides and door all foreshorten
+// onto the same sightline, so ASSEMBLY_YAW backs off 20° from dead-on
+// for that earlier phase only — enough off-axis that the side wall and
+// the open door are both legible together while boxes are loading in,
+// which a flat rear view can make hard to read. The truck holds
+// ASSEMBLY_YAW through assembly and loading, then eases the rest of the
+// way to *exactly* DOWN_ROAD_YAW — not a nearby approximation — well
+// before the departure move actually starts covering ground (see the
+// fast, independent yawEase ramp below), so by the time it is visibly
+// moving it is square to the road with only its rear face showing.
 const DOWN_ROAD_YAW = -Math.PI / 2;
-const ASSEMBLY_YAW = -Math.PI / 2 + 0.35;
+export const ASSEMBLY_YAW = -Math.PI / 2 + 0.35;
+
+// Truck-local coordinates (pre-scale, pre-rotation) that the hero box
+// stack's own convergence (see BoxStack.tsx) targets: a waypoint just
+// outside the open rear door that the boxes pass through, then two
+// distinct resting slots on the cargo floor. Owned here because they
+// are defined relative to the body's own geometry (the door sits at
+// truck-local x = 1.51 + the body's assembled x-offset 0.7 = 2.21; the
+// floor sits at truck-local y = -0.91 + the body's y-offset 0.5 = -0.41
+// — see the body group below), so if that geometry ever moves these
+// move with it.
+export const DOOR_ENTRY_LOCAL: Vec3 = [3.4, 0.05, 0];
+export const CARGO_REST_LOCAL: Vec3[] = [
+  [0.55, 0.0, 0.22],
+  [-0.05, -0.06, -0.28],
+];
+
+/** Rotates+scales a truck-local point into world space for a given yaw/scale/origin. */
+export function truckLocalToWorld(local: Vec3, yaw: number, scale: number, origin: Vec3): Vec3 {
+  const [lx, ly, lz] = local;
+  const x = lx * Math.cos(yaw) + lz * Math.sin(yaw);
+  const z = -lx * Math.sin(yaw) + lz * Math.cos(yaw);
+  return [origin[0] + scale * x, origin[1] + scale * ly, origin[2] + scale * z];
+}
 
 // Rear roller-door: opens just before cargo starts arriving, stays open
 // through the whole load, then rolls shut before the truck turns to
@@ -85,21 +120,10 @@ const DOOR_OPEN_LIFT = 2.05; // nominal travel; clamped per-slat by DOOR_COIL_Y 
 // flush against the underside of the roof instead of floating above it.
 const DOOR_COIL_Y = 0.74;
 
-// Cargo loads in 0.40..0.75 of the pin's progress, in lockstep with the
-// hero box stack scaling down into the bay in BoxStack — the two should
-// read as one continuous load, not two independent animations. Each
-// box's `from` is out past the rear door (along local +X, the same axis
-// the door slats sit on) so it visibly travels in through the opening
-// rather than falling in from off-frame.
-const CARGO: { position: Vec3; size: Vec3; at: number }[] = [
-  { position: [0.0, -0.15, 0], size: [0.6, 0.45, 0.55], at: 0.4 },
-  { position: [0.7, -0.15, 0.35], size: [0.5, 0.4, 0.5], at: 0.45 },
-  { position: [0.7, -0.15, -0.35], size: [0.5, 0.4, 0.5], at: 0.5 },
-  { position: [0.0, 0.35, 0], size: [0.55, 0.4, 0.5], at: 0.55 },
-  { position: [0.6, 0.32, 0], size: [0.5, 0.36, 0.48], at: 0.6 },
-  { position: [0.2, 0.66, 0], size: [0.45, 0.3, 0.44], at: 0.63 },
-];
-const CARGO_ENTRY_OFFSET = 3; // world units outside the rear door the boxes travel in from
+// There is no truck-owned cargo array any more: the hero box stack IS
+// the cargo (see BoxStack.tsx) — it travels through the open rear door
+// itself and comes to rest at CARGO_REST_LOCAL above, and stays visible
+// there. Nothing is duplicated, nothing fades out and back in.
 
 /** 0 at `at`, 1 by `at + 0.12`, eased. */
 function partProgress(local: number, at: number): number {
@@ -138,12 +162,9 @@ export function TruckAssembly() {
   const bodyRef = useRef<THREE.Group>(null);
   const wheelRefs = useRef<(THREE.Group | null)[]>([]);
   const wheelSpinRefs = useRef<(THREE.Group | null)[]>([]);
-  const cargoRefs = useRef<(THREE.Mesh | null)[]>([]);
   const tailLightRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
   const doorSlatRefs = useRef<(THREE.Mesh | null)[]>([]);
-
-  // Built once — no per-frame allocation in useFrame.
-  const cargoBoxes = useMemo(() => CARGO, []);
+  const doorPanelRef = useRef<THREE.Mesh>(null);
 
   useFrame((state, delta) => {
     // Real pin-relative progress from ScrollTrigger (0 before the pin is
@@ -173,7 +194,13 @@ export function TruckAssembly() {
     // on its suspension rather than a placed prop.
     const spinSpeed = 0.6 + exitEase * 22;
     const bob = Math.sin(state.clock.elapsedTime * 7.5) * 0.008 * (1 - exitEase * 0.6);
-    const pitch = Math.sin(state.clock.elapsedTime * 5.1) * 0.004 * (1 - exitEase * 0.6);
+    // The idle suspension pitch is only for the parked/loading truck —
+    // the client was explicit that the departing truck must show no
+    // tilt at all, so this dies out completely well before the truck is
+    // actually moving (see yawT below, which the pitch fade-out shares).
+    const yawT = clamp01(exit / 0.22);
+    const yawEase = yawT * yawT * (3 - 2 * yawT);
+    const pitch = Math.sin(state.clock.elapsedTime * 5.1) * 0.004 * (1 - yawEase);
 
     if (group.current) {
       // Fades in quickly once the pin engages (individual parts also start
@@ -199,8 +226,14 @@ export function TruckAssembly() {
 
       // Holds ASSEMBLY_YAW (already road-oriented, not a display pose)
       // for the whole assembly + load, then swings the rest of the way
-      // to dead-parallel-with-the-road as it commits to leaving.
-      group.current.rotation.y = lerp(ASSEMBLY_YAW, DOWN_ROAD_YAW - 0.06, exitEase);
+      // to *exactly* DOWN_ROAD_YAW on its own, faster yawEase ramp — by
+      // exit ≈ 0.22 the yaw has already fully locked to dead-parallel,
+      // well before exitEase (still tiny at that point) has moved the
+      // truck any meaningful distance down the road. That way the truck
+      // is square, rear-face-to-camera, before it visibly starts moving
+      // — no side is ever visible while it drives away — and the swing
+      // itself is a smooth ease, not a snap.
+      group.current.rotation.y = lerp(ASSEMBLY_YAW, DOWN_ROAD_YAW, yawEase);
       group.current.rotation.x = pitch;
     }
 
@@ -251,23 +284,16 @@ export function TruckAssembly() {
       // relocating as a rigid block.
       slat.scale.y = lerp(1, 0.12, doorT);
     });
-
-    cargoBoxes.forEach((box, i) => {
-      const mesh = cargoRefs.current[i];
-      if (!mesh) return;
-      const t = partProgress(local, box.at);
-      // Travels in from outside the rear door (+x, further than the
-      // door itself) straight to its resting slot, so it visibly enters
-      // through the opening rather than raining in from off-frame.
-      mesh.position.set(
-        lerp(box.position[0] + CARGO_ENTRY_OFFSET, box.position[0], t),
-        box.position[1],
-        box.position[2],
-      );
-      mesh.rotation.z = lerp(0.5, 0, t);
-      mesh.scale.setScalar(t);
-      mesh.visible = t > 0.001;
-    });
+    // The solid closed-door panel (see JSX below) is the inverse of the
+    // slats: fully covering the opening at doorT = 0, and gone by the
+    // time the slats have visibly started coiling, so the two never
+    // double up.
+    if (doorPanelRef.current) {
+      const panelVisible = doorT < 0.06;
+      doorPanelRef.current.visible = panelVisible;
+      const panelMat = doorPanelRef.current.material as THREE.MeshStandardMaterial;
+      panelMat.opacity = clamp01(1 - doorT / 0.06);
+    }
   });
 
   return (
@@ -374,27 +400,39 @@ export function TruckAssembly() {
           <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
         </mesh>
 
-        {/* Dark cargo-hold cavity, visible through the rear opening once
-            the door has rolled up. */}
+        {/* Cargo-hold back wall, visible through the rear opening once
+            the door has rolled up. panelGrey rather than near-black
+            truckGlass — the previous near-black backing plus a weak
+            light read as a black void that swallowed the boxes inside
+            it. A lit dark-grey panel gives the interior a visible
+            surface to fall off against instead of disappearing into
+            pure black. */}
         <mesh position={[1.2, 0, 0]}>
           <boxGeometry args={[0.06, 1.7, 1.55]} />
-          <meshStandardMaterial color={COLORS.truckGlass} roughness={0.9} metalness={0} />
+          <meshStandardMaterial color={COLORS.panelGrey} roughness={0.85} metalness={0} />
         </mesh>
 
-        {/* Interior cargo light: a real truck's box has one, and without
-            it the dark cavity swallows the boxes travelling into it —
-            the loading beat needs them legible against the cavity, not
-            just barely-lit dots. Kept low-intensity with a short falloff
-            distance so it reads as a practical light illuminating a dark
-            cavity (bright near the door, falling off toward the back
-            wall) rather than blowing the whole interior out to a flat
-            white lightbox — a much higher intensity here previously did
-            exactly that. */}
+        {/* Interior cargo light: clean white (brand palette has no warm
+            tones), positioned mid-bay and bright/broad enough to
+            actually reach the floor, side walls and back wall — not
+            just a hot spot near the door — so the cardboard boxes read
+            clearly against a properly lit interior. Tuned between the
+            two failure modes this build has hit before: dim enough
+            (and with real decay) that it still falls off toward the
+            front of the bay instead of flattening into a white
+            lightbox. */}
         <pointLight
-          position={[0.55, 0.65, 0]}
-          intensity={0.9}
-          distance={2.2}
-          decay={2}
+          position={[0.35, 0.55, 0]}
+          intensity={2.4}
+          distance={3.6}
+          decay={1.7}
+          color={COLORS.headlightWhite}
+        />
+        <pointLight
+          position={[-0.5, 0.3, 0]}
+          intensity={0.8}
+          distance={2.4}
+          decay={1.8}
           color={COLORS.headlightWhite}
         />
 
@@ -413,7 +451,17 @@ export function TruckAssembly() {
             Brushed-aluminum grey (truckChrome), not the near-black
             grille colour — a real roller door reads lighter than the
             body's shadowed underside, and against this night scene a
-            dark-on-dark door was unreadable regardless of angle. */}
+            dark-on-dark door was unreadable regardless of angle.
+
+            Each slat is taller (0.244) than the 0.24 pitch it's spaced
+            on, so closed neighbours overlap by a hair instead of
+            leaving a dark gap between them — reads as one solid panel,
+            not a venetian blind — and the overlap also kills the
+            z-fighting shimmer that showed along slat edges when they
+            merely touched. A thin darker inset line near each slat's
+            lower edge scores the segmentation into the surface instead
+            of relying on a visible gap to read as a door made of
+            slats. */}
         <group position={[1.51, 0, 0]}>
           {Array.from({ length: DOOR_SLAT_COUNT }).map((_, i) => (
             <mesh
@@ -423,8 +471,39 @@ export function TruckAssembly() {
                 doorSlatRefs.current[i] = el;
               }}
             >
-              <boxGeometry args={[0.02, 0.2, 1.6]} />
+              <boxGeometry args={[0.02, 0.244, 1.6]} />
               <meshStandardMaterial color={COLORS.truckChrome} roughness={0.45} metalness={0.5} />
+              {/* Scored line: sits just proud of the slat's own face so
+                  it never shares an exact coplanar surface with it. */}
+              <mesh position={[0.0105, -0.108, 0]}>
+                <boxGeometry args={[0.001, 0.01, 1.58]} />
+                <meshStandardMaterial color={COLORS.truckChassis} roughness={0.6} metalness={0.3} />
+              </mesh>
+            </mesh>
+          ))}
+
+          {/* Solid closed-door panel: covers the whole opening as one
+              flush surface. Visible (and opaque) only while the slats
+              are still essentially fully closed (see doorPanelRef in
+              useFrame) — as soon as they start coiling, this fades out
+              so the two never show at once, and the open state (fixed
+              last round) is untouched. */}
+          <mesh ref={doorPanelRef} position={[0.011, 0.005, 0]}>
+            <boxGeometry args={[0.018, 1.84, 1.6]} />
+            <meshStandardMaterial
+              color={COLORS.truckChrome}
+              roughness={0.45}
+              metalness={0.5}
+              transparent
+            />
+          </mesh>
+          {/* Scored lines across the solid panel matching the slat
+              pitch, so the closed door still reads as a segmented
+              roller door rather than a featureless sheet. */}
+          {Array.from({ length: DOOR_SLAT_COUNT - 1 }).map((_, i) => (
+            <mesh key={`score-${i}`} position={[0.021, -0.68 + i * 0.24, 0]}>
+              <boxGeometry args={[0.001, 0.01, 1.58]} />
+              <meshStandardMaterial color={COLORS.truckChassis} roughness={0.6} metalness={0.3} />
             </mesh>
           ))}
 
@@ -484,27 +563,9 @@ export function TruckAssembly() {
           </group>
         </group>
       ))}
-
-      {cargoBoxes.map((box, i) => (
-        <mesh
-          key={`cargo-${i}`}
-          ref={(el) => {
-            cargoRefs.current[i] = el;
-          }}
-        >
-          <boxGeometry args={box.size} />
-          {/* Lighter than the old truckCargo brown, with a slight
-              emissive kick — the cargo bay is intentionally dark, and a
-              flat-lit dark-brown box nearly disappeared into it, which
-              defeated the whole point of watching boxes travel in. */}
-          <meshStandardMaterial
-            color={COLORS.cardboardTanDark}
-            emissive={COLORS.cardboardTanDark}
-            emissiveIntensity={0.25}
-            roughness={0.8}
-          />
-        </mesh>
-      ))}
+      {/* No truck-owned cargo meshes here any more — the hero box stack
+          (BoxStack.tsx) travels through the open door and rests inside
+          the bay itself; see DOOR_ENTRY_LOCAL / CARGO_REST_LOCAL above. */}
     </group>
   );
 }

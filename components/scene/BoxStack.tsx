@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
@@ -8,117 +8,68 @@ import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
-
-type Box = {
-  position: [number, number, number];
-  size: [number, number, number];
-  rotation: [number, number, number];
-  color: string;
-};
+import {
+  ASSEMBLY_YAW,
+  TRUCK_LOAD_SCALE,
+  DOOR_ENTRY_LOCAL,
+  CARGO_REST_LOCAL,
+  truckGroundY,
+  truckLocalToWorld,
+  type Vec3,
+} from './TruckAssembly';
 
 // The stack lives in the right third of the hero frame so it never
-// collides with the left-aligned headline. The whole group starts here
-// at rest, then drifts + converges on the truck's cargo bay exactly as
-// before (see useFrame below) — only the starting point moved, the
-// converged endpoint (1.9, 0.55, -0.2) is unchanged, so the truck
-// handoff still lands where TruckAssembly expects it.
-const HERO_OFFSET: [number, number, number] = [1.7, 0, 0.15];
+// collides with the left-aligned headline. It starts here at rest, then
+// travels through the truck's open rear door and comes to rest as the
+// truck's own cargo (see useFrame below) — there is exactly one set of
+// boxes; nothing is duplicated in TruckAssembly and nothing fades away.
+const HERO_OFFSET: Vec3 = [1.7, ROAD_SURFACE_Y, 0.15];
 
-// Each entry describes a box purely in terms of its own footprint offset
-// from the box it rests on (xOffset/zOffset, relative to the *previous*
-// box's centre) plus a little rotational character. Resting Y is never
-// hand-placed: buildStack() below derives it from the supporting box's
-// top face plus this box's own half-height, so boxes can never
-// interpenetrate and every box's footprint offset is small enough that
-// its centre of mass stays over its support (no cantilevering into thin
-// air). Sizes shrink going up, like a real stack a person would build.
 type BoxSpec = {
-  size: [number, number, number];
-  xOffset: number; // relative to the box below's centre (0 for the base box, relative to ground origin)
-  zOffset: number;
-  rotationY: number;
-  tiltX?: number;
-  tiltZ?: number;
+  size: Vec3;
   color: string;
+  restRotationY: number;
 };
 
+// Two large boxes (down from four) — big enough to read clearly as hero
+// props, and sized to actually fit through the truck's rear door
+// opening and sit on its cargo floor once they arrive (see
+// TruckAssembly's CARGO_REST_LOCAL / door geometry).
 const BOX_SPECS: BoxSpec[] = [
-  // Base box: grounded on the road surface, dead centre of the stack's
-  // local origin.
-  {
-    size: [1.6, 1.0, 1.4],
-    xOffset: 0,
-    zOffset: 0,
-    rotationY: 0.05,
-    color: COLORS.cardboardTan,
-  },
-  // Second box sits inset from the base box's edges on every side, so
-  // its whole footprint — and therefore its centre of mass — is over
-  // the base box, not hanging off it.
-  {
-    size: [1.15, 0.75, 1.05],
-    xOffset: -0.15,
-    zOffset: 0.1,
-    rotationY: -0.18,
-    tiltX: 0.012,
-    tiltZ: -0.008,
-    color: COLORS.cardboardTanDark,
-  },
-  {
-    size: [0.85, 0.55, 0.8],
-    xOffset: 0.25,
-    zOffset: -0.15,
-    rotationY: 0.14,
-    tiltX: -0.008,
-    tiltZ: 0.006,
-    color: COLORS.cardboardTan,
-  },
-  {
-    size: [0.55, 0.4, 0.5],
-    xOffset: -0.05,
-    zOffset: 0.05,
-    rotationY: -0.22,
-    tiltX: 0.01,
-    color: COLORS.cardboardTanDark,
-  },
+  { size: [0.95, 0.8, 0.9], color: COLORS.cardboardTan, restRotationY: 0.08 },
+  { size: [0.78, 0.64, 0.74], color: COLORS.cardboardTanDark, restRotationY: -0.16 },
 ];
 
-function buildStack(specs: BoxSpec[], groundY: number): Box[] {
-  let supportTop = groundY;
-  let prevX = 0;
-  let prevZ = 0;
-  return specs.map((spec) => {
-    const [, h] = spec.size;
-    const x = prevX + spec.xOffset;
-    const z = prevZ + spec.zOffset;
-    const y = supportTop + h / 2; // rests exactly on the surface below — no overlap
-    supportTop = y + h / 2;
-    prevX = x;
-    prevZ = z;
-    return {
-      position: [x, y, z],
-      size: spec.size,
-      rotation: [spec.tiltX ?? 0, spec.rotationY, spec.tiltZ ?? 0],
-      color: spec.color,
-    };
-  });
-}
+// Hero "at rest" local offsets — box 2 stacked on box 1, exactly as a
+// stack a person would build (no hand-placed Y: derived from box 1's
+// top face plus box 2's own half-height).
+const HERO_STACK_LOCAL: Vec3[] = (() => {
+  const [w1, h1, d1] = BOX_SPECS[0].size;
+  const [, h2] = BOX_SPECS[1].size;
+  void w1;
+  void d1;
+  return [
+    [0, h1 / 2, 0],
+    [-0.08, h1 + h2 / 2, 0.06],
+  ];
+})();
 
-// Computed once at module scope, not hand-placed — see buildStack above.
-// groundY is 0 here (not ROAD_SURFACE_Y) because these are local-space
-// box coordinates inside the drifting group; the group itself starts at
-// world Y = HERO_OFFSET[1] which is set to ROAD_SURFACE_Y below so the
-// base box's world position lands exactly on the road at rest.
-const BOXES: Box[] = buildStack(BOX_SPECS, 0);
+const STACK_FOOTPRINT_RADIUS = Math.max(BOX_SPECS[0].size[0], BOX_SPECS[0].size[2]) * 0.7;
 
-const STACK_FOOTPRINT_RADIUS = Math.max(BOX_SPECS[0].size[0], BOX_SPECS[0].size[2]) * 0.62;
-
-function CardboardBox({ box }: { box: Box }) {
-  const [w, h, d] = box.size;
+function CardboardBox({
+  size,
+  color,
+  groupRef,
+}: {
+  size: Vec3;
+  color: string;
+  groupRef: (el: THREE.Group | null) => void;
+}) {
+  const [w, h, d] = size;
   return (
-    <group position={box.position} rotation={box.rotation}>
-      <RoundedBox args={box.size} radius={Math.min(0.045, h * 0.08)} smoothness={3}>
-        <meshStandardMaterial color={box.color} roughness={0.92} metalness={0.02} />
+    <group ref={groupRef}>
+      <RoundedBox args={size} radius={Math.min(0.045, h * 0.08)} smoothness={3}>
+        <meshStandardMaterial color={color} roughness={0.92} metalness={0.02} />
       </RoundedBox>
 
       {/* Packing tape: across the top seam and down the front face. */}
@@ -145,69 +96,116 @@ function CardboardBox({ box }: { box: Box }) {
 }
 
 export function BoxStack() {
-  const group = useRef<THREE.Group>(null);
   const pathname = usePathname();
+  const boxRefs = useRef<(THREE.Group | null)[]>([]);
 
-  // Built once — no per-frame allocation in useFrame.
-  const boxes = useMemo(() => BOXES, []);
-
-  useFrame((state, delta) => {
-    if (!group.current) return;
-
+  useFrame((state) => {
     // The opening pin (and its GSAP ScrollTrigger) only exists on the
     // home route, so getMoveAsOneProgress() is never reset when
-    // navigating to /about — it just holds whatever value it last had,
-    // which could park the stack mid-drift over the About copy (e.g.
-    // "Climate-controlled storage"). The canvas is shared across
-    // routes, so route-gate visibility explicitly instead of trusting
-    // a progress value that only home ever advances.
+    // navigating to /about — it just holds whatever value it last had.
+    // The canvas is shared across routes, so route-gate visibility
+    // explicitly instead of trusting a progress value that only home
+    // ever advances.
     if (pathname === '/about') {
-      group.current.visible = false;
+      boxRefs.current.forEach((g) => {
+        if (g) g.visible = false;
+      });
       return;
     }
 
     const local = getMoveAsOneProgress();
-    group.current.rotation.y += delta * 0.12;
 
-    // These are the hero boxes becoming the truck's cargo, not a separate
-    // prop that has to get out of the truck's way — so instead of
-    // fading, the stack physically drifts and converges on the truck's
-    // cargo bay (see TruckAssembly's box-body position) across the whole
-    // load-in window, easing in so the carry reads as continuous. The
-    // stack starts grounded on the road (HERO_OFFSET's Y is
-    // ROAD_SURFACE_Y so the base box's world position sits on the road
-    // surface, matching the truck's own grounding) and converges on the
-    // same endpoint as before, so the handoff into the truck is
-    // unchanged.
-    const driftT = clamp01(local / 0.75);
-    const eased = 1 - Math.pow(1 - driftT, 2);
-    const bob = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
-    group.current.position.x = lerp(HERO_OFFSET[0], 1.9, eased);
-    group.current.position.y = lerp(ROAD_SURFACE_Y, 0.55, eased) + bob;
-    group.current.position.z = lerp(HERO_OFFSET[2], -0.2, eased);
+    // Truck's own world transform while it's parked for assembly + load
+    // (exit progress is 0 for this whole window — the departure only
+    // starts at EXIT_START, long after the boxes have finished
+    // arriving) — static, so it can be computed directly rather than
+    // mirrored frame-by-frame from TruckAssembly.
+    const truckOrigin: Vec3 = [0, truckGroundY(TRUCK_LOAD_SCALE), 0];
+    const doorWorld = truckLocalToWorld(DOOR_ENTRY_LOCAL, ASSEMBLY_YAW, TRUCK_LOAD_SCALE, truckOrigin);
 
-    // Scales away as it settles into the bay. Timed to finish at
-    // local = 0.75 — the same progress at which TruckAssembly's own
-    // CARGO boxes finish arriving (see its `at` values), which is also
-    // when the rear door starts rolling shut — so the hero stack has
-    // fully "become" the truck's cargo, with neither a pop nor an empty
-    // gap, before the door closes and the truck drives off.
-    const scaleT = clamp01((local - 0.4) / 0.35);
-    const easedScale = scaleT * scaleT * (3 - 2 * scaleT); // smoothstep
-    const scale = lerp(1, 0, easedScale);
-    group.current.visible = scale > 0.01;
-    group.current.scale.setScalar(scale);
+    // Overall progress across the whole load-in window, finishing by
+    // local = 0.75 — the same progress at which the rear door starts
+    // rolling shut (see TruckAssembly's DOOR_CLOSE_START) — so the
+    // boxes are fully "become" the truck's cargo, resting still, before
+    // the door closes and the truck drives off.
+    const p = clamp01(local / 0.75);
+    // Phase 1 (0..~0.55 of p): carried as a stack from the hero rest
+    // position to a waypoint just outside the open rear door — reads as
+    // "carried over", not yet loaded.
+    const approachEase = 1 - Math.pow(1 - clamp01(p / 0.6), 3);
+    // Phase 2 (~0.55..1 of p): each box leaves the stack and travels the
+    // rest of the way through the door opening to its own resting slot
+    // on the cargo floor — this is what makes the trajectory read as
+    // loading through the opening rather than teleporting.
+    const enterT = clamp01((p - 0.55) / 0.45);
+    const enterEase = enterT * enterT * (3 - 2 * enterT);
+
+    const bob = Math.sin(state.clock.elapsedTime * 0.5) * 0.06 * (1 - approachEase);
+    const idleSpin = state.clock.elapsedTime * 0.12 * (1 - approachEase);
+
+    BOX_SPECS.forEach((spec, i) => {
+      const g = boxRefs.current[i];
+      if (!g) return;
+      g.visible = true;
+
+      const stackLocal = HERO_STACK_LOCAL[i];
+      const heroWorld: Vec3 = [
+        HERO_OFFSET[0] + stackLocal[0],
+        HERO_OFFSET[1] + stackLocal[1] + bob,
+        HERO_OFFSET[2] + stackLocal[2],
+      ];
+      // Two boxes converge on the same door waypoint (with a small
+      // separation so they don't overlap) before diverging to their own
+      // resting slots — this is what sells "loaded one after another
+      // through the opening" rather than a single rigid block passing
+      // through the wall.
+      const doorSlot: Vec3 = [doorWorld[0], doorWorld[1], doorWorld[2] + (i === 0 ? 0.25 : -0.25)];
+      const restWorld = truckLocalToWorld(
+        CARGO_REST_LOCAL[i],
+        ASSEMBLY_YAW,
+        TRUCK_LOAD_SCALE,
+        truckOrigin,
+      );
+
+      const approached: Vec3 = [
+        lerp(heroWorld[0], doorSlot[0], approachEase),
+        lerp(heroWorld[1], doorSlot[1], approachEase),
+        lerp(heroWorld[2], doorSlot[2], approachEase),
+      ];
+
+      g.position.set(
+        lerp(approached[0], restWorld[0], enterEase),
+        lerp(approached[1], restWorld[1], enterEase),
+        lerp(approached[2], restWorld[2], enterEase),
+      );
+
+      // Rotation settles from its carried tilt/spin to the truck's own
+      // heading (ASSEMBLY_YAW) as it lands, so it doesn't look like it's
+      // still spinning once it's supposed to be sitting still as cargo.
+      const restingYaw = ASSEMBLY_YAW + spec.restRotationY;
+      g.rotation.y = lerp(spec.restRotationY + idleSpin, restingYaw, enterEase);
+
+      // Scale stays at 1 throughout — these boxes never fade away, they
+      // simply arrive and stay as the truck's visible cargo.
+      g.scale.setScalar(1);
+    });
   });
 
   return (
-    <group ref={group}>
-      {boxes.map((box, i) => (
-        <CardboardBox key={i} box={box} />
+    <group>
+      {BOX_SPECS.map((spec, i) => (
+        <CardboardBox
+          key={i}
+          size={spec.size}
+          color={spec.color}
+          groupRef={(el) => {
+            boxRefs.current[i] = el;
+          }}
+        />
       ))}
-      {/* Contact shadow: sells the grounding by darkening the road patch
-          directly under the stack's footprint, independent of the
-          drifting group's scroll-driven bob. */}
-      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Contact shadow at the hero rest position: sells the grounding
+          before the boxes start moving. */}
+      <mesh position={[HERO_OFFSET[0], 0.005, HERO_OFFSET[2]]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[STACK_FOOTPRINT_RADIUS, 24]} />
         <meshBasicMaterial color={COLORS.asphaltDark} transparent opacity={0.35} />
       </mesh>

@@ -9,12 +9,10 @@ import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 import {
-  ASSEMBLY_YAW,
-  TRUCK_LOAD_SCALE,
   DOOR_ENTRY_LOCAL,
   CARGO_REST_LOCAL,
-  truckGroundY,
   truckLocalToWorld,
+  computeTruckGroupTransform,
   type Vec3,
 } from './TruckAssembly';
 
@@ -115,13 +113,15 @@ export function BoxStack() {
 
     const local = getMoveAsOneProgress();
 
-    // Truck's own world transform while it's parked for assembly + load
-    // (exit progress is 0 for this whole window — the departure only
-    // starts at EXIT_START, long after the boxes have finished
-    // arriving) — static, so it can be computed directly rather than
-    // mirrored frame-by-frame from TruckAssembly.
-    const truckOrigin: Vec3 = [0, truckGroundY(TRUCK_LOAD_SCALE), 0];
-    const doorWorld = truckLocalToWorld(DOOR_ENTRY_LOCAL, ASSEMBLY_YAW, TRUCK_LOAD_SCALE, truckOrigin);
+    // The truck's whole-group transform (position/yaw/scale), read from
+    // the same function TruckAssembly's own group uses. During assembly
+    // + load this is static (exit progress is 0 until EXIT_START, long
+    // after the boxes finish arriving); once departure begins, reusing
+    // this function every frame is what lets the resting boxes ride
+    // along with the truck instead of being left behind on the road.
+    const truckT = computeTruckGroupTransform(local, state.clock.elapsedTime);
+    const truckOrigin: Vec3 = truckT.position;
+    const doorWorld = truckLocalToWorld(DOOR_ENTRY_LOCAL, truckT.rotationY, truckT.scale, truckOrigin);
 
     // Overall progress across the whole load-in window, finishing by
     // local = 0.75 — the same progress at which the rear door starts
@@ -146,7 +146,11 @@ export function BoxStack() {
     BOX_SPECS.forEach((spec, i) => {
       const g = boxRefs.current[i];
       if (!g) return;
-      g.visible = true;
+      // Past local >= 1 the truck (and everything it carried off) is
+      // gone — hide explicitly rather than leaving the boxes floating
+      // on the road after the truck itself disappears (see
+      // TruckAssembly's own `local < 1` gate).
+      g.visible = local < 1;
 
       const stackLocal = HERO_STACK_LOCAL[i];
       const heroWorld: Vec3 = [
@@ -160,12 +164,7 @@ export function BoxStack() {
       // through the opening" rather than a single rigid block passing
       // through the wall.
       const doorSlot: Vec3 = [doorWorld[0], doorWorld[1], doorWorld[2] + (i === 0 ? 0.25 : -0.25)];
-      const restWorld = truckLocalToWorld(
-        CARGO_REST_LOCAL[i],
-        ASSEMBLY_YAW,
-        TRUCK_LOAD_SCALE,
-        truckOrigin,
-      );
+      const restWorld = truckLocalToWorld(CARGO_REST_LOCAL[i], truckT.rotationY, truckT.scale, truckOrigin);
 
       const approached: Vec3 = [
         lerp(heroWorld[0], doorSlot[0], approachEase),
@@ -180,13 +179,17 @@ export function BoxStack() {
       );
 
       // Rotation settles from its carried tilt/spin to the truck's own
-      // heading (ASSEMBLY_YAW) as it lands, so it doesn't look like it's
-      // still spinning once it's supposed to be sitting still as cargo.
-      const restingYaw = ASSEMBLY_YAW + spec.restRotationY;
+      // current heading as it lands, then keeps tracking that heading
+      // (which only itself changes once departure's yaw-lock and turn
+      // happen) so the box turns with the truck instead of staying
+      // fixed while the truck rotates out from under it.
+      const restingYaw = truckT.rotationY + spec.restRotationY;
       g.rotation.y = lerp(spec.restRotationY + idleSpin, restingYaw, enterEase);
 
       // Scale stays at 1 throughout — these boxes never fade away, they
-      // simply arrive and stay as the truck's visible cargo.
+      // simply arrive and stay as the truck's visible cargo. (The truck
+      // itself shrinks with perspective during departure, but the boxes
+      // are hidden by the closed door by then, so no visible mismatch.)
       g.scale.setScalar(1);
     });
   });

@@ -90,10 +90,19 @@ export const ASSEMBLY_YAW = -Math.PI / 2 + 0.35;
 // floor sits at truck-local y = -0.91 + the body's y-offset 0.5 = -0.41
 // — see the body group below), so if that geometry ever moves these
 // move with it.
-export const DOOR_ENTRY_LOCAL: Vec3 = [3.4, 0.05, 0];
+export const DOOR_ENTRY_LOCAL: Vec3 = [3.4, 0.15, 0];
+// Truck-local Y for these rest slots has to land each box's *world*
+// half-height on the truck-local floor (y = -0.41) after the truck
+// group's own uniform scale (TRUCK_LOAD_SCALE) is applied — box
+// geometry is authored directly in world units in BoxStack, not
+// truck-local ones, so a naive "floor + local half-height" undershoots
+// by exactly that scale factor and buries the box in the floor. The
+// values below are floor (-0.41) plus each box's own world half-height
+// divided by TRUCK_LOAD_SCALE, so the boxes actually sit on the floor,
+// not embedded in it or floating above it.
 export const CARGO_REST_LOCAL: Vec3[] = [
-  [0.55, 0.0, 0.22],
-  [-0.05, -0.06, -0.28],
+  [0.55, -0.41 + 0.4 / TRUCK_LOAD_SCALE, 0.22],
+  [-0.05, -0.41 + 0.32 / TRUCK_LOAD_SCALE, -0.28],
 ];
 
 /** Rotates+scales a truck-local point into world space for a given yaw/scale/origin. */
@@ -102,6 +111,39 @@ export function truckLocalToWorld(local: Vec3, yaw: number, scale: number, origi
   const x = lx * Math.cos(yaw) + lz * Math.sin(yaw);
   const z = -lx * Math.sin(yaw) + lz * Math.cos(yaw);
   return [origin[0] + scale * x, origin[1] + scale * ly, origin[2] + scale * z];
+}
+
+export type TruckGroupTransform = {
+  position: Vec3;
+  rotationY: number;
+  scale: number;
+  visible: boolean;
+};
+
+/**
+ * The truck's whole-group transform (position/yaw/scale/visibility) as a
+ * pure function of the pin's local progress and elapsed time — the same
+ * formula TruckAssembly's own useFrame applies to its outer group.
+ * Exported so BoxStack can carry the cargo boxes through exactly the
+ * same departure motion (and the same local >= 1 disappearance) once
+ * they've become the truck's cargo, instead of drifting the two out of
+ * sync or leaving the boxes behind on the road.
+ */
+export function computeTruckGroupTransform(local: number, elapsedTime: number): TruckGroupTransform {
+  const exit = getExitProgress();
+  const exitEase = exit * exit * exit;
+  const bob = Math.sin(elapsedTime * 7.5) * 0.008 * (1 - exitEase * 0.6);
+  const show = clamp01(local / 0.03);
+  const baseScale = TRUCK_LOAD_SCALE * show;
+  const recedeScale = baseScale * lerp(1, 0.22, exitEase);
+  const yawT = clamp01(exit / 0.22);
+  const yawEase = yawT * yawT * (3 - 2 * yawT);
+  return {
+    position: [lerp(0, -0.6, exitEase), truckGroundY(recedeScale) + bob, lerp(0, -34, exitEase)],
+    rotationY: lerp(ASSEMBLY_YAW, DOWN_ROAD_YAW, yawEase),
+    scale: recedeScale,
+    visible: show > 0.01 && local < 1,
+  };
 }
 
 // Rear roller-door: opens just before cargo starts arriving, stays open
@@ -190,10 +232,9 @@ export function TruckAssembly() {
 
     // Rolling + idle vibration: a wheel spin driven mostly by the
     // departure speed with a small ambient creep beforehand, plus a
-    // subtle suspension bob/pitch so the parked truck reads as sitting
+    // subtle suspension pitch so the parked truck reads as sitting
     // on its suspension rather than a placed prop.
     const spinSpeed = 0.6 + exitEase * 22;
-    const bob = Math.sin(state.clock.elapsedTime * 7.5) * 0.008 * (1 - exitEase * 0.6);
     // The idle suspension pitch is only for the parked/loading truck —
     // the client was explicit that the departing truck must show no
     // tilt at all, so this dies out completely well before the truck is
@@ -203,37 +244,19 @@ export function TruckAssembly() {
     const pitch = Math.sin(state.clock.elapsedTime * 5.1) * 0.004 * (1 - yawEase);
 
     if (group.current) {
-      // Fades in quickly once the pin engages (individual parts also start
-      // invisible at local=0, this just softens the whole-group pop-in).
-      const show = clamp01(local / 0.03);
-      // Past local >= 1 (pin released) the truck has fully driven off;
-      // switch it off explicitly rather than relying on frustum culling.
+      // Single source of truth for the whole-group transform, shared
+      // with BoxStack (see computeTruckGroupTransform) so the cargo
+      // boxes ride along with exactly this motion once they've become
+      // the truck's cargo, instead of two independently-tuned copies
+      // drifting out of sync.
+      const t = computeTruckGroupTransform(local, state.clock.elapsedTime);
       // The opening pin's ScrollTrigger (and therefore local) only ever
       // advances on the home route, so it holds a stale value on
       // /about — route-gate explicitly rather than trust it there.
-      group.current.visible = pathname !== '/about' && show > 0.01 && local < 1;
-
-      const baseScale = 0.62 * show;
-      // Recedes down the road (world -z, the same direction Highway's
-      // dashes stream toward) while shrinking with perspective — but the
-      // fade below finishes well before the scale would read as a speck.
-      const recedeScale = baseScale * lerp(1, 0.22, exitEase);
-      group.current.scale.setScalar(recedeScale);
-
-      group.current.position.x = lerp(0, -0.6, exitEase);
-      group.current.position.y = truckGroundY(recedeScale) + bob;
-      group.current.position.z = lerp(0, -34, exitEase);
-
-      // Holds ASSEMBLY_YAW (already road-oriented, not a display pose)
-      // for the whole assembly + load, then swings the rest of the way
-      // to *exactly* DOWN_ROAD_YAW on its own, faster yawEase ramp — by
-      // exit ≈ 0.22 the yaw has already fully locked to dead-parallel,
-      // well before exitEase (still tiny at that point) has moved the
-      // truck any meaningful distance down the road. That way the truck
-      // is square, rear-face-to-camera, before it visibly starts moving
-      // — no side is ever visible while it drives away — and the swing
-      // itself is a smooth ease, not a snap.
-      group.current.rotation.y = lerp(ASSEMBLY_YAW, DOWN_ROAD_YAW, yawEase);
+      group.current.visible = pathname !== '/about' && t.visible;
+      group.current.scale.setScalar(t.scale);
+      group.current.position.set(t.position[0], t.position[1], t.position[2]);
+      group.current.rotation.y = t.rotationY;
       group.current.rotation.x = pitch;
     }
 
@@ -400,14 +423,19 @@ export function TruckAssembly() {
           <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
         </mesh>
 
-        {/* Cargo-hold back wall, visible through the rear opening once
-            the door has rolled up. panelGrey rather than near-black
-            truckGlass — the previous near-black backing plus a weak
-            light read as a black void that swallowed the boxes inside
-            it. A lit dark-grey panel gives the interior a visible
-            surface to fall off against instead of disappearing into
-            pure black. */}
-        <mesh position={[1.2, 0, 0]}>
+        {/* Cargo-hold back wall — the true far wall of the bay, near the
+            cab end, not a shortcut backdrop propped up just inside the
+            door. It used to sit at +1.2 (i.e. *closer to the door* than
+            the resting cargo), which meant it silently occluded any box
+            resting further inside the bay — every box behind it from
+            the camera's viewpoint simply vanished. Negative x puts it
+            at the actual back of the hold, so nothing loaded in front
+            of it is ever hidden. panelGrey rather than near-black
+            truckGlass — a near-black backing plus a weak light read as
+            a black void that swallowed the boxes inside it; a lit
+            dark-grey panel gives the interior a visible surface to fall
+            off against instead. */}
+        <mesh position={[-1.2, 0, 0]}>
           <boxGeometry args={[0.06, 1.7, 1.55]} />
           <meshStandardMaterial color={COLORS.panelGrey} roughness={0.85} metalness={0} />
         </mesh>
@@ -422,17 +450,17 @@ export function TruckAssembly() {
             front of the bay instead of flattening into a white
             lightbox. */}
         <pointLight
-          position={[0.35, 0.55, 0]}
-          intensity={2.4}
-          distance={3.6}
-          decay={1.7}
+          position={[0.1, 0.75, 0]}
+          intensity={1.8}
+          distance={4}
+          decay={1.6}
           color={COLORS.headlightWhite}
         />
         <pointLight
-          position={[-0.5, 0.3, 0]}
-          intensity={0.8}
-          distance={2.4}
-          decay={1.8}
+          position={[-0.9, 0.35, 0]}
+          intensity={0.6}
+          distance={2.8}
+          decay={1.7}
           color={COLORS.headlightWhite}
         />
 

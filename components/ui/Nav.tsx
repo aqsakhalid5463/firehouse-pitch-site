@@ -3,8 +3,11 @@ import { BUSINESS } from '@/lib/constants';
 
 export function Nav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 mix-blend-difference">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 text-white">
+    <header
+      className="fixed inset-x-0 top-0 z-50"
+      style={{ color: 'var(--page-ink)' }}
+    >
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase">
           Firehouse
         </Link>

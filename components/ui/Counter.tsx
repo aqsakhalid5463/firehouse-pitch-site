@@ -13,7 +13,10 @@ export function Counter({
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [value, setValue] = useState(0);
+  // Start at the final value so the server-rendered (no-JS) markup is
+  // readable. JS-enabled visitors get reset to 0 in the effect below and
+  // animate back up once the counter scrolls into view.
+  const [value, setValue] = useState(to);
   const reduced = useReducedMotion();
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export function Counter({
     const el = ref.current;
     if (!el) return;
 
+    setValue(0);
     let raf = 0;
     const observer = new IntersectionObserver(
       ([entry]) => {

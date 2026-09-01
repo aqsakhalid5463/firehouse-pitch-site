@@ -49,7 +49,7 @@ const fragmentShader = /* glsl */ `
 `;
 
 export function Embers() {
-  const material = useRef<THREE.ShaderMaterial>(null);
+  const points = useRef<THREE.Points>(null);
 
   const { positions, speeds, scales, offsets } = useMemo(() => {
     const positions = new Float32Array(COUNT * 3);
@@ -79,13 +79,14 @@ export function Embers() {
   );
 
   useFrame((_, delta) => {
-    if (!material.current) return;
-    uniforms.uTime.value += delta;
-    uniforms.uOpacity.value = themeAt(getScrollProgress()).emberOpacity;
+    const mat = points.current?.material as THREE.ShaderMaterial | undefined;
+    if (!mat) return;
+    mat.uniforms.uTime.value += delta;
+    mat.uniforms.uOpacity.value = themeAt(getScrollProgress()).emberOpacity;
   });
 
   return (
-    <points frustumCulled={false}>
+    <points ref={points} frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-aSpeed" args={[speeds, 1]} />
@@ -93,7 +94,6 @@ export function Embers() {
         <bufferAttribute attach="attributes-aOffset" args={[offsets, 1]} />
       </bufferGeometry>
       <shaderMaterial
-        ref={material}
         uniforms={uniforms}
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}

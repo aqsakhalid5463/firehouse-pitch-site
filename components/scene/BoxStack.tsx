@@ -6,7 +6,7 @@ import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { clamp01, lerp } from '@/lib/scroll-math';
-import { COLORS } from '@/lib/constants';
+import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 
 type Box = {
   position: [number, number, number];
@@ -23,36 +23,94 @@ type Box = {
 // handoff still lands where TruckAssembly expects it.
 const HERO_OFFSET: [number, number, number] = [1.7, 0, 0.15];
 
-// Four boxes, each individually detailed rather than nine identical
-// blocks. Positions/rotations are hand-placed with small irregularities
-// (uneven rotation, boxes not quite grid-aligned) so the stack reads as
-// carried and set down by a person, not snapped into place.
-const BOXES: Box[] = [
+// Each entry describes a box purely in terms of its own footprint offset
+// from the box it rests on (xOffset/zOffset, relative to the *previous*
+// box's centre) plus a little rotational character. Resting Y is never
+// hand-placed: buildStack() below derives it from the supporting box's
+// top face plus this box's own half-height, so boxes can never
+// interpenetrate and every box's footprint offset is small enough that
+// its centre of mass stays over its support (no cantilevering into thin
+// air). Sizes shrink going up, like a real stack a person would build.
+type BoxSpec = {
+  size: [number, number, number];
+  xOffset: number; // relative to the box below's centre (0 for the base box, relative to ground origin)
+  zOffset: number;
+  rotationY: number;
+  tiltX?: number;
+  tiltZ?: number;
+  color: string;
+};
+
+const BOX_SPECS: BoxSpec[] = [
+  // Base box: grounded on the road surface, dead centre of the stack's
+  // local origin.
   {
-    position: [-0.05, -1.0, 0.05],
-    size: [1.55, 0.95, 1.35],
-    rotation: [0, 0.06, 0],
+    size: [1.6, 1.0, 1.4],
+    xOffset: 0,
+    zOffset: 0,
+    rotationY: 0.05,
     color: COLORS.cardboardTan,
   },
+  // Second box sits inset from the base box's edges on every side, so
+  // its whole footprint — and therefore its centre of mass — is over
+  // the base box, not hanging off it.
   {
-    position: [-0.85, -0.28, 0.28],
-    size: [1.1, 0.72, 1.0],
-    rotation: [0.015, -0.22, -0.01],
+    size: [1.15, 0.75, 1.05],
+    xOffset: -0.15,
+    zOffset: 0.1,
+    rotationY: -0.18,
+    tiltX: 0.012,
+    tiltZ: -0.008,
     color: COLORS.cardboardTanDark,
   },
   {
-    position: [0.02, 0.34, -0.08],
-    size: [1.2, 0.6, 1.02],
-    rotation: [-0.01, 0.16, 0.01],
+    size: [0.85, 0.55, 0.8],
+    xOffset: 0.25,
+    zOffset: -0.15,
+    rotationY: 0.14,
+    tiltX: -0.008,
+    tiltZ: 0.006,
     color: COLORS.cardboardTan,
   },
   {
-    position: [0.72, 0.72, 0.22],
-    size: [0.82, 0.5, 0.76],
-    rotation: [0.02, -0.3, 0],
+    size: [0.55, 0.4, 0.5],
+    xOffset: -0.05,
+    zOffset: 0.05,
+    rotationY: -0.22,
+    tiltX: 0.01,
     color: COLORS.cardboardTanDark,
   },
 ];
+
+function buildStack(specs: BoxSpec[], groundY: number): Box[] {
+  let supportTop = groundY;
+  let prevX = 0;
+  let prevZ = 0;
+  return specs.map((spec) => {
+    const [, h] = spec.size;
+    const x = prevX + spec.xOffset;
+    const z = prevZ + spec.zOffset;
+    const y = supportTop + h / 2; // rests exactly on the surface below — no overlap
+    supportTop = y + h / 2;
+    prevX = x;
+    prevZ = z;
+    return {
+      position: [x, y, z],
+      size: spec.size,
+      rotation: [spec.tiltX ?? 0, spec.rotationY, spec.tiltZ ?? 0],
+      color: spec.color,
+    };
+  });
+}
+
+// Computed once at module scope, not hand-placed — see buildStack above.
+// groundY is 0 here (not ROAD_SURFACE_Y) because these are local-space
+// box coordinates inside the drifting group; the group itself starts at
+// world Y = HERO_OFFSET[1] which is set to ROAD_SURFACE_Y below so the
+// base box's world position lands exactly on the road at rest.
+const BOXES: Box[] = buildStack(BOX_SPECS, 0);
+
+const STACK_FOOTPRINT_RADIUS = Math.max(BOX_SPECS[0].size[0], BOX_SPECS[0].size[2]) * 0.62;
 
 function CardboardBox({ box }: { box: Box }) {
   const [w, h, d] = box.size;
@@ -101,22 +159,24 @@ export function BoxStack() {
     // fading, the stack physically drifts and converges on the truck's
     // cargo bay (see TruckAssembly's box-body position) across the whole
     // load-in window, easing in so the carry reads as continuous. The
-    // stack now starts offset to the right (HERO_OFFSET) instead of dead
-    // centre, but the converged endpoint is unchanged so the handoff into
-    // the truck is identical to before.
+    // stack starts grounded on the road (HERO_OFFSET's Y is
+    // ROAD_SURFACE_Y so the base box's world position sits on the road
+    // surface, matching the truck's own grounding) and converges on the
+    // same endpoint as before, so the handoff into the truck is
+    // unchanged.
     const driftT = clamp01(local / 0.75);
     const eased = 1 - Math.pow(1 - driftT, 2);
     const bob = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
     group.current.position.x = lerp(HERO_OFFSET[0], 1.9, eased);
-    group.current.position.y = lerp(HERO_OFFSET[1], 0.55, eased) + bob;
+    group.current.position.y = lerp(ROAD_SURFACE_Y, 0.55, eased) + bob;
     group.current.position.z = lerp(HERO_OFFSET[2], -0.2, eased);
 
     // Scales away as it settles into the bay. Timed to finish at
     // local = 0.75 — the same progress at which TruckAssembly's own
-    // CARGO boxes finish arriving (see its `at` values) and at which its
-    // EXIT_START begins the departure — so the hero stack has fully
-    // "become" the truck's cargo before the truck moves, with neither a
-    // pop nor an empty gap at the handoff.
+    // CARGO boxes finish arriving (see its `at` values), which is also
+    // when the rear door starts rolling shut — so the hero stack has
+    // fully "become" the truck's cargo, with neither a pop nor an empty
+    // gap, before the door closes and the truck drives off.
     const scaleT = clamp01((local - 0.4) / 0.35);
     const easedScale = scaleT * scaleT * (3 - 2 * scaleT); // smoothstep
     const scale = lerp(1, 0, easedScale);
@@ -129,6 +189,13 @@ export function BoxStack() {
       {boxes.map((box, i) => (
         <CardboardBox key={i} box={box} />
       ))}
+      {/* Contact shadow: sells the grounding by darkening the road patch
+          directly under the stack's footprint, independent of the
+          drifting group's scroll-driven bob. */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[STACK_FOOTPRINT_RADIUS, 24]} />
+        <meshBasicMaterial color={COLORS.asphaltDark} transparent opacity={0.35} />
+      </mesh>
     </group>
   );
 }

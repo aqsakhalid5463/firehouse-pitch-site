@@ -42,12 +42,21 @@ function sampleSpline(points: Vec3[], p: number): Vec3 {
 // SECTIONS boundaries: 0 hero rest, 0.2 mid-assembly, 0.4 set-piece
 // release / services start, 0.6 guarantees/dissolve, 0.8 testimonials,
 // 1.0 CTA.
+// Keyframes 1-3 (mid-assembly through the loading beat) are pulled back
+// further than a side-profile framing would need (round 8): the truck
+// now holds a constant down-road heading (see TruckAssembly's
+// DOWN_ROAD_YAW) instead of a 3/4 display angle, which puts its
+// nose-to-tail length along the camera's view axis (depth) rather than
+// spread across the frame (width) — so the same "close" distance that
+// worked for a side-on view now put the rear door uncomfortably close
+// to the camera. Pulling these three back keeps the whole truck (cab to
+// open door) comfortably in frame.
 const HOME_POSITIONS: Vec3[] = [
   [0, 0.65, 6.0],
-  [0.3, 0.6, 6.6],
-  [-0.5, 0.9, 7.6],
-  [0.2, 0.7, 7.2],
-  [1.0, 0.9, 8.4],
+  [0.3, 0.6, 8.8],
+  [-0.5, 0.9, 9.8],
+  [0.2, 0.7, 9.4],
+  [1.0, 0.9, 9.4],
   [0, 1.4, 10.0],
 ];
 

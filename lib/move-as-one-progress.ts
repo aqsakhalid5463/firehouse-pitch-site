@@ -27,8 +27,13 @@ export function getMoveAsOneProgress(): number {
  * release). Shared with Highway so the lane-dash streaming speed can
  * ramp up in lockstep with the truck's departure instead of the two
  * being tuned independently and drifting out of sync.
+ *
+ * Pushed from 0.75 to 0.85 (round 8) to make room for the rear door to
+ * finish rolling closed (see TruckAssembly's DOOR_CLOSE_END) before the
+ * truck turns and drives off — otherwise the departure would start with
+ * the cargo door still visibly open.
  */
-export const EXIT_START = 0.75;
+export const EXIT_START = 0.85;
 
 /** 0 before the departure begins, 1 by the moment the pin releases. */
 export function getExitProgress(): number {

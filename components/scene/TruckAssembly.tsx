@@ -4,9 +4,8 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
-import { getScrollProgress } from '@/lib/scroll-store';
-import { clamp01, lerp, rangeProgress } from '@/lib/scroll-math';
-import { COLORS, SECTIONS } from '@/lib/constants';
+import { clamp01, lerp } from '@/lib/scroll-math';
+import { COLORS } from '@/lib/constants';
 
 type Part = {
   position: [number, number, number];
@@ -16,14 +15,17 @@ type Part = {
   color: string;
 };
 
+// Assembly runs roughly 0.15..0.45 of the pin's progress, after the hero
+// copy has had its moment and while the hero box stack is still drifting
+// in from centre-frame, so the truck is ready to receive it as cargo.
 const PARTS: Part[] = [
   // Chassis
-  { position: [0, -0.55, 0], size: [4.6, 0.22, 1.8], from: [0, -6, 0], at: 0.0, color: COLORS.truckChassis },
+  { position: [0, -0.55, 0], size: [4.6, 0.22, 1.8], from: [0, -6, 0], at: 0.15, color: COLORS.truckChassis },
   // Cab
-  { position: [-1.75, 0.15, 0], size: [1.2, 1.2, 1.7], from: [-8, 0, 0], at: 0.1, color: COLORS.fireRed },
-  { position: [-1.2, 0.35, 0], size: [0.3, 0.7, 1.6], from: [-8, 0, 0], at: 0.14, color: COLORS.truckWindshield },
+  { position: [-1.75, 0.15, 0], size: [1.2, 1.2, 1.7], from: [-8, 0, 0], at: 0.22, color: COLORS.fireRed },
+  { position: [-1.2, 0.35, 0], size: [0.3, 0.7, 1.6], from: [-8, 0, 0], at: 0.26, color: COLORS.truckWindshield },
   // Box body
-  { position: [0.7, 0.5, 0], size: [3.0, 1.9, 1.75], from: [8, 0, 0], at: 0.22, color: COLORS.truckBoxBody },
+  { position: [0.7, 0.5, 0], size: [3.0, 1.9, 1.75], from: [8, 0, 0], at: 0.32, color: COLORS.truckBoxBody },
   // Wheels rendered separately below
 ];
 
@@ -34,13 +36,16 @@ const WHEELS: [number, number, number][] = [
   [1.2, -0.75, -0.9],
 ];
 
+// Cargo loads in 0.40..0.75 of the pin's progress, in lockstep with the
+// hero box stack scaling down into the bay in BoxStack — the two should
+// read as one continuous load, not two independent animations.
 const CARGO: { position: [number, number, number]; size: [number, number, number]; at: number }[] = [
-  { position: [0.0, -0.15, 0], size: [0.6, 0.45, 0.55], at: 0.44 },
-  { position: [0.7, -0.15, 0.35], size: [0.5, 0.4, 0.5], at: 0.51 },
-  { position: [0.7, -0.15, -0.35], size: [0.5, 0.4, 0.5], at: 0.57 },
-  { position: [0.0, 0.35, 0], size: [0.55, 0.4, 0.5], at: 0.64 },
-  { position: [0.75, 0.32, 0], size: [0.5, 0.36, 0.48], at: 0.7 },
-  { position: [0.35, 0.75, 0], size: [0.45, 0.34, 0.44], at: 0.76 },
+  { position: [0.0, -0.15, 0], size: [0.6, 0.45, 0.55], at: 0.4 },
+  { position: [0.7, -0.15, 0.35], size: [0.5, 0.4, 0.5], at: 0.45 },
+  { position: [0.7, -0.15, -0.35], size: [0.5, 0.4, 0.5], at: 0.5 },
+  { position: [0.0, 0.35, 0], size: [0.55, 0.4, 0.5], at: 0.55 },
+  { position: [0.75, 0.32, 0], size: [0.5, 0.36, 0.48], at: 0.6 },
+  { position: [0.35, 0.75, 0], size: [0.45, 0.34, 0.44], at: 0.63 },
 ];
 
 /** 0 at `at`, 1 by `at + 0.12`, eased. */
@@ -49,9 +54,9 @@ function partProgress(local: number, at: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// Fraction of the dissolve (SECTIONS.guarantees) at which the truck
-// starts leaving; the truck is fully off-frame by the dissolve's end.
-const EXIT_START = 0.53;
+// Fraction of the pin's own local progress at which the truck starts
+// driving off; it is fully off-frame by local = 1 (pin release).
+const EXIT_START = 0.75;
 
 export function TruckAssembly() {
   const group = useRef<THREE.Group>(null);
@@ -64,17 +69,18 @@ export function TruckAssembly() {
     // reached, 1 once it releases) — robust to the page's total height
     // changing as later tasks add sections after this one.
     const local = getMoveAsOneProgress();
-    // The exit is deliberately driven off the dissolve's own clock
-    // (SECTIONS.guarantees, the same range themeAt uses), not pin-local
-    // progress: it must stay welded to the background turning cream at
-    // any page height, and the pin's release point is not guaranteed to
-    // coincide with that. The truck leaves over the final stretch of the
-    // dissolve, so it is gone by the time the page is fully cream —
-    // remapped from EXIT_START..1 of the dissolve fraction onto 0..1,
-    // rather than a hand-picked sub-range of global progress, so it can
-    // never drift from themeAt's clock.
-    const dissolve = rangeProgress(getScrollProgress(), SECTIONS.guarantees);
-    const exit = clamp01((dissolve - EXIT_START) / (1 - EXIT_START));
+    // The exit is driven off the pin's own local progress, not the
+    // dissolve (SECTIONS.guarantees) as it once was. That earlier wiring
+    // made sense when this set-piece sat immediately before the dissolve
+    // — the truck could weld its exit to "the background turning cream"
+    // and rely on the pin releasing right where the dissolve begins. The
+    // set-piece now opens the page, departing long before the dissolve
+    // exists on screen, so that coupling would leave the truck frozen
+    // on-screen for the entire Services section. Local progress is the
+    // right clock here: the truck departs over the pin's final stretch
+    // and is fully gone by the moment the pin releases, independent of
+    // where later sections (including the dissolve) end up sitting.
+    const exit = clamp01((local - EXIT_START) / (1 - EXIT_START));
 
     if (group.current) {
       // Fades in quickly once the pin engages (individual parts also start
@@ -105,7 +111,7 @@ export function TruckAssembly() {
 
     wheelRefs.current.forEach((mesh, i) => {
       if (!mesh) return;
-      const t = partProgress(local, 0.32 + i * 0.02);
+      const t = partProgress(local, 0.36 + i * 0.02);
       mesh.scale.setScalar(t);
       mesh.visible = t > 0.001;
     });

@@ -4,9 +4,8 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
-import { getScrollProgress } from '@/lib/scroll-store';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
-import { clamp01 } from '@/lib/scroll-math';
+import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS } from '@/lib/constants';
 
 type Box = {
@@ -33,19 +32,32 @@ export function BoxStack() {
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const p = getScrollProgress();
+    const local = getMoveAsOneProgress();
     group.current.rotation.y += delta * 0.12;
-    group.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
-    // Recedes as the camera pulls back toward the services grid, then
-    // fades out fully before the Move as One truck assembles in the same
-    // spot so the two don't visually collide. The fade is gated on the
-    // truck's own pin-relative progress (not global page fraction, which
-    // drifts as later tasks add sections after this one) so the crates
-    // are reliably gone before the truck arrives, at any page height.
-    const recede = 1 - p * 0.45;
-    const fadeOut = 1 - clamp01(getMoveAsOneProgress() / 0.05);
-    group.current.visible = fadeOut > 0.01;
-    group.current.scale.setScalar(Math.max(0.4, recede) * fadeOut);
+
+    // These are the hero boxes becoming the truck's cargo, not a separate
+    // prop that has to get out of the truck's way — so instead of
+    // fading, the stack physically drifts and converges on the truck's
+    // cargo bay (see TruckAssembly's box-body position) across the whole
+    // load-in window, easing in so the carry reads as continuous.
+    const driftT = clamp01(local / 0.75);
+    const eased = 1 - Math.pow(1 - driftT, 2);
+    const bob = Math.sin(state.clock.elapsedTime * 0.5) * 0.06;
+    group.current.position.x = lerp(0, 1.9, eased);
+    group.current.position.y = lerp(0, 0.55, eased) + bob;
+    group.current.position.z = lerp(0, -0.2, eased);
+
+    // Scales away as it settles into the bay. Timed to finish at
+    // local = 0.75 — the same progress at which TruckAssembly's own
+    // CARGO boxes finish arriving (see its `at` values) and at which its
+    // EXIT_START begins the departure — so the hero stack has fully
+    // "become" the truck's cargo before the truck moves, with neither a
+    // pop nor an empty gap at the handoff.
+    const scaleT = clamp01((local - 0.4) / 0.35);
+    const easedScale = scaleT * scaleT * (3 - 2 * scaleT); // smoothstep
+    const scale = lerp(1, 0, easedScale);
+    group.current.visible = scale > 0.01;
+    group.current.scale.setScalar(scale);
   });
 
   return (

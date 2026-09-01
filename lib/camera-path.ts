@@ -37,20 +37,24 @@ function sampleSpline(points: Vec3[], p: number): Vec3 {
   ];
 }
 
-// Hero → services pullback → set-piece → dissolve → light close.
+// Opening set-piece (hero → truck assembly/load → departure) → services
+// pullback → dissolve → light close. Keyframes land roughly at the
+// SECTIONS boundaries: 0 hero rest, 0.2 mid-assembly, 0.4 set-piece
+// release / services start, 0.6 guarantees/dissolve, 0.8 testimonials,
+// 1.0 CTA.
 const HOME_POSITIONS: Vec3[] = [
   [0, 0.2, 6.0],
-  [0.4, 0.8, 7.4],
-  [-0.6, 1.2, 8.2],
-  [0, 0.6, 7.0],
-  [1.2, 0.9, 8.6],
+  [0.3, 0.5, 6.6],
+  [-0.5, 0.9, 7.6],
+  [0.2, 0.7, 7.2],
+  [1.0, 0.9, 8.4],
   [0, 1.4, 10.0],
 ];
 
 const HOME_TARGETS: Vec3[] = [
   [0, 0, 0],
-  [0, 0.1, 0],
-  [0, 0.2, 0],
+  [0.2, 0.1, 0],
+  [0, 0.15, 0],
   [0, 0.1, 0],
   [-0.8, 0.2, 0],
   [-1.6, 0.3, 0],

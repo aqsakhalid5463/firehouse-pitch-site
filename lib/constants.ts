@@ -28,9 +28,10 @@ export const COLORS = {
 } as const;
 
 export const SECTIONS = {
-  hero: [0.0, 0.15],
-  services: [0.15, 0.35],
-  moveAsOne: [0.35, 0.6],
+  // The merged hero + Move-as-One pinned set-piece: hero copy, truck
+  // assembly/load, and truck departure all happen inside this range.
+  opening: [0.0, 0.4],
+  services: [0.4, 0.6],
   guarantees: [0.6, 0.75],
   testimonials: [0.75, 0.9],
   cta: [0.9, 1.0],

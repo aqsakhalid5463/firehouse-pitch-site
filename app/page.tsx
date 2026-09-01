@@ -1,8 +1,8 @@
 import { Nav } from '@/components/ui/Nav';
 import { Footer } from '@/components/ui/Footer';
-import { Hero } from '@/components/sections/Hero';
+import { Opening } from '@/components/sections/Opening';
+import { HeroCopy } from '@/components/sections/HeroCopy';
 import { Services } from '@/components/sections/Services';
-import { MoveAsOne } from '@/components/sections/MoveAsOne';
 import { Guarantees } from '@/components/sections/Guarantees';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
@@ -12,9 +12,8 @@ export default function Home() {
     <>
       <Nav />
       <main>
-        <Hero />
+        <Opening heroCopy={<HeroCopy />} />
         <Services />
-        <MoveAsOne />
         <Guarantees />
         <Testimonials />
         <ClosingCTA />

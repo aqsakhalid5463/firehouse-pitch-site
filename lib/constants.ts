@@ -1,0 +1,30 @@
+export const BUSINESS = {
+  name: 'Firehouse Movers Inc.',
+  address: '2535-B Texas 121 E, State #140, Lewisville, TX 75056',
+  phone: '(972) 992-1969',
+  phoneHref: 'tel:+19729921969',
+  email: 'support@firehousemovers.com',
+} as const;
+
+export const HERO_HEADLINE =
+  'The moving service we needed, so we built it for you';
+
+export const COLORS = {
+  darkBg: '#08070A',
+  darkFog: '#0D0B12',
+  lightBg: '#F4F0E9',
+  lightFog: '#E8E2D6',
+  ink: '#1A1917',
+  bone: '#F4F0E9',
+  fireRed: '#E23D28',
+  emberAmber: '#FF8A3D',
+} as const;
+
+export const SECTIONS = {
+  hero: [0.0, 0.15],
+  services: [0.15, 0.35],
+  moveAsOne: [0.35, 0.6],
+  guarantees: [0.6, 0.75],
+  testimonials: [0.75, 0.9],
+  cta: [0.9, 1.0],
+} as const satisfies Record<string, readonly [number, number]>;

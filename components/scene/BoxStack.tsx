@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
@@ -145,12 +146,26 @@ function CardboardBox({ box }: { box: Box }) {
 
 export function BoxStack() {
   const group = useRef<THREE.Group>(null);
+  const pathname = usePathname();
 
   // Built once — no per-frame allocation in useFrame.
   const boxes = useMemo(() => BOXES, []);
 
   useFrame((state, delta) => {
     if (!group.current) return;
+
+    // The opening pin (and its GSAP ScrollTrigger) only exists on the
+    // home route, so getMoveAsOneProgress() is never reset when
+    // navigating to /about — it just holds whatever value it last had,
+    // which could park the stack mid-drift over the About copy (e.g.
+    // "Climate-controlled storage"). The canvas is shared across
+    // routes, so route-gate visibility explicitly instead of trusting
+    // a progress value that only home ever advances.
+    if (pathname === '/about') {
+      group.current.visible = false;
+      return;
+    }
+
     const local = getMoveAsOneProgress();
     group.current.rotation.y += delta * 0.12;
 

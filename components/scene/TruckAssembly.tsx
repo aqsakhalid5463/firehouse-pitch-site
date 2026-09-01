@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress, getExitProgress } from '@/lib/move-as-one-progress';
@@ -126,6 +127,7 @@ function driveGroup(
 
 export function TruckAssembly() {
   const group = useRef<THREE.Group>(null);
+  const pathname = usePathname();
   const chassisRef = useRef<THREE.Group>(null);
   const cabRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
@@ -174,7 +176,10 @@ export function TruckAssembly() {
       const show = clamp01(local / 0.03);
       // Past local >= 1 (pin released) the truck has fully driven off;
       // switch it off explicitly rather than relying on frustum culling.
-      group.current.visible = show > 0.01 && local < 1;
+      // The opening pin's ScrollTrigger (and therefore local) only ever
+      // advances on the home route, so it holds a stale value on
+      // /about — route-gate explicitly rather than trust it there.
+      group.current.visible = pathname !== '/about' && show > 0.01 && local < 1;
 
       const baseScale = 0.62 * show;
       // Recedes down the road (world -z, the same direction Highway's

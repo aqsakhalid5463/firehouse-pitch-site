@@ -203,7 +203,7 @@ export function Highway() {
   const roadGeometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(ROAD_HALF_WIDTH * 2.6, DASH_RANGE + 20, 1, 1);
     geo.rotateX(-Math.PI / 2);
-    geo.translate(0, 0, -(DASH_RANGE + 20) / 2 + DASH_NEAR);
+    geo.translate(0, ROAD_SURFACE_Y, -(DASH_RANGE + 20) / 2 + DASH_NEAR);
     return geo;
   }, []);
 

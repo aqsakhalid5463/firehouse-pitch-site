@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Firehouse Movers — Pitch Site
 
-## Getting Started
+A speculative redesign of firehousemovers.com. Two pages, one persistent
+WebGL canvas, scroll-driven camera and palette.
 
-First, run the development server:
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Testing
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test        # unit — scroll math, theme interpolation, camera spline
+npm run test:e2e  # Playwright smoke tests on both pages
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How it works
 
-## Learn More
+A single `<Canvas>` lives in `app/layout.tsx` behind all page content.
+Lenis writes a normalized scroll progress (0→1) into a Zustand store
+(`lib/scroll-store.ts`). That one value drives both halves of the page:
+`useFrame` samples the camera spline (`lib/camera-path.ts`) and
+interpolates scene colors, while a rAF loop writes the same theme values
+(`lib/theme.ts`) to CSS custom properties so the HTML tracks the 3D
+exactly.
 
-To learn more about Next.js, take a look at the following resources:
+All 3D geometry is procedural — three.js primitives and custom shaders,
+no external models or textures.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+WebGL is disabled under `prefers-reduced-motion` and below 768px, where a
+static CSS gradient takes its place. All copy is server-rendered and
+readable without JavaScript.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Design docs
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Spec: `docs/superpowers/specs/2026-09-01-firehouse-movers-pitch-site-design.md`
+- Plan: `docs/superpowers/plans/2026-09-01-firehouse-movers-pitch-site.md`

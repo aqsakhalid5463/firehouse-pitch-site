@@ -11,12 +11,13 @@ import { Embers } from './Embers';
 import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 import { COLORS } from '@/lib/constants';
+import { StaticBackdrop } from './StaticBackdrop';
 
 export function SceneCanvas() {
   const enabled = useCanvasEnabled();
   const [degraded, setDegraded] = useState(false);
 
-  if (!enabled) return null;
+  if (!enabled) return <StaticBackdrop />;
 
   return (
     <div
@@ -27,6 +28,8 @@ export function SceneCanvas() {
         dpr={degraded ? 1 : [1, 2]}
         gl={{ antialias: !degraded, powerPreference: 'high-performance' }}
         camera={{ position: [0, 0.2, 6], fov: 42 }}
+        eventSource={typeof document !== 'undefined' ? document.body : undefined}
+        eventPrefix="client"
       >
         <PerformanceMonitor
           onDecline={() => setDegraded(true)}

@@ -5,11 +5,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getScrollProgress } from '@/lib/scroll-store';
 import { themeAt } from '@/lib/theme';
+import { COLORS } from '@/lib/constants';
 
 export function ThemeSync() {
   const { scene } = useThree();
-  const fog = useRef(new THREE.Fog('#0D0B12', 6, 22));
-  const bg = useRef(new THREE.Color('#08070A'));
+  const fog = useRef(new THREE.Fog(COLORS.darkFog, 6, 22));
+  const bg = useRef(new THREE.Color(COLORS.darkBg));
 
   useFrame(() => {
     const theme = themeAt(getScrollProgress());

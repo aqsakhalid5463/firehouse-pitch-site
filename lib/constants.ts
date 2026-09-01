@@ -12,18 +12,22 @@ export const HERO_HEADLINE =
 export const COLORS = {
   darkBg: '#08070A',
   darkFog: '#0D0B12',
-  lightBg: '#F4F0E9',
-  lightFog: '#E8E2D6',
+  lightBg: '#F0F0EE',
+  lightFog: '#E3E3E0',
   ink: '#1A1917',
-  bone: '#F4F0E9',
+  bone: '#F0F0EE',
   fireRed: '#E23D28',
+  // Off-brand amber, retained only because tests/unit/constants.test.ts
+  // pins its value. Do not use it anywhere in the scene's visual
+  // language — the client's palette is red / white / black / dark-grey,
+  // and this warm orange is what read as "embers" in their feedback.
   emberAmber: '#FF8A3D',
   crateWood: '#8A6B4F',
   truckChassis: '#2A2A2F',
   truckWindshield: '#12121A',
   truckBoxBody: '#D8D2C6',
   truckCargo: '#9C7B5C',
-  headlightWhite: '#FFF1D8',
+  headlightWhite: '#F3F4F6',
   cardboardTan: '#C69A6D',
   cardboardTanDark: '#B08654',
   packingTape: '#E8D3AC',
@@ -35,7 +39,22 @@ export const COLORS = {
   truckGrille: '#1D1D22',
   tailLightRed: '#C81E1E',
   tailLightGlow: '#FF3B2E',
+  // Dark-grey / asphalt palette additions for the road (round 7: real
+  // road surface + painted, non-emissive markings, replacing the
+  // amber-emissive dash field).
+  asphaltDark: '#0F0F12',
+  asphaltPanel: '#18181C',
+  panelGrey: '#2B2B30',
+  roadMarkingWhite: '#EDEEF0',
+  roadMarkingDim: '#B8BABF',
 } as const;
+
+/**
+ * World-space Y of the road surface's top face. Exported so the truck
+ * (follow-up task) can sit its wheels exactly on the road instead of
+ * guessing a matching offset.
+ */
+export const ROAD_SURFACE_Y = -1.35;
 
 export const SECTIONS = {
   // The merged hero + Move-as-One pinned set-piece: hero copy, truck

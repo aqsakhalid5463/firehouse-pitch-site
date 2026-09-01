@@ -5,27 +5,117 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getScrollProgress } from '@/lib/scroll-store';
 import { themeAt } from '@/lib/theme';
-import { COLORS } from '@/lib/constants';
+import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 import { getExitProgress } from '@/lib/move-as-one-progress';
 
-// Three lanes: a dashed centre line and two edge-reflector lines. Kept
-// well under the old 2,600-point budget — two draw calls total, no
-// per-frame allocation, all motion driven by uTime in the vertex shader.
-const DASH_COUNT = 260;
-const MOTE_COUNT = 140;
+// Real road: a dark asphalt ground plane (subtle procedural sheen, no
+// texture) plus painted, non-emissive lane markings — a dashed centre
+// line and two solid edge lines. Everything streams toward the camera
+// via uTime in the vertex shaders; nothing here uses additive/emissive
+// blending, so it reads as lit paint and tarmac rather than glowing
+// strips. 3 draw calls total (road, all lane markings, distant
+// tail-lights), geometry/materials built once, no per-frame allocation.
+const CENTRE_DASH_COUNT = 40;
+const EDGE_SEGMENT_COUNT = 70; // per edge lane, densely packed (overlapping) to read as solid
+const EDGE_LANE_X = 1.7;
+const DASH_COUNT = CENTRE_DASH_COUNT + EDGE_SEGMENT_COUNT * 2;
+const TAIL_LIGHT_COUNT = 14;
 
 const DASH_RANGE = 60; // depth span the dashes loop across
 const DASH_NEAR = 11; // z at which dashes fade out (closest to camera)
 const DASH_FAR = -DASH_RANGE + DASH_NEAR; // z at which dashes fade back in
 
-const MOTE_RANGE = 44;
-const MOTE_NEAR = 7;
-const MOTE_FAR = -MOTE_RANGE + MOTE_NEAR;
+const TAIL_RANGE = 50;
+const TAIL_NEAR = 9;
+const TAIL_FAR = -TAIL_RANGE + TAIL_NEAR;
 
-const dashVertexShader = /* glsl */ `
+const ROAD_HALF_WIDTH = 4.6;
+
+// --- Road surface -----------------------------------------------------
+// A single large ground plane. Surface "character" comes from a cheap
+// value-noise field in the fragment shader, faked-lit against a fixed
+// key-light direction that roughly matches SceneCanvas's directional
+// light, so the sheen reads as wet asphalt catching the scene's lights
+// rather than a flat, dead void.
+const roadVertexShader = /* glsl */ `
+  varying vec2 vWorldXZ;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldXZ = worldPos.xz;
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+const roadFragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
-  attribute vec3 aOffset; // x, zSeed, laneKind (0 = centre dash, 1 = edge reflector)
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform vec3 uSheenColor;
+  uniform vec3 uHorizonColor;
+  varying vec2 vWorldXZ;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += amp * noise(p);
+      p *= 2.02;
+      amp *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    // Slow sheen crawl along the road so the wet-asphalt highlight
+    // drifts, reinforcing the sense of travel without any glow.
+    vec2 sampleP = vWorldXZ * vec2(0.6, 0.18) + vec2(0.0, uTime * 0.35);
+    float grain = fbm(sampleP);
+    float grainFine = fbm(vWorldXZ * 3.5) * 0.5;
+
+    vec3 base = mix(uColorA, uColorB, grain);
+    base = mix(base, base * 1.15, grainFine);
+
+    // Faked specular sheen from a fixed key light roughly overhead/front,
+    // narrow and streaky like wet tarmac.
+    float sheen = pow(clamp(grain, 0.0, 1.0), 6.0);
+    base += uSheenColor * sheen * 0.5;
+
+    // Depth fade: darken and fold toward a faint red horizon glow as the
+    // road recedes, then fade fully at the far edge so it dissolves into
+    // fog rather than hard-clipping.
+    float depth = clamp((-vWorldXZ.y) / 34.0, 0.0, 1.0);
+    float horizonBand = smoothstep(0.55, 1.0, depth) * (1.0 - smoothstep(0.9, 1.0, depth));
+    base = mix(base, uHorizonColor, horizonBand * 0.35);
+    float farFade = 1.0 - smoothstep(0.9, 1.0, depth);
+
+    gl_FragColor = vec4(base, uOpacity * farFade);
+  }
+`;
+
+// --- Lane markings ------------------------------------------------------
+// Instanced, non-emissive planes lying flat on the road. Alpha-blended
+// paint, not additive glow. A cheap fixed-light diffuse + narrow
+// specular term keeps them from reading as flat decals.
+const markingVertexShader = /* glsl */ `
+  uniform float uTime;
+  uniform float uOpacity;
+  attribute vec3 aOffset; // x, zSeed, laneKind (0 = centre dash, 1 = edge)
   attribute float aSpeed;
   varying float vAlpha;
   varying float vLane;
@@ -33,7 +123,7 @@ const dashVertexShader = /* glsl */ `
 
   void main() {
     float z = mod(aOffset.y + uTime * aSpeed, ${DASH_RANGE.toFixed(1)}) - ${(DASH_RANGE - DASH_NEAR).toFixed(1)};
-    vec3 worldPos = position + vec3(aOffset.x, -1.35, z);
+    vec3 worldPos = position + vec3(aOffset.x, ${ROAD_SURFACE_Y.toFixed(2)} + 0.004, z);
     vec4 mv = modelViewMatrix * vec4(worldPos, 1.0);
     gl_Position = projectionMatrix * mv;
 
@@ -45,22 +135,32 @@ const dashVertexShader = /* glsl */ `
   }
 `;
 
-const dashFragmentShader = /* glsl */ `
-  uniform vec3 uColorHot;
-  uniform vec3 uColorCool;
+const markingFragmentShader = /* glsl */ `
+  uniform vec3 uPaintWhite;
+  uniform vec3 uPaintDim;
   varying float vAlpha;
   varying float vLane;
   varying vec2 vUv;
 
   void main() {
-    float edgeFade = 1.0 - smoothstep(0.25, 0.5, abs(vUv.x - 0.5));
-    vec3 color = mix(uColorCool, uColorHot, vLane > 0.5 ? 0.85 : 0.35);
-    float glow = mix(0.55, 1.0, edgeFade);
-    gl_FragColor = vec4(color * glow, edgeFade * vAlpha);
+    float edgeFade = 1.0 - smoothstep(0.28, 0.5, abs(vUv.x - 0.5));
+    // Narrow specular streak down the middle of the line, like a wet
+    // painted strip catching light, without ever emitting on its own.
+    // Kept below ~0.8 luminance so it reads as lit paint rather than
+    // tripping the scene's bloom threshold into a glowing beam.
+    float highlight = pow(edgeFade, 4.0) * 0.18;
+    vec3 paint = mix(uPaintWhite, uPaintDim, vLane);
+    vec3 color = paint * (0.52 + highlight);
+    gl_FragColor = vec4(color, edgeFade * vAlpha);
   }
 `;
 
-const moteVertexShader = /* glsl */ `
+// --- Distant traffic ----------------------------------------------------
+// A small number of brand-red tail-light streaks receding ahead of the
+// viewer, on-palette and sparse — reads as distant traffic rather than
+// floating embers. These are genuine emitters (real tail lights glow),
+// so additive blending is appropriate here, unlike the road paint.
+const tailVertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
   attribute vec3 aOffset; // x, y, zSeed
@@ -70,43 +170,52 @@ const moteVertexShader = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
-    float z = mod(aOffset.z + uTime * aSpeed, ${MOTE_RANGE.toFixed(1)}) - ${(MOTE_RANGE - MOTE_NEAR).toFixed(1)};
+    float z = mod(aOffset.z + uTime * aSpeed, ${TAIL_RANGE.toFixed(1)}) - ${(TAIL_RANGE - TAIL_NEAR).toFixed(1)};
     vec3 worldCenter = vec3(aOffset.x, aOffset.y, z);
     vec4 mv = modelViewMatrix * vec4(worldCenter, 1.0);
-    // Billboard by displacing in view space so the streak always faces
-    // the camera, elongated along local x to read as a passing light
-    // rather than a round spark.
-    mv.xy += position.xy * vec2(aScale * 2.4, aScale * 0.14);
+    mv.xy += position.xy * vec2(aScale * 1.1, aScale * 0.85);
     gl_Position = projectionMatrix * mv;
 
-    float fadeNear = smoothstep(${MOTE_NEAR.toFixed(1)}, ${(MOTE_NEAR - 4.0).toFixed(1)}, z);
-    float fadeFar = smoothstep(${MOTE_FAR.toFixed(1)}, ${(MOTE_FAR + 10.0).toFixed(1)}, z);
+    float fadeNear = smoothstep(${TAIL_NEAR.toFixed(1)}, ${(TAIL_NEAR - 3.0).toFixed(1)}, z);
+    float fadeFar = smoothstep(${TAIL_FAR.toFixed(1)}, ${(TAIL_FAR + 9.0).toFixed(1)}, z);
     vAlpha = fadeNear * fadeFar * uOpacity;
     vUv = uv;
   }
 `;
 
-const moteFragmentShader = /* glsl */ `
-  uniform vec3 uColorHot;
-  uniform vec3 uColorWhite;
+const tailFragmentShader = /* glsl */ `
+  uniform vec3 uColor;
   varying float vAlpha;
   varying vec2 vUv;
 
   void main() {
-    float lengthFade = 1.0 - smoothstep(0.1, 0.5, abs(vUv.x - 0.5));
-    float widthFade = 1.0 - smoothstep(0.15, 0.5, abs(vUv.y - 0.5));
-    float streak = lengthFade * widthFade;
-    vec3 color = mix(uColorHot, uColorWhite, lengthFade);
-    gl_FragColor = vec4(color, streak * streak * vAlpha);
+    float d = distance(vUv, vec2(0.5));
+    float core = 1.0 - smoothstep(0.0, 0.5, d);
+    gl_FragColor = vec4(uColor, core * core * vAlpha * 0.8);
   }
 `;
 
 export function Highway() {
-  const dashPoints = useRef<THREE.Mesh>(null);
-  const motePoints = useRef<THREE.Mesh>(null);
+  const roadMesh = useRef<THREE.Mesh>(null);
+  const dashMesh = useRef<THREE.Mesh>(null);
+  const tailMesh = useRef<THREE.Mesh>(null);
 
+  const roadGeometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(ROAD_HALF_WIDTH * 2.6, DASH_RANGE + 20, 1, 1);
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, 0, -(DASH_RANGE + 20) / 2 + DASH_NEAR);
+    return geo;
+  }, []);
+
+  // A single instanced draw covers all lane markings: a dashed centre
+  // line (real gaps) plus two densely-packed, near-continuous edge
+  // lines, all sharing one small plane, one shader, one draw call. This
+  // replaced an earlier attempt at a second, separately-instanced mesh
+  // for the edge lines that silently failed to composite over the road
+  // plane at some camera angles — folding everything into the
+  // already-proven dash pipeline sidesteps that.
   const dashGeometry = useMemo(() => {
-    const base = new THREE.PlaneGeometry(0.14, 1.1);
+    const base = new THREE.PlaneGeometry(0.14, 0.9);
     base.rotateX(-Math.PI / 2);
 
     const geometry = new THREE.InstancedBufferGeometry();
@@ -116,15 +225,32 @@ export function Highway() {
 
     const offsets = new Float32Array(DASH_COUNT * 3);
     const speeds = new Float32Array(DASH_COUNT);
-    const lanePositions = [-1.7, 0, 1.7];
+    // A uniform speed keeps every lane's spacing crisp as the markings
+    // stream — per-instance speed variance would let segments drift
+    // into or apart from each other over time and blur the pattern.
+    const SPEED = 7.4;
+    let i = 0;
 
-    for (let i = 0; i < DASH_COUNT; i++) {
-      const laneIndex = i % 3;
-      const isCentre = laneIndex === 1;
-      offsets[i * 3] = lanePositions[laneIndex] + (isCentre ? 0 : (Math.random() - 0.5) * 0.08);
-      offsets[i * 3 + 1] = Math.random() * DASH_RANGE;
-      offsets[i * 3 + 2] = isCentre ? 0 : 1;
-      speeds[i] = isCentre ? 7 + Math.random() * 1.5 : 6.4 + Math.random() * 1.2;
+    for (let c = 0; c < CENTRE_DASH_COUNT; c++, i++) {
+      offsets[i * 3] = (Math.random() - 0.5) * 0.04;
+      // Evenly spaced with slight jitter so real gaps show between
+      // dashes (real spacing beats a fully random scatter, which
+      // overlaps).
+      offsets[i * 3 + 1] = (c / CENTRE_DASH_COUNT) * DASH_RANGE + (Math.random() - 0.5) * 0.3;
+      offsets[i * 3 + 2] = 0;
+      speeds[i] = SPEED;
+    }
+
+    for (const laneX of [-EDGE_LANE_X, EDGE_LANE_X]) {
+      for (let e = 0; e < EDGE_SEGMENT_COUNT; e++, i++) {
+        offsets[i * 3] = laneX;
+        // Packed tighter than the segment length (0.9 vs ~0.86 pitch)
+        // so consecutive segments overlap slightly — reads as a solid
+        // painted edge line rather than a dashed one.
+        offsets[i * 3 + 1] = (e / EDGE_SEGMENT_COUNT) * DASH_RANGE;
+        offsets[i * 3 + 2] = 1;
+        speeds[i] = SPEED;
+      }
     }
 
     geometry.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3));
@@ -133,94 +259,121 @@ export function Highway() {
     return geometry;
   }, []);
 
-  const moteGeometry = useMemo(() => {
+  const tailGeometry = useMemo(() => {
     const base = new THREE.PlaneGeometry(1, 1);
     const geometry = new THREE.InstancedBufferGeometry();
     geometry.index = base.index;
     geometry.attributes.position = base.attributes.position;
     geometry.attributes.uv = base.attributes.uv;
 
-    const offsets = new Float32Array(MOTE_COUNT * 3);
-    const speeds = new Float32Array(MOTE_COUNT);
-    const scales = new Float32Array(MOTE_COUNT);
+    const offsets = new Float32Array(TAIL_LIGHT_COUNT * 3);
+    const speeds = new Float32Array(TAIL_LIGHT_COUNT);
+    const scales = new Float32Array(TAIL_LIGHT_COUNT);
 
-    for (let i = 0; i < MOTE_COUNT; i++) {
-      offsets[i * 3] = (Math.random() - 0.5) * 9;
-      offsets[i * 3 + 1] = -0.6 + Math.random() * 2.2;
-      offsets[i * 3 + 2] = Math.random() * MOTE_RANGE;
-      speeds[i] = 3.5 + Math.random() * 4;
-      scales[i] = 0.09 + Math.random() * 0.14;
+    for (let i = 0; i < TAIL_LIGHT_COUNT; i++) {
+      const pairX = (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random() * 0.6);
+      offsets[i * 3] = pairX;
+      offsets[i * 3 + 1] = ROAD_SURFACE_Y + 0.22 + Math.random() * 0.1;
+      offsets[i * 3 + 2] = Math.random() * TAIL_RANGE;
+      speeds[i] = 2.2 + Math.random() * 2.0;
+      scales[i] = 0.055 + Math.random() * 0.03;
     }
 
     geometry.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3));
     geometry.setAttribute('aSpeed', new THREE.InstancedBufferAttribute(speeds, 1));
     geometry.setAttribute('aScale', new THREE.InstancedBufferAttribute(scales, 1));
-    geometry.instanceCount = MOTE_COUNT;
+    geometry.instanceCount = TAIL_LIGHT_COUNT;
     return geometry;
   }, []);
+
+  const roadUniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uOpacity: { value: 1 },
+      uColorA: { value: new THREE.Color(COLORS.asphaltDark) },
+      uColorB: { value: new THREE.Color(COLORS.asphaltPanel) },
+      uSheenColor: { value: new THREE.Color(COLORS.headlightWhite) },
+      uHorizonColor: { value: new THREE.Color(COLORS.fireRed) },
+    }),
+    [],
+  );
 
   const dashUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
       uOpacity: { value: 1 },
-      uColorHot: { value: new THREE.Color(COLORS.emberAmber) },
-      uColorCool: { value: new THREE.Color(COLORS.fireRed) },
+      uPaintWhite: { value: new THREE.Color(COLORS.roadMarkingWhite) },
+      uPaintDim: { value: new THREE.Color(COLORS.roadMarkingDim) },
     }),
     [],
   );
 
-  const moteUniforms = useMemo(
+  const tailUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
       uOpacity: { value: 1 },
-      uColorHot: { value: new THREE.Color(COLORS.emberAmber) },
-      uColorWhite: { value: new THREE.Color(COLORS.headlightWhite) },
+      uColor: { value: new THREE.Color(COLORS.fireRed) },
     }),
     [],
   );
 
   useFrame((_, delta) => {
     const opacity = themeAt(getScrollProgress()).emberOpacity;
-    // Ramps the dash/mote streaming speed up to 1.6x during the truck's
-    // drive-away so the whole highway feels like it accelerates with it —
-    // subtle (eased, capped), meant to register as energy rather than a
-    // speed-up glitch.
+    // Ramps the marking/tail-light streaming speed up to 1.6x during the
+    // truck's drive-away so the whole highway feels like it accelerates
+    // with it — subtle (eased, capped), meant to register as energy
+    // rather than a speed-up glitch.
     const exit = getExitProgress();
     const speedBoost = 1 + 0.6 * (exit * exit);
     const boostedDelta = delta * speedBoost;
 
-    const dashMat = dashPoints.current?.material as THREE.ShaderMaterial | undefined;
+    const roadMat = roadMesh.current?.material as THREE.ShaderMaterial | undefined;
+    if (roadMat) {
+      roadMat.uniforms.uTime.value += boostedDelta;
+      roadMat.uniforms.uOpacity.value = opacity;
+    }
+
+    const dashMat = dashMesh.current?.material as THREE.ShaderMaterial | undefined;
     if (dashMat) {
       dashMat.uniforms.uTime.value += boostedDelta;
       dashMat.uniforms.uOpacity.value = opacity;
     }
 
-    const moteMat = motePoints.current?.material as THREE.ShaderMaterial | undefined;
-    if (moteMat) {
-      moteMat.uniforms.uTime.value += boostedDelta;
-      moteMat.uniforms.uOpacity.value = opacity;
+    const tailMat = tailMesh.current?.material as THREE.ShaderMaterial | undefined;
+    if (tailMat) {
+      tailMat.uniforms.uTime.value += boostedDelta;
+      tailMat.uniforms.uOpacity.value = opacity;
     }
   });
 
   return (
     <>
-      <mesh ref={dashPoints} frustumCulled={false}>
+      <mesh ref={roadMesh} frustumCulled={false} renderOrder={-1}>
+        <primitive object={roadGeometry} attach="geometry" />
+        <shaderMaterial
+          uniforms={roadUniforms}
+          vertexShader={roadVertexShader}
+          fragmentShader={roadFragmentShader}
+          transparent
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={dashMesh} frustumCulled={false}>
         <primitive object={dashGeometry} attach="geometry" />
         <shaderMaterial
           uniforms={dashUniforms}
-          vertexShader={dashVertexShader}
-          fragmentShader={dashFragmentShader}
+          vertexShader={markingVertexShader}
+          fragmentShader={markingFragmentShader}
           transparent
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
         />
       </mesh>
-      <mesh ref={motePoints} frustumCulled={false}>
-        <primitive object={moteGeometry} attach="geometry" />
+      <mesh ref={tailMesh} frustumCulled={false}>
+        <primitive object={tailGeometry} attach="geometry" />
         <shaderMaterial
-          uniforms={moteUniforms}
-          vertexShader={moteVertexShader}
-          fragmentShader={moteFragmentShader}
+          uniforms={tailUniforms}
+          vertexShader={tailVertexShader}
+          fragmentShader={tailFragmentShader}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}

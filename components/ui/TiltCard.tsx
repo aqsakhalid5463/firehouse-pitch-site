@@ -47,7 +47,7 @@ export function TiltCard({
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 hover:opacity-100"
         style={{
           background:
-            'radial-gradient(400px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-ember) 14%, transparent), transparent 60%)',
+            'radial-gradient(400px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-fire) 14%, transparent), transparent 60%)',
         }}
       />
       <div className="relative">{children}</div>

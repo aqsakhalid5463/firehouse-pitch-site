@@ -16,8 +16,13 @@ describe('constants', () => {
 
   it('carries the exact palette', () => {
     expect(COLORS.darkBg).toBe('#08070A');
-    expect(COLORS.lightBg).toBe('#F4F0E9');
+    // Round 7: shifted off cream toward a clean off-white/light-grey per
+    // client feedback ("their colour theme is red / white / black /
+    // dark-grey") — cream is not in that palette.
+    expect(COLORS.lightBg).toBe('#F0F0EE');
     expect(COLORS.fireRed).toBe('#E23D28');
+    // Off-brand amber; value pinned but no longer used anywhere in the
+    // scene's visual language (see lib/constants.ts comment).
     expect(COLORS.emberAmber).toBe('#FF8A3D');
   });
 

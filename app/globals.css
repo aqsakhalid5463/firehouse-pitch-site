@@ -3,18 +3,21 @@
 @theme {
   --color-dark-bg: #08070A;
   --color-dark-fog: #0D0B12;
-  --color-light-bg: #F4F0E9;
-  --color-light-fog: #E8E2D6;
+  --color-light-bg: #F0F0EE;
+  --color-light-fog: #E3E3E0;
   --color-ink: #1A1917;
-  --color-bone: #F4F0E9;
+  --color-bone: #F0F0EE;
   --color-fire: #E23D28;
+  /* Off-brand amber; kept only so existing token references resolve.
+     Do not use for new UI — see lib/constants.ts. */
   --color-ember: #FF8A3D;
+  --color-panel-grey: #2B2B30;
 }
 
 :root {
   /* Driven at runtime by the scroll pipeline (Task 3). */
   --page-bg: #08070A;
-  --page-ink: #F4F0E9;
+  --page-ink: #F0F0EE;
 }
 
 html {
@@ -41,7 +44,7 @@ body {
 
 @media (scripting: none) {
   :root {
-    --page-bg: #F4F0E9;
+    --page-bg: #F0F0EE;
     --page-ink: #1A1917;
   }
 }

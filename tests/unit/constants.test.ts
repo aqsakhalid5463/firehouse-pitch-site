@@ -21,9 +21,6 @@ describe('constants', () => {
     // dark-grey") — cream is not in that palette.
     expect(COLORS.lightBg).toBe('#F0F0EE');
     expect(COLORS.fireRed).toBe('#E23D28');
-    // Off-brand amber; value pinned but no longer used anywhere in the
-    // scene's visual language (see lib/constants.ts comment).
-    expect(COLORS.emberAmber).toBe('#FF8A3D');
   });
 
   it('defines contiguous section ranges covering 0 to 1', () => {

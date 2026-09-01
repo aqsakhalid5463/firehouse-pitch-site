@@ -10,7 +10,6 @@
   --color-fire: #E23D28;
   /* Off-brand amber; kept only so existing token references resolve.
      Do not use for new UI — see lib/constants.ts. */
-  --color-ember: #FF8A3D;
   --color-panel-grey: #2B2B30;
 }
 

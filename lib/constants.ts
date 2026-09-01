@@ -21,7 +21,6 @@ export const COLORS = {
   // pins its value. Do not use it anywhere in the scene's visual
   // language — the client's palette is red / white / black / dark-grey,
   // and this warm orange is what read as "embers" in their feedback.
-  emberAmber: '#FF8A3D',
   crateWood: '#8A6B4F',
   truckChassis: '#2A2A2F',
   truckWindshield: '#12121A',

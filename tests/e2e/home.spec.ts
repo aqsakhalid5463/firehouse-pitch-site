@@ -97,3 +97,47 @@ for (const [w, h] of [
     }
   });
 }
+
+test('headings lean into a scroll and settle back straight', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(400);
+
+  const skews = () =>
+    page.evaluate(() => {
+      const out: number[] = [];
+      for (const h of document.querySelectorAll('h1,h2')) {
+        const r = h.getBoundingClientRect();
+        if (r.bottom < -100 || r.top > window.innerHeight + 100) continue;
+        const m = new DOMMatrixReadOnly(getComputedStyle(h).transform);
+        out.push((Math.atan2(m.b, m.a) * 180) / Math.PI);
+      }
+      return out;
+    });
+
+  for (let i = 0; i < 14; i++) {
+    await page.mouse.wheel(0, 260);
+    await page.waitForTimeout(60);
+  }
+
+  // Mid-flick the heading should actually be leaning, or the effect is
+  // not doing anything.
+  const during = await Promise.all([
+    (async () => {
+      for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 900);
+    })(),
+    (async () => {
+      await page.waitForTimeout(120);
+      return skews();
+    })(),
+  ]).then((r) => r[1]);
+  expect(Math.max(...during.map(Math.abs))).toBeGreaterThan(0.5);
+  // ...but never past the clamp, which is what keeps it readable.
+  expect(Math.max(...during.map(Math.abs))).toBeLessThanOrEqual(5.01);
+
+  // The spring targets zero, so a heading is never left crooked. This is
+  // the whole reason the lean is safe at a visible amplitude.
+  await page.waitForTimeout(2500);
+  for (const s of await skews()) expect(Math.abs(s)).toBeLessThan(0.01);
+});

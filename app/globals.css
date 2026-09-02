@@ -47,3 +47,24 @@ body {
 /* No JS: the custom properties above already hold the final dark
    palette, so there is nothing to override — the page renders in the
    same colours it would with the scroll pipeline running. */
+
+/* Very slow, very small drifts for the background field's glows
+   (components/ui/PageField). The motion has to be barely perceptible:
+   anything faster reads as a loading shimmer rather than atmosphere. */
+@keyframes field-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(6%, 4%, 0); }
+}
+
+@keyframes field-drift-slow {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-5%, -6%, 0); }
+}
+
+.animate-field-drift {
+  animation: field-drift 34s ease-in-out infinite;
+}
+
+.animate-field-drift-slow {
+  animation: field-drift-slow 46s ease-in-out infinite;
+}

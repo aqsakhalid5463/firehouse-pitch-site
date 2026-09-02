@@ -1,6 +1,6 @@
 import { SERVICES } from '@/lib/content';
 import { RevealText } from '@/components/ui/RevealText';
-import { TiltCard } from '@/components/ui/TiltCard';
+import { ServiceCard } from '@/components/ui/ServiceCard';
 
 export function Services() {
   return (
@@ -12,20 +12,27 @@ export function Services() {
         >
           Everything a move needs, under one roof
         </RevealText>
-        <div className="mt-20 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+
+        {/* Two wide columns rather than a three-up grid, with the right
+            column dropped half a card. The offset is what lets the
+            ribbon thread between the columns instead of running behind
+            a solid wall of cards, and it keeps the eye moving down the
+            page in a zigzag instead of scanning flat rows. */}
+        <div className="mt-24 grid gap-x-12 gap-y-20 md:grid-cols-2">
           {SERVICES.map((service, i) => (
-            <TiltCard
-              key={service.title}
-              className={i % 4 === 0 ? 'lg:row-span-1 lg:mt-12' : ''}
-            >
-              <div className="p-8">
-                <span className="text-xs font-semibold tracking-[0.2em] opacity-40">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <h3 className="mt-6 text-2xl font-semibold">{service.title}</h3>
-                <p className="mt-4 leading-relaxed opacity-70">{service.body}</p>
-              </div>
-            </TiltCard>
+            <div key={service.title} className={i % 2 === 1 ? 'md:mt-28' : ''}>
+              <ServiceCard
+                index={i}
+                title={service.title}
+                body={service.body}
+                image={service.image}
+                alt={service.alt}
+                // Alternating aspect ratios so the two columns never
+                // line up into an accidental grid.
+                tall={i % 2 === 0}
+                priority={i < 2}
+              />
+            </div>
           ))}
         </div>
       </div>

@@ -1,26 +1,38 @@
 export const SERVICES = [
   {
     title: 'Local Moving',
+    image: '/images/local.jpg',
+    alt: 'A Firehouse Movers crew loading a truck on a residential street',
     body: 'Same-day and next-day moves across Lewisville and the greater DFW area, with crews who know the neighborhoods.',
   },
   {
     title: 'Long-Distance',
+    image: '/images/long_distance.jpg',
+    alt: 'A Firehouse Movers truck on the highway between states',
     body: 'Federally licensed for interstate relocation. One crew, one truck, one point of contact from door to door.',
   },
   {
     title: 'Residential',
+    image: '/images/resident.jpg',
+    alt: 'Movers carrying wrapped furniture out of a family home',
     body: 'Apartments to estates. We wrap, pad, load, and place every piece exactly where you want it.',
   },
   {
     title: 'Commercial',
+    image: '/images/commercial.jpg',
+    alt: 'An office being packed down into labelled crates after hours',
     body: 'Office and retail relocations planned around your downtime, executed after hours and over weekends.',
   },
   {
     title: 'Packing',
+    image: '/images/packing.jpg',
+    alt: 'Fragile items being wrapped and boxed by a packing crew',
     body: 'Full or partial packing with materials rated for fragile, high-value, and oversized items.',
   },
   {
     title: 'Storage',
+    image: '/images/storage.jpg',
+    alt: 'Inventoried household goods inside a climate-controlled storage bay',
     body: 'Climate-controlled short and long-term storage with full inventory tracking on every item.',
   },
 ] as const;

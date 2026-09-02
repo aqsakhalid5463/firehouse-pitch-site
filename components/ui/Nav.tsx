@@ -3,8 +3,12 @@ import { BUSINESS } from '@/lib/constants';
 
 export function Nav() {
   return (
+    // The nav floats over whatever is beneath it — the 3D scene at the
+    // top, then photographs and headings further down — so it carries
+    // its own scrim. Without it the links collided illegibly with the
+    // service headings and card images.
     <header
-      className="fixed inset-x-0 top-0 z-50"
+      className="fixed inset-x-0 top-0 z-50 bg-gradient-to-b from-dark-bg/85 via-dark-bg/50 to-transparent pb-4 backdrop-blur-[2px]"
       style={{ color: 'var(--page-ink)' }}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">

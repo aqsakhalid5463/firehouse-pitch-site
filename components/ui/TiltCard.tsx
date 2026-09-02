@@ -34,7 +34,7 @@ export function TiltCard({
       ref={ref}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
-      className={`relative overflow-hidden rounded-2xl border border-current/10 bg-current/[0.03] backdrop-blur-sm transition-transform duration-300 ease-out ${className}`}
+      className={`group relative overflow-hidden rounded-2xl border border-current/10 bg-current/[0.03] backdrop-blur-sm transition-transform duration-300 ease-out ${className}`}
       style={
         {
           '--mx': '50%',
@@ -44,7 +44,9 @@ export function TiltCard({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 hover:opacity-100"
+        // The glow layer is pointer-events-none, so it can never be
+        // hovered itself — it has to react to the card being hovered.
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
           background:
             'radial-gradient(400px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-fire) 14%, transparent), transparent 60%)',

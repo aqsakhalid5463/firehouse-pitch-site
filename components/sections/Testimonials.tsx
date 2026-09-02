@@ -36,9 +36,21 @@ export function Testimonials() {
 
   return (
     <section className="relative overflow-hidden py-32">
-      <h2 className="mx-auto mb-16 max-w-7xl px-6 text-xs font-semibold tracking-[0.3em] uppercase opacity-50">
+      <h2 className="mx-auto mb-16 max-w-7xl px-6 text-xs font-semibold tracking-[0.3em] uppercase text-bone/50">
         What our customers say
       </h2>
+
+      {/* The marquee runs edge to edge, so without these the cards get
+          guillotined by the viewport. Fading them into the page colour
+          reads as the row continuing off-screen instead. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-dark-bg to-transparent"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-dark-bg to-transparent"
+      />
       <div
         ref={track}
         className="flex w-max gap-6 px-6 will-change-transform"
@@ -49,16 +61,33 @@ export function Testimonials() {
             <figure
               key={i}
               aria-hidden={isDuplicate || undefined}
-              className="w-[min(88vw,26rem)] shrink-0 rounded-2xl border border-current/15 p-8"
+              className="group relative flex w-[min(88vw,28rem)] shrink-0 flex-col justify-between overflow-hidden rounded-3xl bg-bone/[0.04] p-9 ring-1 ring-bone/10 transition-colors duration-500 hover:bg-bone/[0.07] hover:ring-fire/40"
             >
-              <div aria-hidden="true" className="text-fire">
-                ★★★★★
-              </div>
-              <blockquote className="mt-6 text-lg leading-relaxed">
-                “{t.quote}”
+              {/* Oversized punctuation as a graphic element rather than
+                  a glyph to read — hence aria-hidden and the low
+                  opacity; the quote itself is in the blockquote. */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-8 right-4 font-serif text-[9rem] leading-none text-fire/15 transition-colors duration-500 group-hover:text-fire/25"
+              >
+                &rdquo;
+              </span>
+
+              <blockquote className="relative text-xl leading-relaxed text-bone/90">
+                {t.quote}
               </blockquote>
-              <figcaption className="mt-6 text-sm opacity-60">
-                {t.name} · {t.detail}
+
+              <figcaption className="relative mt-10 flex items-center gap-4 border-t border-bone/10 pt-6">
+                <span
+                  aria-hidden="true"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-fire/15 text-sm font-semibold text-fire"
+                >
+                  {t.name.charAt(0)}
+                </span>
+                <span className="text-sm leading-snug">
+                  <span className="block font-medium text-bone/90">{t.name}</span>
+                  <span className="block text-bone/50">{t.detail}</span>
+                </span>
               </figcaption>
             </figure>
           );

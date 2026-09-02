@@ -34,7 +34,13 @@ export function HeroCopy() {
             its generous size while its own grid row shrank around it,
             spilling "Move as One" into the CTAs below (round 17
             regression). */}
-        <p className="mb-[clamp(1rem,4vh,2rem)] text-xs font-semibold tracking-[0.3em] uppercase opacity-60">
+        {/* Round 20: raised from opacity-60. At 12px, semibold, and
+            letter-spaced to 0.3em, 60% bone renders as a mid-grey that
+            the client read as hidden entirely — the wide tracking
+            leaves each stroke isolated with nothing around it to carry
+            the eye. 80% still sits clearly below the headline's full
+            strength, so it reads as secondary without disappearing. */}
+        <p className="mb-[clamp(1rem,4vh,2rem)] text-xs font-semibold tracking-[0.3em] uppercase opacity-80">
           Lewisville, Texas · Licensed &amp; Insured
         </p>
         <RevealText

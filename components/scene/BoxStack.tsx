@@ -304,7 +304,19 @@ export function BoxStack() {
     // rolling shut (see TruckAssembly's DOOR_CLOSE_START) — so all three
     // boxes have fully "become" the truck's cargo, resting still, before
     // the door closes and the truck drives off.
-    const p = clamp01(local / 0.75);
+    //
+    // Round 19: the window's *start* is held back to BOX_TRAVEL_START
+    // rather than beginning the instant local > 0 — previously box 0
+    // (loadDelay 0) started sweeping toward the truck immediately, while
+    // the hero copy (see Opening.tsx's applyProgress) was still fully or
+    // mostly opaque, so a large box crossed directly through legible
+    // text. BOX_TRAVEL_START sits just after the hero copy's own fade
+    // finishes (opacity reaches 0 at progress 0.14), so no box begins
+    // moving until the text column is already empty — a clean handoff
+    // instead of an overlap. p still reaches 1 at local = 0.75 exactly
+    // as before, so the door-close coupling is unaffected.
+    const BOX_TRAVEL_START = 0.16;
+    const p = clamp01((local - BOX_TRAVEL_START) / (0.75 - BOX_TRAVEL_START));
 
     BOX_SPECS.forEach((spec, i) => {
       const g = boxRefs.current[i];
@@ -323,7 +335,17 @@ export function BoxStack() {
       // the hero stack yet.
       const delayedP = clamp01((p - spec.loadDelay) / (1 - spec.loadDelay));
       const approachEase = 1 - Math.pow(1 - clamp01(delayedP / 0.6), 3);
-      const enterT = clamp01((delayedP - 0.55) / 0.45);
+      // Round 19: enterT's start was brought forward from 0.55 to 0.32
+      // (still finishing at delayedP = 1, so the final in-bay
+      // position/size — verified by CARGO_FIT below — is unchanged) so
+      // the LOAD_SHRINK scale-down begins well before the box reaches
+      // the truck instead of mostly after. Previously a box was still at
+      // ~full hero scale for most of its approach, so during the part of
+      // the travel where the box and the truck were both in frame
+      // together the box visibly dwarfed the whole vehicle. Shrinking
+      // earlier means the box is already close to its believable in-bay
+      // size by the time it's alongside the truck.
+      const enterT = clamp01((delayedP - 0.32) / 0.68);
       const enterEase = enterT * enterT * (3 - 2 * enterT);
 
       const bob = Math.sin(state.clock.elapsedTime * 0.5 + i) * 0.06 * (1 - approachEase);

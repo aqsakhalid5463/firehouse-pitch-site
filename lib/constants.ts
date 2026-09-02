@@ -40,6 +40,11 @@ export const COLORS = {
   panelGrey: '#2B2B30',
   roadMarkingWhite: '#EDEEF0',
   roadMarkingDim: '#B8BABF',
+  // Silvery glass tint for translucent frosted-glass UI panels (the hero
+  // subhead backing). Mirrors app/globals.css's --color-silver-glass so
+  // Tailwind classes (bg-glass-silver/…) and any non-Tailwind consumer
+  // resolve to the same value instead of a re-typed hex literal.
+  silverGlass: '#C7CBD1',
 } as const;
 
 /**

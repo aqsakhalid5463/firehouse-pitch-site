@@ -11,6 +11,11 @@
   /* Off-brand amber; kept only so existing token references resolve.
      Do not use for new UI — see lib/constants.ts. */
   --color-panel-grey: #2B2B30;
+  /* Silvery glass tint for translucent frosted panels (e.g. the hero
+     subhead backing) — see lib/constants.ts COLORS.silverGlass, which
+     mirrors this value so non-Tailwind (three.js) code can reference the
+     same token instead of a re-typed hex literal. */
+  --color-silver-glass: #C7CBD1;
 }
 
 :root {

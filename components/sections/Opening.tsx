@@ -66,9 +66,16 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         setMoveAsOneProgress(progress);
 
         // Hero copy is visible at rest and fades out as the truck takes
-        // over the frame, fully gone before the boxes finish loading.
+        // over the frame. Round 19: pulled this window sharply earlier
+        // (was 0.18 -> 0.40) and compressed it, so the copy is fully
+        // gone by progress 0.14 — well before BoxStack's own travel
+        // start at BOX_TRAVEL_START (0.16, see BoxStack.tsx), instead of
+        // still being half-opaque while box 0 was already most of the
+        // way through its sweep across the text column. This is the
+        // "clean handoff": copy fades out completely, only then do the
+        // boxes begin moving.
         if (hero) {
-          const heroT = 1 - gsap.utils.clamp(0, 1, (progress - 0.18) / (0.4 - 0.18));
+          const heroT = 1 - gsap.utils.clamp(0, 1, (progress - 0.04) / (0.14 - 0.04));
           gsap.set(hero, { opacity: heroT });
           // The scrim exists only to help the hero copy read against the
           // road; once that copy is gone (loading/departure beats) there

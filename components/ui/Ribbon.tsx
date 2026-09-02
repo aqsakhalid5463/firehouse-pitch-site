@@ -30,20 +30,6 @@ import { clamp01 } from '@/lib/scroll-math';
  * road's vanishing point sits, so the ribbon reads as the road
  * continuing rather than as a new element appearing.
  */
-/**
- * Waypoints, generated from a fixed seed rather than written by hand.
- *
- * Hand-placed points kept betraying a pattern — first a strict
- * left-right alternation, then a hand-varied version that still had an
- * obvious rhythm, because a person choosing "random" numbers does not
- * produce runs, near-repeats, or the occasional barely-there turn that
- * real randomness contains. A seeded generator does, and seeding it
- * keeps the road identical on every load and between server and client.
- *
- * Constraints on the raw random values: each step down the page is a
- * different height, and each new x must be a real distance from the last
- * so the line always commits to a turn instead of wobbling in place.
- */
 function seeded(seed: number) {
   let s = seed;
   return () => {
@@ -52,32 +38,75 @@ function seeded(seed: number) {
   };
 }
 
-const WAYPOINTS: readonly (readonly [number, number])[] = (() => {
-  const rand = seeded(918273);
-  // Starts off the left edge and above the top of the section, so the
-  // road is already travelling when it enters view rather than
-  // appearing to begin in mid-air.
-  const pts: [number, number][] = [[-0.22, 0.005]];
+/**
+ * Waypoints, walked like a vehicle rather than picked point by point.
+ *
+ * Choosing each x independently — however well randomised — produces a
+ * snake. Independent draws from the same range keep landing on opposite
+ * sides of the middle, so the line crosses the centre on almost every
+ * leg and the eye reads a regular left-right weave no matter how varied
+ * the individual numbers are.
+ *
+ * This instead carries a heading and perturbs it. Turns accumulate, so
+ * the road can hold a direction for two or three legs, bend gradually,
+ * or double back — the things an actual route does and a per-point
+ * random never produces. Occasionally the perturbation is large enough
+ * to be a real change of direction; usually it is not.
+ *
+ * Seeded, so the road is identical on every load and between server and
+ * client. Each page passes its own seed, so Home and About get visibly
+ * different roads out of the same generator.
+ */
+function buildWaypoints(seed: number): [number, number][] {
+  const rand = seeded(seed);
+  const pts: [number, number][] = [];
+
+  let x = -0.22;
   let y = 0.005;
-  let prevX = -0.22;
+  // Heading measured from straight-down, so 0 runs down the page. It
+  // starts angled right because the road enters from off the left edge.
+  let heading = 0.3;
+  pts.push([x, y]);
 
   while (y < 0.9) {
-    // Uneven vertical spacing: some legs are long runs, some are quick
-    // successive turns.
-    y += 0.05 + rand() * 0.085;
-    let x = 0.1 + rand() * 0.8;
-    // Reject a turn too small to read as a turn, and push it out to the
-    // side it was already leaning toward.
-    if (Math.abs(x - prevX) < 0.2) x += x > prevX ? 0.24 : -0.24;
-    x = Math.min(0.93, Math.max(0.07, x));
-    pts.push([x, Math.min(y, 0.9)]);
-    prevX = x;
+    // Most steps bend the heading a little; the tail of the
+    // distribution supplies the occasional hard turn.
+    const swing = rand();
+    heading += (rand() - 0.5) * (swing > 0.75 ? 3.6 : 1.9);
+    // A gentle pull back toward the middle of the page. Without it the
+    // heading saturates: a run of same-signed perturbations sends the
+    // road off to one side and nothing ever brings it back, so it
+    // becomes a long diagonal drift. The pull is proportional to how
+    // far out it already is, so it curves the road back the way a real
+    // route bends around terrain — and because it competes with a much
+    // larger random term it never turns into a regular oscillation.
+    heading -= (x - 0.5) * 0.75;
+    // Never let the road head back up the page: it has to keep making
+    // downward progress or the walk stalls and crosses itself. This is
+    // also what makes the arc-length bisection below valid.
+    heading = Math.max(-1.2, Math.min(1.2, heading));
+
+    const step = 0.05 + rand() * 0.085;
+    x += Math.sin(heading) * step * 2.1;
+    y += Math.cos(heading) * step;
+
+    // Bounce off the edges rather than clamping flat against them,
+    // which would leave the road running along the margin.
+    if (x < 0.06) {
+      x = 0.06 + (0.06 - x);
+      heading = Math.abs(heading);
+    } else if (x > 0.94) {
+      x = 0.94 - (x - 0.94);
+      heading = -Math.abs(heading);
+    }
+
+    pts.push([x, Math.min(y, 0.92)]);
   }
 
   // Leaves past the right edge, so the tail is not seen to stop.
   pts.push([1.22, Math.min(0.99, y + 0.07)]);
   return pts;
-})();
+}
 
 /**
  * Builds a smooth cubic path through every waypoint using Catmull-Rom
@@ -85,8 +114,12 @@ const WAYPOINTS: readonly (readonly [number, number])[] = (() => {
  * would not guarantee tangent continuity at the joins, and any kink
  * shows up as a visible corner in a stroke this heavy.
  */
-function buildPath(w: number, h: number): string {
-  const pts = WAYPOINTS.map(([fx, fy]) => [fx * w, fy * h] as const);
+function buildPath(
+  w: number,
+  h: number,
+  waypoints: readonly (readonly [number, number])[],
+): string {
+  const pts = waypoints.map(([fx, fy]) => [fx * w, fy * h] as const);
   let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i];
@@ -105,7 +138,7 @@ function buildPath(w: number, h: number): string {
 /** Stroke width of the road surface itself, in CSS pixels. */
 const ROAD_WIDTH = 22;
 
-export function Ribbon() {
+export function Ribbon({ seed = 918273 }: { seed?: number }) {
   const host = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const maskPathRef = useRef<SVGPathElement>(null);
@@ -134,9 +167,10 @@ export function Ribbon() {
     return () => ro.disconnect();
   }, []);
 
+  const waypoints = useMemo(() => buildWaypoints(seed), [seed]);
   const d = useMemo(
-    () => (size.w > 0 ? buildPath(size.w, size.h) : ''),
-    [size.w, size.h],
+    () => (size.w > 0 ? buildPath(size.w, size.h, waypoints) : ''),
+    [size.w, size.h, waypoints],
   );
 
   useEffect(() => {
@@ -174,13 +208,38 @@ export function Ribbon() {
     }
 
     let raf = 0;
+    // Arc length whose point sits at a given container-space y.
+    //
+    // The naive mapping — progress = how far down the container the
+    // viewport centre is — assumes the path advances its y at a constant
+    // rate, which a meandering road does not: wherever it runs sideways
+    // it covers a lot of length for very little height, and the tip
+    // races ahead of the reader there and lags behind on the steep
+    // stretches. Solving for the length whose point is level with the
+    // viewport centre pins the truck to the middle of the screen no
+    // matter what the road is doing locally.
+    //
+    // Bisection is valid because the walk never heads back up the page
+    // (see buildWaypoints), so y increases monotonically along the path.
+    const lengthAtY = (targetY: number) => {
+      let lo = 0;
+      let hi = length;
+      // ~20 iterations resolves a page of any realistic height to well
+      // under a pixel.
+      for (let i = 0; i < 20; i++) {
+        const midL = (lo + hi) / 2;
+        if (path.getPointAtLength(midL).y < targetY) lo = midL;
+        else hi = midL;
+      }
+      return (lo + hi) / 2;
+    };
+
     const tick = () => {
       const r = el.getBoundingClientRect();
-      // Draw against the viewport's midpoint rather than its top edge,
-      // so the tip of the line sits where the reader is actually
-      // looking instead of racing ahead off-screen.
-      const mid = window.innerHeight / 2;
-      const progress = clamp01((mid - r.top) / (r.height || 1));
+      // The viewport's vertical centre, expressed in the container's
+      // own coordinates.
+      const targetY = window.innerHeight / 2 - r.top;
+      const progress = clamp01(lengthAtY(targetY) / (length || 1));
 
       const offset = `${length * (1 - progress)}`;
       revealed.forEach((p) => {
@@ -203,8 +262,15 @@ export function Ribbon() {
           `translate(${at.x} ${at.y}) rotate(${angle})`,
         );
         // Hide the truck until the line has actually started, otherwise
-        // it sits parked at the top waiting to be noticed.
-        g.style.opacity = progress > 0.005 && progress < 0.999 ? '1' : '0';
+        // it sits parked at the top waiting to be noticed — and also
+        // whenever it is outside the frame horizontally. The road enters
+        // and leaves past the left and right edges, so being on the path
+        // is not the same as being on screen: without the second test
+        // the truck sat off-frame at full opacity for the whole entry
+        // run, and any stray shadow of it showed at the margin.
+        const onScreen = at.x > -20 && at.x < size.w + 20;
+        g.style.opacity =
+          progress > 0.005 && progress < 0.999 && onScreen ? '1' : '0';
       }
 
       raf = requestAnimationFrame(tick);

@@ -27,7 +27,8 @@ export default function Home() {
             page it is meant to connect. */}
         <div className="relative z-10">
           <PageField />
-          <Ribbon />
+          {/* Seeded so Home and About get visibly different roads. */}
+          <Ribbon seed={918273} />
           <Services />
           <Process />
           <Guarantees />

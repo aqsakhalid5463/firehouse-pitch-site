@@ -25,7 +25,9 @@ export default function About() {
             carries the whole page rather than picking up from a road. */}
         <div className="relative z-10">
           <PageField />
-          <Ribbon />
+          {/* A different seed from the home page's, so the two pages do
+              not repeat the same road. */}
+          <Ribbon seed={5512094} />
           <AboutHero />
           <Story />
           <Values />

@@ -34,6 +34,12 @@ export const COLORS = {
   truckTyre: '#0C0C0F',
   truckRim: '#8A8E96',
   truckGrille: '#1D1D22',
+  // The trailer's body red, traced from public/images/two_trucks.jpg.
+  // Deliberately deeper than fireRed: the brand accent is a bright
+  // red-orange that saturates to pink when the scene's key light hits a
+  // large panel square-on, whereas the real vehicles are painted a
+  // darker crimson that holds its colour under direct light.
+  truckBodyRed: '#A81C22',
   tailLightRed: '#C81E1E',
   tailLightGlow: '#FF3B2E',
   // Dark-grey / asphalt palette additions for the road (round 7: real

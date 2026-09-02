@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress, getExitProgress } from '@/lib/move-as-one-progress';
+import { truckLiveryTexture } from '@/lib/textures';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 
@@ -357,6 +358,18 @@ export function TruckAssembly() {
     }
   });
 
+  // Built once. Two copies because the trailer's two large side faces
+  // have opposite-handed UVs (see the side-wall meshes below).
+  const liveryFar = useMemo(() => truckLiveryTexture(false), []);
+  const liveryNear = useMemo(() => truckLiveryTexture(true), []);
+  useEffect(
+    () => () => {
+      liveryFar.dispose();
+      liveryNear.dispose();
+    },
+    [liveryFar, liveryNear],
+  );
+
   return (
     <group ref={group} position={[0, 0, 0]}>
       {/* Chassis */}
@@ -444,7 +457,7 @@ export function TruckAssembly() {
           actually covers/reveals. A single solid box could never show
           cargo passing through its rear face. */}
       <group ref={bodyRef}>
-        {/* Roof */}
+        {/* Roof — white, as on the real trailers. */}
         <mesh position={[0, 0.91, 0]}>
           <boxGeometry args={[3.0, 0.08, 1.75]} />
           <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
@@ -452,21 +465,40 @@ export function TruckAssembly() {
         {/* Floor */}
         <mesh position={[0, -0.91, 0]}>
           <boxGeometry args={[3.0, 0.08, 1.75]} />
-          <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
+          <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} metalness={0.2} />
         </mesh>
-        {/* Front wall (toward the cab) */}
+        {/* Front wall (toward the cab) — body red, like the sides. */}
         <mesh position={[-1.46, 0, 0]}>
           <boxGeometry args={[0.08, 1.9, 1.75]} />
-          <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
+          <meshStandardMaterial color={COLORS.truckBodyRed} roughness={0.5} metalness={0.15} />
         </mesh>
-        {/* Side walls */}
+        {/* Side walls, carrying the company livery.
+            The body used to be blank cream. The real vehicles are deep
+            red with a white circular badge, the two phone numbers, and
+            the web address — see public/images/two_trucks.jpg, which is
+            what this texture is traced from. The two large faces of a
+            box get opposite-handed UVs, so the -Z side uses a mirrored
+            copy or the lettering would read backwards on that side. */}
         <mesh position={[0, 0, 0.835]}>
           <boxGeometry args={[3.0, 1.9, 0.08]} />
-          <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
+          <meshStandardMaterial
+            map={liveryFar}
+            roughness={0.5}
+            metalness={0.1}
+          />
         </mesh>
         <mesh position={[0, 0, -0.835]}>
           <boxGeometry args={[3.0, 1.9, 0.08]} />
-          <meshStandardMaterial color={COLORS.truckBoxBody} roughness={0.55} metalness={0.15} />
+          {/* Self-illumination was tried here to stop the red key light
+              tinting the badge, and abandoned: it pushed the body past
+              the bloom threshold (luminance 0.25) and blew the whole
+              panel out to pale pink. The real cause was the body colour
+              itself — see COLORS.truckBodyRed. */}
+          <meshStandardMaterial
+            map={liveryNear}
+            roughness={0.5}
+            metalness={0.1}
+          />
         </mesh>
 
         {/* Cargo-hold back wall — the true far wall of the bay, near the
@@ -510,15 +542,11 @@ export function TruckAssembly() {
           color={COLORS.headlightWhite}
         />
 
-        {/* Panel line running along the body */}
-        <mesh position={[0, 0.05, 0.876]}>
-          <boxGeometry args={[2.9, 0.03, 0.01]} />
-          <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} />
-        </mesh>
-        <mesh position={[0, 0.05, -0.876]}>
-          <boxGeometry args={[2.9, 0.03, 0.01]} />
-          <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} />
-        </mesh>
+        {/* The body's panel lines used to be two dark strips laid over
+            the sides at y = 0.05 — dead centre, which cut straight
+            through the middle of the badge now that the sides carry the
+            company livery. The livery texture draws its own panel seams,
+            so these are gone rather than relocated. */}
 
         {/* Rear roller-door: a stack of thin horizontal slats that rolls
             straight up (see doorT in useFrame) to reveal the opening.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { getMoveAsOneProgress } from '@/lib/move-as-one-progress';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
+import { cardboardTexture, cardboardRoughness } from '@/lib/textures';
 import {
   DOOR_ENTRY_LOCAL,
   CARGO_REST_LOCAL,
@@ -269,10 +270,46 @@ function CardboardBox({
   groupRef: (el: THREE.Group | null) => void;
 }) {
   const [w, h, d] = size;
+
+  // One texture per box, built once. The colour tint is still applied
+  // through `color`, so the two cardboard shades share a single grain
+  // pattern rather than paying for two canvases.
+  const map = useMemo(() => {
+    const t = cardboardTexture('#FFFFFF');
+    t.repeat.set(Math.max(1, w * 0.9), Math.max(1, h * 0.9));
+    return t;
+  }, [w, h]);
+  const rough = useMemo(() => {
+    const t = cardboardRoughness();
+    t.repeat.set(Math.max(1, w * 0.9), Math.max(1, h * 0.9));
+    return t;
+  }, [w, h]);
+
+  useEffect(() => {
+    // Canvas textures hold a GPU allocation; drop it if the box unmounts.
+    return () => {
+      map.dispose();
+      rough.dispose();
+    };
+  }, [map, rough]);
+
   return (
     <group ref={groupRef}>
+      {/* The kraft texture and its matching roughness map are what stop
+          these reading as moulded plastic: real cartons have visible
+          fibre grain and uneven dye, and a single flat colour with one
+          roughness value gave every face an identical, synthetic
+          highlight. Repeats are scaled by the box's own dimensions so
+          the grain stays the same physical size on a large box and a
+          small one instead of stretching to fit. */}
       <RoundedBox args={size} radius={Math.min(0.045, h * 0.08)} smoothness={3}>
-        <meshStandardMaterial color={color} roughness={0.92} metalness={0.02} />
+        <meshStandardMaterial
+          map={map}
+          roughnessMap={rough}
+          color={color}
+          roughness={0.95}
+          metalness={0}
+        />
       </RoundedBox>
 
       {/* Packing tape across the top seam only.

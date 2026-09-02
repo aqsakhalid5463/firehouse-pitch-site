@@ -68,3 +68,41 @@ body {
 .animate-field-drift-slow {
   animation: field-drift-slow 46s ease-in-out infinite;
 }
+
+/* Service-area marquee. Each row duplicates its list, so translating by
+   exactly -50% lands the copy where the original started and the loop
+   is seamless. Kept in CSS rather than rAF so it costs nothing on the
+   main thread while the 3D scene is running. */
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-100%, 0, 0); }
+}
+
+.animate-marquee {
+  animation: marquee 46s linear infinite;
+}
+
+.animate-marquee-reverse {
+  animation: marquee 52s linear infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-reverse {
+    animation: none;
+  }
+}
+
+/* Equaliser bars on the sound toggle, animated only while audio is on. */
+@keyframes eq {
+  0%, 100% { height: 4px; }
+  50% { height: 14px; }
+}
+
+.animate-eq {
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-eq { animation: none; height: 9px; }
+}

@@ -122,6 +122,28 @@ if (MAX_LOAD_DELAY >= 0.6) {
   throw new Error('BoxStack: a box loadDelay leaves too little travel budget before the door closes');
 }
 
+// Bounds of the load-in window, in the pin's own local progress. Hoisted
+// to module scope (they were local to useFrame) so the audio layer can
+// derive when each box actually lands instead of re-typing the numbers
+// and drifting out of sync with the animation.
+const BOX_TRAVEL_START = 0.28;
+const BOX_TRAVEL_END = 0.75;
+
+// Fraction of a box's own delayed progress at which its approach eases
+// out — the moment it has arrived in the bay and stops moving. This, not
+// delayedP = 1, is when a box visually lands.
+const APPROACH_COMPLETE = 0.6;
+
+/**
+ * The pin-local progress at which each box touches down, in order.
+ * Consumed by the scene's audio layer so a thud fires on the frame a box
+ * actually settles.
+ */
+export const BOX_LANDING_LOCALS: readonly number[] = BOX_SPECS.map((spec) => {
+  const p = spec.loadDelay + APPROACH_COMPLETE * (1 - spec.loadDelay);
+  return BOX_TRAVEL_START + p * (BOX_TRAVEL_END - BOX_TRAVEL_START);
+});
+
 // Each resting box scales down by this factor as it settles into the
 // truck (enterEase 0 -> 1 below) — the hero sizes above are deliberately
 // large for the empty-looking hero frame, but the cargo bay's *interior*
@@ -315,8 +337,9 @@ export function BoxStack() {
     // moving until the text column is already empty — a clean handoff
     // instead of an overlap. p still reaches 1 at local = 0.75 exactly
     // as before, so the door-close coupling is unaffected.
-    const BOX_TRAVEL_START = 0.28;
-    const p = clamp01((local - BOX_TRAVEL_START) / (0.75 - BOX_TRAVEL_START));
+    const p = clamp01(
+      (local - BOX_TRAVEL_START) / (BOX_TRAVEL_END - BOX_TRAVEL_START),
+    );
 
     BOX_SPECS.forEach((spec, i) => {
       const g = boxRefs.current[i];
@@ -334,7 +357,7 @@ export function BoxStack() {
       // complaint). Before its delay elapses a box simply hasn't left
       // the hero stack yet.
       const delayedP = clamp01((p - spec.loadDelay) / (1 - spec.loadDelay));
-      const approachEase = 1 - Math.pow(1 - clamp01(delayedP / 0.6), 3);
+      const approachEase = 1 - Math.pow(1 - clamp01(delayedP / APPROACH_COMPLETE), 3);
       // Round 19: enterT's start was brought forward from 0.55 to 0.32
       // (still finishing at delayedP = 1, so the final in-bay
       // position/size — verified by CARGO_FIT below — is unchanged) so

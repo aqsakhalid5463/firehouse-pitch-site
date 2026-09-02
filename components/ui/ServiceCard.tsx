@@ -1,4 +1,8 @@
+'use client';
+
 import Image from 'next/image';
+import { useEffect, useRef } from 'react';
+import { useReducedMotion } from '@/lib/use-reduced-motion';
 
 /**
  * A large editorial service card: photograph first, copy underneath.
@@ -14,6 +18,9 @@ import Image from 'next/image';
  * lazy by default, since six 2048px-wide JPEGs above the fold would
  * dominate the page's loading budget.
  */
+/** Peak vertical travel, in px, at the extremes of the viewport. */
+const PARALLAX_PX = 26;
+
 export function ServiceCard({
   index,
   title,
@@ -29,6 +36,37 @@ export function ServiceCard({
   alt: string;
   priority?: boolean;
 }) {
+  const frame = useRef<HTMLDivElement>(null);
+  const img = useRef<HTMLImageElement>(null);
+  const reduced = useReducedMotion();
+
+  // Drifts the photograph vertically inside its frame as the card
+  // crosses the viewport. The image is rendered oversized (scale below)
+  // so there is real material to move without exposing an edge, and the
+  // travel is small — this should register as depth, not as a moving
+  // picture competing with the ribbon.
+  useEffect(() => {
+    if (reduced) return;
+    const el = frame.current;
+    const target = img.current;
+    if (!el || !target) return;
+
+    let raf = 0;
+    const tick = () => {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > 0 && r.top < window.innerHeight) {
+        // -1 when the card sits at the bottom of the viewport, +1 at the
+        // top, 0 when centred.
+        const centre = (r.top + r.height / 2) / window.innerHeight;
+        const offset = (0.5 - centre) * 2 * PARALLAX_PX;
+        target.style.transform = `translate3d(0, ${offset.toFixed(2)}px, 0)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced]);
+
   return (
     <article className="group relative">
       {/* 4:3 matches the source photographs' native 2048x1536, so
@@ -39,14 +77,21 @@ export function ServiceCard({
           than as rhythm. The vertical stagger in Services carries the
           asymmetry instead, and uniform cards keep the six services
           reading as equal offerings. */}
-      <div className="relative aspect-4/3 overflow-hidden rounded-3xl ring-1 ring-bone/10">
+      <div
+        ref={frame}
+        className="relative aspect-4/3 overflow-hidden rounded-3xl ring-1 ring-bone/10"
+      >
         <Image
+          ref={img}
           src={image}
           alt={alt}
           fill
           priority={priority}
           sizes="(min-width: 1024px) 46vw, (min-width: 768px) 90vw, 100vw"
-          className="object-cover brightness-[0.8] saturate-[0.65] transition duration-700 ease-out group-hover:scale-[1.05] group-hover:brightness-105 group-hover:saturate-100"
+          // scale-110 gives the parallax somewhere to travel: without the
+          // overscan, drifting the image would slide its own edge into
+          // the frame.
+          className="scale-110 object-cover brightness-[0.8] saturate-[0.65] transition-[filter,scale] duration-700 ease-out group-hover:scale-[1.16] group-hover:brightness-105 group-hover:saturate-100"
         />
 
         {/* Grounds the image into the page so its bottom edge doesn't

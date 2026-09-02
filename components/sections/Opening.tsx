@@ -33,8 +33,7 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
   // server's always-false HTML — using it directly in this section's
   // className would hydrate mismatched. `collapsed` instead starts false
   // (matching the server) and is only ever set inside an effect, so the
-  // dead-scroll fix lands after hydration completes, the same way
-  // Counter.tsx corrects its SSR-safe initial value post-mount.
+  // dead-scroll fix lands after hydration completes.
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {

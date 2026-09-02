@@ -1,9 +1,15 @@
 export const BUSINESS = {
   name: 'Firehouse Movers Inc.',
   address: '2535-B Texas 121 E, State #140, Lewisville, TX 75056',
+  city: 'Lewisville',
   phone: '(972) 992-1969',
   phoneHref: 'tel:+19729921969',
   email: 'support@firehousemovers.com',
+  // Read off the company's own truck livery in public/images/local-move.jpg.
+  // Both are publicly searchable registrations, which is the point of
+  // showing them: a visitor can verify the business independently.
+  usdot: 'USDOT 1939062',
+  txdmv: 'TXDMV 000570404B',
 } as const;
 
 export const HERO_HEADLINE =

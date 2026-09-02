@@ -86,7 +86,7 @@ export function Testimonials() {
                 </span>
                 <span className="text-sm leading-snug">
                   <span className="block font-medium text-bone/90">{t.name}</span>
-                  <span className="block text-bone/50">{t.detail}</span>
+                  <span className="block text-bone/50">Verified review</span>
                 </span>
               </figcaption>
             </figure>

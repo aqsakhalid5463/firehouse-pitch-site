@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/constants';
+import { SoundToggle } from '@/components/ui/SoundToggle';
 
 export function Nav() {
   return (
@@ -25,6 +26,7 @@ export function Nav() {
           <a href={BUSINESS.phoneHref} className="hover:opacity-70">
             {BUSINESS.phone}
           </a>
+          <SoundToggle />
         </div>
       </nav>
     </header>

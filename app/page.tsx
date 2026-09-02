@@ -6,6 +6,10 @@ import { Services } from '@/components/sections/Services';
 import { Guarantees } from '@/components/sections/Guarantees';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
+import { Process } from '@/components/sections/Process';
+import { ServiceArea } from '@/components/sections/ServiceArea';
+import { Faq } from '@/components/sections/Faq';
+import { SceneAudio } from '@/components/scene/SceneAudio';
 import { Ribbon } from '@/components/ui/Ribbon';
 import { PageField } from '@/components/ui/PageField';
 
@@ -15,6 +19,7 @@ export default function Home() {
       <Nav />
       <main>
         <Opening heroCopy={<HeroCopy />} />
+        <SceneAudio />
         {/* Everything after the pinned opening shares one background
             world: the ribbon threading between sections, over the
             drifting field. Both are absolutely positioned against this
@@ -24,8 +29,11 @@ export default function Home() {
           <PageField />
           <Ribbon />
           <Services />
+          <Process />
           <Guarantees />
+          <ServiceArea />
           <Testimonials />
+          <Faq />
           <ClosingCTA />
         </div>
       </main>

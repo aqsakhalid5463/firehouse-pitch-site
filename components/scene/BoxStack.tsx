@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
@@ -27,20 +27,42 @@ import {
 // travels through the truck's open rear door and comes to rest as the
 // truck's own cargo (see useFrame below) — there is exactly one set of
 // boxes; nothing is duplicated in TruckAssembly and nothing fades away.
+const HERO_OFFSET_Y = ROAD_SURFACE_Y;
+const HERO_OFFSET_Z = 0.15;
+
+// Round 16 hand-tuned the stack's world X to 3.15 by eye at 1920/2000
+// only. The camera is perspective, so the visible world width at any
+// given depth grows with aspect ratio rather than staying fixed — a
+// single world-X that clears the frame at a wide aspect runs the stack
+// off the right edge at a narrower one (confirmed at 1512 wide). Instead
+// of another fixed constant, the stack's X is derived every frame from
+// the camera's own visible half-width at the stack's depth, so it stays
+// a consistent *fraction* of frame width — reading as anchored in the
+// right third — at any viewport size.
 //
-// x = 3.15 is deliberately past Highway's painted edge line
-// (EDGE_LANE_X = 1.7, see Highway.tsx) — the client's exact complaint
-// was boxes sitting "on the side of the road" on that line. Highway's
-// paved surface runs out to ROAD_HALF_WIDTH = 4.6, so 3.15 is still
-// comfortably on the road surface itself (not the shoulder/verge) while
-// staying clear of the centre-frame truck assembly.
-//
-// Bumped from 2.6 (round 16): the opening camera's hero-rest target no
-// longer yaws right to "balance" the stack (see camera-path.ts) — with
-// the road itself now centred in frame, the stack needs to sit further
-// out on its own to read as deliberately anchored in the right third
-// rather than drifting toward the middle of a now-centred scene.
-const HERO_OFFSET: Vec3 = [3.15, ROAD_SURFACE_Y, 0.15];
+// The hero-rest camera pose is fixed (HOME_POSITIONS[0] / fov in
+// lib/camera-path.ts: position [0, 0.65, 6.0], fov 42, looking straight
+// down -Z since its look-at X also sits at 0) — this is the pose the
+// hero-at-rest stack is composed against, so its geometry is used
+// directly rather than sampled from the live (already-animating)
+// camera.
+const HERO_CAMERA_FOV_DEG = 42;
+const HERO_CAMERA_DISTANCE = 6.0 - HERO_OFFSET_Z;
+
+// Fraction of the camera's visible half-width, at the stack's depth,
+// that the stack's own centre sits at. Chosen so the stack clears
+// Highway's painted edge line (EDGE_LANE_X = 1.7, see Highway.tsx —
+// the client's original "boxes sitting on the edge line" complaint)
+// while leaving enough margin to the frame's right edge for the third
+// box's own offset footprint (see STACK_FOOTPRINT_RADIUS) not to clip,
+// verified at 1024/1440/1512/1920/2000 wide.
+const HERO_STACK_X_FRACTION = 0.56;
+
+function heroStackX(aspect: number): number {
+  const halfHeight = Math.tan((HERO_CAMERA_FOV_DEG * Math.PI) / 360) * HERO_CAMERA_DISTANCE;
+  const halfWidth = halfHeight * aspect;
+  return halfWidth * HERO_STACK_X_FRACTION;
+}
 
 type BoxSpec = {
   size: Vec3;
@@ -219,6 +241,12 @@ function CardboardBox({
 export function BoxStack() {
   const pathname = usePathname();
   const boxRefs = useRef<(THREE.Group | null)[]>([]);
+  // Recomputed only when the canvas itself resizes (not every frame),
+  // via `size` from R3F's reactive store — this is what keeps the
+  // stack's X a consistent frame-fraction across viewport widths
+  // instead of a value tuned to whichever size it was last measured at.
+  const size = useThree((s) => s.size);
+  const heroX = useMemo(() => heroStackX(size.width / size.height), [size.width, size.height]);
 
   useFrame((state) => {
     // The opening pin (and its GSAP ScrollTrigger) only exists on the
@@ -278,9 +306,9 @@ export function BoxStack() {
 
       const stackLocal = HERO_STACK_LOCAL[i];
       const heroWorld: Vec3 = [
-        HERO_OFFSET[0] + stackLocal[0],
-        HERO_OFFSET[1] + stackLocal[1] + bob,
-        HERO_OFFSET[2] + stackLocal[2],
+        heroX + stackLocal[0],
+        HERO_OFFSET_Y + stackLocal[1] + bob,
+        HERO_OFFSET_Z + stackLocal[2],
       ];
       // Each box has its own waypoint near the door rather than
       // literally the same point — offset both along the approach axis
@@ -343,7 +371,7 @@ export function BoxStack() {
       ))}
       {/* Contact shadow at the hero rest position: sells the grounding
           before the boxes start moving. */}
-      <mesh position={[HERO_OFFSET[0], 0.005, HERO_OFFSET[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[heroX, 0.005, HERO_OFFSET_Z]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[STACK_FOOTPRINT_RADIUS, 24]} />
         <meshBasicMaterial color={COLORS.asphaltDark} transparent opacity={0.35} />
       </mesh>

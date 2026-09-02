@@ -160,26 +160,55 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         className={
           collapsed
             ? 'relative flex flex-col gap-16 py-24'
-            : 'relative flex h-screen flex-col overflow-hidden pt-28 pb-16'
+            : 'relative flex h-screen flex-col overflow-hidden pt-[clamp(3rem,10vh,7rem)] pb-[clamp(2rem,6vh,4rem)]'
         }
       >
-        <div data-hero-copy className="flex flex-1 flex-col justify-center">
-          {heroCopy}
-        </div>
+        {/* The hero copy gets its own flexible region so it can stay
+            vertically centred within whatever space is left above the
+            process block. The two live in separate grid rows — the copy
+            row is `1fr` (grows/shrinks with whatever space is left) and
+            the process row is `auto` (sized to its own content) — with
+            a `gap` between them. A grid gap is a hard, guaranteed
+            separator regardless of how tall either row's content is; a
+            margin (mt-auto included) is not — it only pushes against
+            genuinely leftover flex space, which is exactly what
+            collapsed to zero and let "Move as One" collide with the CTA
+            buttons once the copy row's own content grew to fill its
+            flex-1 region (round 17 regression). `min-h-0` on the copy
+            row lets it shrink below its content's natural height at
+            short viewport heights rather than forcing the whole grid
+            (and the gap with it) to overflow. */}
+        <div
+          data-pin-copy-grid
+          className={
+            collapsed
+              ? // Reduced motion (and any other collapsed state) has no
+                // h-screen pin to derive a percentage height from, and
+                // needs none — content just flows normally, so this is
+                // a plain stack with its own gap rather than the
+                // 1fr/auto row split below.
+                'grid gap-16'
+              : 'grid h-full grid-rows-[1fr_auto] gap-[clamp(1rem,4vh,3.5rem)]'
+          }
+        >
+          <div data-hero-copy className="flex min-h-0 flex-col justify-center">
+            {heroCopy}
+          </div>
 
-        <div id="process" className="mx-auto w-full max-w-7xl">
-          <p className="mb-10 text-xs font-semibold tracking-[0.3em] uppercase opacity-50">
-            Move as One
-          </p>
-          <div className="grid gap-10 md:grid-cols-3">
-            {STEPS.map((step) => (
-              <div key={step.label} data-step className="max-w-xs">
-                <h3 className="text-4xl font-semibold tracking-tight">
-                  {step.label}
-                </h3>
-                <p className="mt-4 leading-relaxed opacity-70">{step.body}</p>
-              </div>
-            ))}
+          <div id="process" className="mx-auto w-full max-w-7xl">
+            <p className="mb-10 text-xs font-semibold tracking-[0.3em] uppercase opacity-50">
+              Move as One
+            </p>
+            <div className="grid gap-10 md:grid-cols-3">
+              {STEPS.map((step) => (
+                <div key={step.label} data-step className="max-w-xs">
+                  <h3 className="text-4xl font-semibold tracking-tight">
+                    {step.label}
+                  </h3>
+                  <p className="mt-4 leading-relaxed opacity-70">{step.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -25,7 +25,16 @@ export function HeroCopy() {
           which sits in the right third of the frame — checked at
           several viewport widths, not just the design width. */}
       <div className="max-w-xl lg:max-w-2xl">
-        <p className="mb-8 text-xs font-semibold tracking-[0.3em] uppercase opacity-60">
+        {/* Vertical spacing here is clamped to viewport height, not a
+            fixed rem value — on a tall window it reads exactly as
+            before, but on a short one (e.g. 1512x700) it shrinks in
+            step so this whole block stays short enough to leave the
+            process block's grid row (and its gap) genuine room below.
+            Without this the block's fixed-height spacing could hold at
+            its generous size while its own grid row shrank around it,
+            spilling "Move as One" into the CTAs below (round 17
+            regression). */}
+        <p className="mb-[clamp(1rem,4vh,2rem)] text-xs font-semibold tracking-[0.3em] uppercase opacity-60">
           Lewisville, Texas · Licensed &amp; Insured
         </p>
         <RevealText
@@ -34,12 +43,12 @@ export function HeroCopy() {
         >
           {HERO_HEADLINE}
         </RevealText>
-        <p className="mt-8 text-lg leading-relaxed opacity-70">
+        <p className="mt-[clamp(1rem,4vh,2rem)] text-lg leading-relaxed opacity-70">
           Local and long-distance movers for homes and offices across the DFW
           area. Packing, storage, and a crew that shows up when we said we
           would.
         </p>
-        <div className="mt-12 flex flex-wrap items-center gap-4">
+        <div className="mt-[clamp(1rem,5vh,3rem)] flex flex-wrap items-center gap-4">
           <Button href="#quote">Get a Quote</Button>
           <Button href={BUSINESS.phoneHref} variant="ghost">
             {BUSINESS.phone}

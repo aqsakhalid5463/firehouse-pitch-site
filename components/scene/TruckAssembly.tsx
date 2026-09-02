@@ -91,27 +91,56 @@ export const ASSEMBLY_YAW = -Math.PI / 2 + 0.35;
 // — see the body group below), so if that geometry ever moves these
 // move with it.
 export const DOOR_ENTRY_LOCAL: Vec3 = [3.4, 0.15, 0];
+// The floor and roof panels are meshes of the body group below (see
+// "Box body" further down): floor panel centred at body-local y = -0.91,
+// 0.08 thick, so its top *surface* is body-local -0.87; the body group
+// itself sits at truck-local y = 0.5 (see BODY.to above), so the floor
+// surface is truck-local y = -0.37 — not -0.41, which was the floor
+// panel's *centre*, not its top face, and quietly buried every resting
+// box 0.04 truck-local units (~0.025 world units) into the floor. Likewise
+// the roof panel is centred at body-local 0.91, 0.08 thick, so its
+// underside is body-local 0.87 -> truck-local 1.37. Named here so the
+// rest-slot math below (and BoxStack's own fit check) reads against the
+// true interior surfaces, not their panel centres.
+export const CARGO_FLOOR_LOCAL_Y = -0.37;
+export const CARGO_CEILING_LOCAL_Y = 1.37;
+// Interior side-wall inner faces (see CARGO_REST_LOCAL comment above).
+export const CARGO_WALL_LOCAL_Z = 0.795;
+// Front wall (cab side) and open rear door, inner-face local x — the
+// body's roof/floor/side panels are 3.0 truck-local units long, centred
+// on the body group's own local x = 0 before BODY.to's +0.7 offset, and
+// 0.08 thick, so the front wall's inner face is at -1.5 + 0.04 + 0.7 =
+// -0.76 and the rear opening's inner edge sits at 1.5 - 0.04 + 0.7 = 2.16.
+export const CARGO_FRONT_WALL_LOCAL_X = -0.76;
+export const CARGO_REAR_OPENING_LOCAL_X = 2.16;
+
 // Truck-local Y for these rest slots has to land each box's *world*
-// half-height on the truck-local floor (y = -0.41) after the truck
-// group's own uniform scale (TRUCK_LOAD_SCALE) is applied — box
-// geometry is authored directly in world units in BoxStack, not
-// truck-local ones, so a naive "floor + local half-height" undershoots
-// by exactly that scale factor and buries the box in the floor. The
-// values below are floor (-0.41) plus each box's own world half-height
-// divided by TRUCK_LOAD_SCALE, so the boxes actually sit on the floor,
-// not embedded in it or floating above it.
+// half-height on the true floor surface (CARGO_FLOOR_LOCAL_Y) after the
+// truck group's own uniform scale (TRUCK_LOAD_SCALE) is applied — box
+// geometry is authored directly in world units in BoxStack, and each box
+// also shrinks by BoxStack's own LOAD_SHRINK factor as it settles (see
+// BoxStack.tsx), so a naive "floor + local half-height" undershoots by
+// exactly that combined factor and buries the box in the floor. The
+// values below are the floor surface plus each box's own *shrunk* world
+// half-height divided by TRUCK_LOAD_SCALE, so the boxes actually sit on
+// the floor, not embedded in it or floating above it.
 //
-// The z offsets (the bay's side-to-side axis) are kept well inside the
-// interior side walls, which sit at local z = ±0.835 (± 0.518 world
-// once TRUCK_LOAD_SCALE is applied): a box's world half-depth is never
-// scaled down the way its position is, so these offsets were re-picked
-// against BoxStack's current (smaller) box sizes to leave real
-// clearance on both sides instead of poking through a wall — the
-// previous, larger boxes at z = 0.22 / -0.28 cleared the wall by less
-// than a box's own half-depth and clipped through it.
+// The x offsets (down the length of the bay) are spaced with a real
+// local-unit gap between each box's footprint — not just checked against
+// the walls — so no two of the three boxes' resting footprints overlap
+// even before accounting for the z/y separation below. The z offsets
+// (the bay's side-to-side axis) are kept well inside the interior side
+// walls, which sit at local z = ±0.795 (their *inner* face — the wall
+// mesh is centred at ±0.835 and is 0.08 thick) — ± 0.493 world once
+// TRUCK_LOAD_SCALE is applied. Both axes were re-picked against
+// BoxStack's current (larger, three-box) shrunk rest sizes; see
+// BoxStack.tsx's own CARGO_FIT sanity check for the arithmetic that
+// verifies every box clears every wall, the floor, the ceiling, and the
+// other two boxes by construction rather than by eyeballing it.
 export const CARGO_REST_LOCAL: Vec3[] = [
-  [0.55, -0.41 + 0.23 / TRUCK_LOAD_SCALE, 0.12],
-  [-0.05, -0.41 + 0.18 / TRUCK_LOAD_SCALE, -0.15],
+  [-0.249, CARGO_FLOOR_LOCAL_Y + 0.3494, 0.05],
+  [1.44, CARGO_FLOOR_LOCAL_Y + 0.2526, 0.1],
+  [0.651, CARGO_FLOOR_LOCAL_Y + 0.2913, -0.08],
 ];
 
 /** Rotates+scales a truck-local point into world space for a given yaw/scale/origin. */

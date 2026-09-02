@@ -34,9 +34,16 @@ export function Credentials() {
             </div>
           ))}
         </div>
-        <p className="mt-16 text-sm opacity-50">
-          {BUSINESS.name} · {BUSINESS.address}
-        </p>
+        <div className="mt-16 space-y-3 text-sm opacity-50">
+          <p>
+            {BUSINESS.name} · {BUSINESS.address}
+          </p>
+          {/* Public registrations, so the licensing claims above are
+              checkable rather than asserted. */}
+          <p className="font-mono tracking-wider">
+            {BUSINESS.usdot} · {BUSINESS.txdmv}
+          </p>
+        </div>
       </div>
     </section>
   );

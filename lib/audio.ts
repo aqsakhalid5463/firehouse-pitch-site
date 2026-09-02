@@ -39,6 +39,7 @@ class MoveAudio {
   } | null = null;
 
   enabled = false;
+  private visibilityBound = false;
 
   /** Whether the last stored preference was "on". Read on mount. */
   static storedPreference(): boolean {
@@ -68,6 +69,7 @@ class MoveAudio {
       this.enabled = true;
       this.persist();
       void this.ctx.resume();
+      this.bindVisibility();
       return true;
     }
 
@@ -96,6 +98,7 @@ class MoveAudio {
 
     this.enabled = true;
     this.persist();
+    this.bindVisibility();
     return true;
   }
 
@@ -119,6 +122,27 @@ class MoveAudio {
       this.master !== null &&
       this.noise !== null
     );
+  }
+
+  /**
+   * Suspends audio while the tab is in the background.
+   *
+   * A Web Audio context keeps running when its tab is hidden — unlike
+   * rAF, which the browser throttles — so without this the engine bed
+   * would carry on humming from a tab the visitor has already switched
+   * away from, with no visible source. Registered once, from enable().
+   */
+  private bindVisibility() {
+    if (this.visibilityBound) return;
+    this.visibilityBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!this.ctx) return;
+      if (document.hidden) {
+        void this.ctx.suspend();
+      } else if (this.enabled) {
+        void this.ctx.resume();
+      }
+    });
   }
 
   private noiseSource(): AudioBufferSourceNode | null {

@@ -88,45 +88,67 @@ export const TESTIMONIALS = [
   },
 ] as const;
 
-export const TIMELINE = [
+/**
+ * What the company is, sourced from the client's own published copy.
+ *
+ * This replaced a four-beat TIMELINE that invented a company history —
+ * a founding anecdote, "from one truck to a fleet", a dated licensing
+ * milestone. None of it came from the client, and a fabricated origin
+ * story is the kind of thing a business owner notices immediately.
+ *
+ * These are deliberately not chronological. Every claim below traces to
+ * something the client already says about itself: the franchise
+ * description and "relieve the stress associated with relocating" from
+ * their footer, the experienced-crews line from their hero, federal
+ * interstate licensing and climate-controlled storage from their
+ * services copy.
+ */
+export const PILLARS = [
   {
-    year: 'The start',
-    title: 'Built out of frustration',
-    body: 'We moved one too many times with crews who showed up late, quoted low, and billed high. So we built the company we kept wishing we could hire.',
+    label: 'The company',
+    title: 'A franchise built for full-service moves',
+    body: 'Firehouse Movers is a growing franchise offering a full range of moving services to households and businesses. The whole point is to take the stress out of relocating, rather than to hand you a truck and wish you luck.',
   },
   {
-    year: 'Growing',
-    title: 'From one truck to a fleet',
-    body: 'Word travelled through Lewisville faster than any advertising could. We added trucks, crews, and a climate-controlled facility to keep up.',
+    label: 'The crews',
+    title: 'Trained movers, not day labour',
+    body: 'The teams are built from people with real experience, working to trusted methods with proper equipment. That is the difference between furniture that arrives and furniture that arrives intact.',
   },
   {
-    year: 'Licensed',
-    title: 'Cleared for the long haul',
-    body: 'Federal licensing for interstate moving meant we could follow our customers wherever they were headed, not just across town.',
+    label: 'The reach',
+    title: 'Licensed to cross state lines',
+    body: 'Federal licensing for interstate moving means a move does not have to stop at the Texas border. The registrations are public, so you can check them before you book rather than take our word for it.',
   },
   {
-    year: 'Today',
-    title: 'A franchise, still local',
-    body: 'We have grown into a franchise without giving up the thing that started it — crews who treat your things like their own.',
+    label: 'The extras',
+    title: 'Packing, storage, and unpacking on one job',
+    body: 'Packing with materials rated for fragile and oversized items, climate-controlled storage for the gap between homes, and unpacking at the other end. One company, one point of contact, one invoice.',
   },
 ] as const;
 
+/**
+ * Service commitments, each tied to something the client publishes:
+ * "Licensed & Insured", "Trained Moving Experts", their full-service
+ * range, and the commercial promise of minimal downtime. The previous
+ * version was written in an invented brand voice that committed the
+ * business to promises it had never made.
+ */
 export const VALUES = [
   {
-    title: 'Show up',
-    body: 'On the day we said, at the hour we said. The whole business rests on this one.',
+    title: 'Licensed and insured',
+    body: 'Coverage on every move, every crew, and every item on the inventory — and registrations you can look up yourself.',
   },
   {
-    title: 'Quote it straight',
-    body: 'The number we give you is the number you pay. No day-of surprises.',
+    title: 'Trained moving experts',
+    body: 'Crews who do this for a living, with the equipment and the technique to match. Not whoever was available that morning.',
   },
   {
-    title: 'Handle it like ours',
-    body: 'Padded, wrapped, inventoried. If it matters to you, it gets handled like it matters.',
+    title: 'One point of contact',
+    body: 'Packing, moving, storage, and unpacking handled by the same company, so nothing gets lost in a handoff between vendors.',
   },
   {
-    title: 'Finish the job',
-    body: 'We are not done when the truck is empty. We are done when your home works.',
+    title: 'Built around your downtime',
+    body: 'Office and retail moves planned after hours and over weekends, so the business is open when it needs to be.',
   },
 ] as const;
 

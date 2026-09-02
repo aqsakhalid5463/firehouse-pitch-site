@@ -106,3 +106,91 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-eq { animation: none; height: 9px; }
 }
+
+/* ---- Custom cursor (components/ui/Cursor) ------------------------- */
+
+/* Only applied once the component has confirmed a fine pointer and no
+   reduced-motion preference, so touch devices and that setting keep the
+   native cursor. Applied to the root and inherited, rather than to a
+   handful of selectors, so no element is left showing a system cursor
+   next to the custom one. */
+.has-custom-cursor,
+.has-custom-cursor * {
+  cursor: none !important;
+}
+
+.cursor-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.cursor-layer > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Each layer sets its own negative margin below to centre itself on
+     the transform, so the transform can be the raw pointer coordinate. */
+  transition: opacity 0.2s ease;
+  will-change: transform;
+}
+
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 9999px;
+  background: var(--color-bone);
+}
+
+.cursor-ring {
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-bone) 45%, transparent);
+  transition:
+    width 0.28s ease,
+    height 0.28s ease,
+    margin 0.28s ease,
+    border-color 0.28s ease,
+    background-color 0.28s ease,
+    opacity 0.2s ease;
+}
+
+/* Over a link or button. */
+.cursor-ring.is-hot {
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-color: var(--color-fire);
+  background-color: color-mix(in srgb, var(--color-fire) 12%, transparent);
+}
+
+/* Pressed. */
+.cursor-ring.is-down {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
+
+.cursor-glow {
+  width: 260px;
+  height: 260px;
+  margin: -130px 0 0 -130px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-fire) 10%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .has-custom-cursor,
+  .has-custom-cursor * {
+    cursor: auto !important;
+  }
+  .cursor-layer { display: none; }
+}

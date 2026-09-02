@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { SceneCanvas } from '@/components/scene/SceneCanvas';
+import { Cursor } from '@/components/ui/Cursor';
 import { BUSINESS } from '@/lib/constants';
 
 export const metadata: Metadata = {
@@ -21,6 +22,9 @@ export default function RootLayout({
         <SmoothScrollProvider>
           <SceneCanvas />
           <div className="relative z-10">{children}</div>
+          {/* Above everything, including the nav, so the cursor is never
+              occluded by page chrome. */}
+          <Cursor />
         </SmoothScrollProvider>
       </body>
     </html>

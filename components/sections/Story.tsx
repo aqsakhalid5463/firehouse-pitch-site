@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { TIMELINE } from '@/lib/content';
+import { PILLARS } from '@/lib/content';
+import { RevealText } from '@/components/ui/RevealText';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -46,17 +47,28 @@ export function Story() {
   return (
     <section ref={root} className="relative px-6 py-32">
       <div className="mx-auto max-w-4xl">
+        <RevealText
+          as="h2"
+          className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
+        >
+          What Firehouse actually is
+        </RevealText>
+
+        {/* The vertical rule draws down as you scroll. It reads as a
+            spine connecting the four pillars, not as a timeline — these
+            are deliberately not chronological, so nothing here is
+            labelled with a date or an era. */}
         <div className="relative pl-10">
           <div
             data-rule
             aria-hidden="true"
             className="bg-fire absolute top-0 left-0 h-full w-px origin-top"
           />
-          {TIMELINE.map((entry) => (
-            <div key={entry.year} data-entry className="relative pb-20">
+          {PILLARS.map((entry) => (
+            <div key={entry.label} data-entry className="relative pb-20">
               <span className="bg-fire absolute top-2 -left-10 block h-2 w-2 -translate-x-1/2 rounded-full" />
               <p className="text-xs font-semibold tracking-[0.2em] uppercase opacity-40">
-                {entry.year}
+                {entry.label}
               </p>
               <h3 className="mt-4 text-3xl font-semibold tracking-tight">
                 {entry.title}

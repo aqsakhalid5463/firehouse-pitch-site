@@ -5,6 +5,8 @@ import {
   PROCESS,
   SERVICE_AREA,
   FAQ,
+  PILLARS,
+  VALUES,
 } from '@/lib/content';
 import { BUSINESS } from '@/lib/constants';
 
@@ -75,5 +77,26 @@ describe('faq', () => {
     expect(licensing).toBeDefined();
     expect(licensing!.a).toContain(BUSINESS.usdot);
     expect(licensing!.a).toContain(BUSINESS.txdmv);
+  });
+});
+
+describe('about-page copy', () => {
+  it('has four pillars, none of them labelled as a date or era', () => {
+    expect(PILLARS).toHaveLength(4);
+    // The replaced TIMELINE invented a company history. Nothing here
+    // should reintroduce a chronology.
+    for (const p of PILLARS) {
+      expect(p).not.toHaveProperty('year');
+      expect(p.label).not.toMatch(/\d{4}|today|the start|founded/i);
+    }
+  });
+
+  it('does not repeat the invented founding story', () => {
+    const all = [
+      ...PILLARS.map((p) => `${p.title} ${p.body}`),
+      ...VALUES.map((v) => `${v.title} ${v.body}`),
+    ].join(' ');
+    expect(all).not.toMatch(/one truck/i);
+    expect(all).not.toMatch(/showed up late/i);
   });
 });

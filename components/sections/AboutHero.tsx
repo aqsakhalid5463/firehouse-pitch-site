@@ -11,11 +11,17 @@ export function AboutHero() {
           as="h1"
           className="max-w-4xl text-[clamp(2.25rem,6vw,5rem)] leading-[1] font-semibold tracking-tight"
         >
-          We started this because we needed it ourselves
+          The moving service we needed, so we built it for you
         </RevealText>
+        {/* The headline is the client's own tagline, and this paragraph
+            paraphrases their own description of the business. The
+            previous version invented a founding story — one truck, one
+            crew — that they never told us. */}
         <p className="mt-8 max-w-xl text-lg leading-relaxed opacity-70">
-          Firehouse Movers began with one truck, one crew, and one rule: show up
-          when you said you would. Everything since has been built on that.
+          A growing franchise moving company in Lewisville, Texas, offering a
+          full range of services to households and businesses across
+          Dallas-Fort Worth and beyond. We are here to take the stress out of
+          relocating.
         </p>
       </div>
     </section>

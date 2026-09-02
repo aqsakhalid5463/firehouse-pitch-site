@@ -10,7 +10,7 @@ export function Values() {
           as="h2"
           className="max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
         >
-          What we hold ourselves to
+          What you actually get
         </RevealText>
         <div className="mt-20 grid gap-6 md:grid-cols-2">
           {VALUES.map((value) => (

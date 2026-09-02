@@ -36,6 +36,9 @@ export const COLORS = {
   truckGlass: '#0A0C12',
   truckChrome: '#C7CBD1',
   truckTyre: '#0C0C0F',
+  // Slightly lifted from the tread so the tyre has a visible shoulder
+  // rather than reading as one flat-ended cylinder.
+  truckTyreWall: '#16161A',
   truckRim: '#8A8E96',
   truckGrille: '#1D1D22',
   // The trailer's body red, traced from public/images/two_trucks.jpg.

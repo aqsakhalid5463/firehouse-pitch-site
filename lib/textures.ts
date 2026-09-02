@@ -248,3 +248,61 @@ export function truckLiveryTexture(mirrored: boolean): THREE.CanvasTexture {
 
   return tex;
 }
+
+/**
+ * The rear roller door: horizontal slats with rolled ribs, a pull
+ * handle, and a kick plate.
+ *
+ * This replaces a row of 0.001-unit-thick box meshes that scored the
+ * slat lines geometrically. At any realistic distance those were well
+ * under a pixel wide, so they aliased into dashed fragments and the
+ * post-processing chromatic aberration fringed them red and blue —
+ * bright coloured threads across an otherwise plain panel. Shading the
+ * slats into a texture removes the sub-pixel geometry entirely and
+ * gives each slat a proper rolled highlight and shadow, which is what
+ * makes it read as pressed steel rather than a drawn-on line.
+ */
+export function rollerDoorTexture(): THREE.CanvasTexture {
+  const W = 512;
+  const H = 512;
+  const { canvas, ctx } = makeCanvas(W, H);
+  const SLATS = 9;
+  const pitch = H / SLATS;
+
+  ctx.fillStyle = COLORS.truckChrome;
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < SLATS; i++) {
+    const top = i * pitch;
+    // Each slat is a shallow cylinder in cross-section: dark in the
+    // valley at its top edge, brightest a third of the way down, easing
+    // back to mid-tone at the bottom.
+    const g = ctx.createLinearGradient(0, top, 0, top + pitch);
+    g.addColorStop(0, 'rgba(0,0,0,0.42)');
+    g.addColorStop(0.12, 'rgba(0,0,0,0.16)');
+    g.addColorStop(0.36, 'rgba(255,255,255,0.3)');
+    g.addColorStop(0.72, 'rgba(255,255,255,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0.2)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, top, W, pitch);
+  }
+
+  // Vertical stiffening ribs, faint.
+  ctx.fillStyle = 'rgba(0,0,0,0.07)';
+  for (let x = 0; x < W; x += W / 12) ctx.fillRect(x, 0, 2, H);
+
+  // Kick plate along the bottom, scuffed the way a loading door is.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(0, H * 0.9, W, H * 0.1);
+
+  // Pull handle, centred low.
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(W * 0.42, H * 0.8, W * 0.16, H * 0.028);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillRect(W * 0.42, H * 0.8, W * 0.16, H * 0.008);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}

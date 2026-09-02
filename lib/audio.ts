@@ -22,6 +22,13 @@
 
 const STORAGE_KEY = 'firehouse:sound';
 
+/**
+ * Idle fundamental. Low enough to sit under everything else on the
+ * page, high enough that laptop speakers — which mostly cannot
+ * reproduce much below 100Hz — still render its harmonics.
+ */
+const ENGINE_IDLE_HZ = 38;
+
 type Ctor = typeof AudioContext;
 
 class MoveAudio {
@@ -34,6 +41,8 @@ class MoveAudio {
     oscA: OscillatorNode;
     oscB: OscillatorNode;
     rumble: AudioBufferSourceNode;
+    chug: OscillatorNode;
+    clatter: AudioBufferSourceNode;
     filter: BiquadFilterNode;
     gain: GainNode;
   } | null = null;
@@ -154,9 +163,22 @@ class MoveAudio {
   }
 
   /**
-   * A diesel bed: two saw oscillators a few cents apart (the beating
-   * between them is what stops it sounding like a test tone) plus
-   * low-passed noise for the rumble.
+   * A diesel bed.
+   *
+   * The character of a diesel is not its pitch, it is the firing pulse
+   * train — the chug of individual cylinders. An earlier version was two
+   * detuned sawtooths plus low noise, which produced a smooth drone that
+   * could have been any large machine. What makes it read as a truck:
+   *
+   *  - a low fundamental with an octave above it, both sawtooth, so the
+   *    tone has body rather than sitting at one frequency;
+   *  - a firing pulse: an LFO whose output is summed into a gain so the
+   *    whole bed is amplitude-modulated several times per revolution.
+   *    This is the chug, and it is the single most identifying part;
+   *  - mechanical clatter, band-passed noise gated by the same LFO, for
+   *    the top-end rattle a diesel has and a smooth drone does not;
+   *  - a resonant lowpass, so opening it under throttle sounds like load
+   *    coming on rather than just getting louder.
    */
   startEngine() {
     if (!this.ready() || this.engine) return;
@@ -165,34 +187,74 @@ class MoveAudio {
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.12, now + 1.2);
+    gain.gain.linearRampToValueAtTime(0.14, now + 1.2);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(180, now);
-    filter.Q.value = 0.7;
+    filter.frequency.setValueAtTime(220, now);
+    filter.Q.value = 3.5;
 
+    // Tone: fundamental plus its octave, slightly detuned against each
+    // other so they beat instead of sitting perfectly still.
     const oscA = ctx.createOscillator();
     oscA.type = 'sawtooth';
-    oscA.frequency.value = 46;
+    oscA.frequency.value = ENGINE_IDLE_HZ;
     const oscB = ctx.createOscillator();
     oscB.type = 'sawtooth';
-    oscB.frequency.value = 46 * 1.008;
+    oscB.frequency.value = ENGINE_IDLE_HZ * 2.01;
+    const oscBGain = ctx.createGain();
+    oscBGain.gain.value = 0.45;
 
     const rumble = this.noiseSource();
     if (!rumble) return;
     const rumbleGain = ctx.createGain();
-    rumbleGain.gain.value = 0.35;
+    rumbleGain.gain.value = 0.3;
+
+    // The firing pulse. `chugDepth` sets how much of the signal the LFO
+    // swings; the constant offset on `chugGain` keeps it from ever
+    // reaching silence between pulses.
+    // Triangle rather than sawtooth, and shallower than it first was.
+    // Measured on an OfflineAudioContext — RMS over a window longer than
+    // one carrier period, so the reading isolates this modulation from
+    // the 38Hz waveform itself — a sawtooth at depth 0.5 swung the level
+    // by 73%, which gates almost to silence between pulses and chugs
+    // like a helicopter. These values land near 55%: clearly a firing
+    // rhythm, still a continuous idle underneath.
+    const chug = ctx.createOscillator();
+    chug.type = 'triangle';
+    chug.frequency.value = ENGINE_IDLE_HZ * 0.34;
+    const chugDepth = ctx.createGain();
+    chugDepth.gain.value = 0.26;
+    const chugGain = ctx.createGain();
+    chugGain.gain.value = 0.71;
+    chug.connect(chugDepth).connect(chugGain.gain);
+
+    // Mechanical clatter, gated by the same pulse so the rattle lands
+    // with the chug rather than washing over it.
+    const clatter = this.noiseSource();
+    if (!clatter) return;
+    const clatterBp = ctx.createBiquadFilter();
+    clatterBp.type = 'bandpass';
+    clatterBp.frequency.value = 1450;
+    clatterBp.Q.value = 1.1;
+    const clatterGain = ctx.createGain();
+    clatterGain.gain.value = 0.016;
+    const clatterDepth = ctx.createGain();
+    clatterDepth.gain.value = 0.012;
+    chug.connect(clatterDepth).connect(clatterGain.gain);
 
     oscA.connect(filter);
-    oscB.connect(filter);
+    oscB.connect(oscBGain).connect(filter);
     rumble.connect(rumbleGain).connect(filter);
-    filter.connect(gain).connect(this.master!);
+    filter.connect(chugGain).connect(gain).connect(this.master!);
+    clatter.connect(clatterBp).connect(clatterGain).connect(gain);
 
     oscA.start();
     oscB.start();
     rumble.start();
-    this.engine = { oscA, oscB, rumble, filter, gain };
+    chug.start();
+    clatter.start();
+    this.engine = { oscA, oscB, rumble, chug, clatter, filter, gain };
   }
 
   stopEngine() {
@@ -206,6 +268,8 @@ class MoveAudio {
     e.oscA.stop(now + 0.6);
     e.oscB.stop(now + 0.6);
     e.rumble.stop(now + 0.6);
+    e.chug.stop(now + 0.6);
+    e.clatter.stop(now + 0.6);
   }
 
   /**
@@ -219,9 +283,14 @@ class MoveAudio {
     const clamped = Math.max(0, Math.min(1, t));
     // Short ramps rather than direct assignment: stepping an audio
     // param per frame produces zipper noise.
-    e.filter.frequency.setTargetAtTime(180 + clamped * 620, now, 0.15);
-    e.oscA.frequency.setTargetAtTime(46 + clamped * 34, now, 0.2);
-    e.oscB.frequency.setTargetAtTime((46 + clamped * 34) * 1.008, now, 0.2);
+    const hz = ENGINE_IDLE_HZ + clamped * 26;
+    e.filter.frequency.setTargetAtTime(220 + clamped * 900, now, 0.15);
+    e.oscA.frequency.setTargetAtTime(hz, now, 0.2);
+    e.oscB.frequency.setTargetAtTime(hz * 2.01, now, 0.2);
+    // The chug has to speed up with the engine, or the truck revs
+    // without the cylinders firing any faster — which is what gives a
+    // synthesised engine away immediately.
+    e.chug.frequency.setTargetAtTime(hz * 0.34, now, 0.2);
   }
 
   /** A box landing: noise transient over a low sine body. */

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress, getExitProgress } from '@/lib/move-as-one-progress';
-import { truckLiveryTexture } from '@/lib/textures';
+import { truckLiveryTexture, rollerDoorTexture } from '@/lib/textures';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 
@@ -353,8 +353,15 @@ export function TruckAssembly() {
     if (doorPanelRef.current) {
       const panelVisible = doorT < 0.06;
       doorPanelRef.current.visible = panelVisible;
-      const panelMat = doorPanelRef.current.material as THREE.MeshStandardMaterial;
-      panelMat.opacity = clamp01(1 - doorT / 0.06);
+      // The panel carries one material per face now (the slat texture is
+      // only on the face that is seen), so the fade has to walk them.
+      const panelOpacity = clamp01(1 - doorT / 0.06);
+      const mats = doorPanelRef.current.material;
+      if (Array.isArray(mats)) {
+        for (const m of mats) (m as THREE.MeshStandardMaterial).opacity = panelOpacity;
+      } else {
+        (mats as THREE.MeshStandardMaterial).opacity = panelOpacity;
+      }
     }
   });
 
@@ -362,12 +369,14 @@ export function TruckAssembly() {
   // have opposite-handed UVs (see the side-wall meshes below).
   const liveryFar = useMemo(() => truckLiveryTexture(false), []);
   const liveryNear = useMemo(() => truckLiveryTexture(true), []);
+  const doorTex = useMemo(() => rollerDoorTexture(), []);
   useEffect(
     () => () => {
       liveryFar.dispose();
       liveryNear.dispose();
+      doorTex.dispose();
     },
-    [liveryFar, liveryNear],
+    [liveryFar, liveryNear, doorTex],
   );
 
   return (
@@ -606,52 +615,57 @@ export function TruckAssembly() {
               last round) is untouched. */}
           <mesh ref={doorPanelRef} position={[0.011, 0.005, 0]}>
             <boxGeometry args={[0.018, 1.84, 1.6]} />
-            <meshStandardMaterial
-              color={COLORS.truckChrome}
-              roughness={0.45}
-              metalness={0.5}
-              transparent
-            />
-            {/* Scored lines matching the slat pitch, so the closed door
-                reads as a segmented roller door rather than a
-                featureless sheet.
-
-                These are children of the panel, not siblings of it, and
-                that nesting is the whole point: three.js visibility
-                inherits down the graph, so they disappear exactly when
-                the panel does. As siblings they kept their own
-                visible=true after the panel faded out on opening, and
-                six dark strips were left hanging across the empty cargo
-                bay for the entire load-in. Positions are relative to the
-                panel's own origin at [0.011, 0.005, 0]. */}
-            {Array.from({ length: DOOR_SLAT_COUNT - 1 }).map((_, i) => (
-              <mesh key={`score-${i}`} position={[0.01, -0.685 + i * 0.24, 0]}>
-                <boxGeometry args={[0.001, 0.01, 1.58]} />
-                <meshStandardMaterial
-                  color={COLORS.truckChassis}
-                  roughness={0.6}
-                  metalness={0.3}
-                />
-              </mesh>
-            ))}
+            {/* The slat relief lives in the texture now — see
+                rollerDoorTexture. The scored lines used to be geometry
+                0.001 units thick, which is sub-pixel at any real
+                distance: they aliased into dashes and the chromatic
+                aberration pass fringed them red and blue. Only the +X
+                face is seen, so the rest take plain steel. */}
+            <meshStandardMaterial attach="material-0" map={doorTex} roughness={0.5} metalness={0.45} transparent />
+            <meshStandardMaterial attach="material-1" color={COLORS.truckChrome} roughness={0.5} metalness={0.45} transparent />
+            <meshStandardMaterial attach="material-2" color={COLORS.truckChrome} roughness={0.5} metalness={0.45} transparent />
+            <meshStandardMaterial attach="material-3" color={COLORS.truckChrome} roughness={0.5} metalness={0.45} transparent />
+            <meshStandardMaterial attach="material-4" color={COLORS.truckChrome} roughness={0.5} metalness={0.45} transparent />
+            <meshStandardMaterial attach="material-5" color={COLORS.truckChrome} roughness={0.5} metalness={0.45} transparent />
           </mesh>
+        </group>
 
-          {/* Tail lights either side of the roller door */}
-          {[0.68, -0.68].map((z, i) => (
-            <mesh key={z} position={[0.02, -0.7, z]}>
-              <boxGeometry args={[0.05, 0.24, 0.14]} />
-              <meshStandardMaterial
-                ref={(m) => {
-                  tailLightRefs.current[i] = m;
-                }}
-                color={COLORS.tailLightRed}
-                emissive={COLORS.tailLightGlow}
-                emissiveIntensity={0.35}
-                roughness={0.35}
-              />
+        {/* Rear-end hardware. A box truck's back is not a bare panel:
+            the underride bar is a legal requirement and reads
+            instantly, and the mudflaps and plate are what the eye
+            expects underneath. Without them the body looked like it had
+            been sliced off flat. */}
+        <group position={[1.56, 0, 0]}>
+          {/* DOT underride bar and its two drop posts. */}
+          <mesh position={[0.02, -1.16, 0]}>
+            <boxGeometry args={[0.08, 0.1, 1.62]} />
+            <meshStandardMaterial color={COLORS.truckChassis} roughness={0.55} metalness={0.6} />
+          </mesh>
+          {[0.62, -0.62].map((z) => (
+            <mesh key={`post-${z}`} position={[0.0, -1.02, z]}>
+              <boxGeometry args={[0.07, 0.34, 0.09]} />
+              <meshStandardMaterial color={COLORS.truckChassis} roughness={0.55} metalness={0.6} />
             </mesh>
           ))}
+          {/* Licence plate, lit by its own small lamp above it. */}
+          <mesh position={[0.03, -0.99, 0.28]}>
+            <boxGeometry args={[0.012, 0.15, 0.26]} />
+            <meshStandardMaterial
+              color={COLORS.headlightWhite}
+              roughness={0.6}
+              emissive={COLORS.headlightWhite}
+              emissiveIntensity={0.12}
+            />
+          </mesh>
         </group>
+
+        {/* Mudflaps, hung behind the rear axle. */}
+        {[0.78, -0.78].map((z) => (
+          <mesh key={`flap-${z}`} position={[1.18, -1.12, z]}>
+            <boxGeometry args={[0.02, 0.36, 0.3]} />
+            <meshStandardMaterial color={COLORS.truckTyre} roughness={0.95} />
+          </mesh>
+        ))}
 
       </group>
 
@@ -671,14 +685,61 @@ export function TruckAssembly() {
               wheelSpinRefs.current[i] = el;
             }}
           >
+            {/* Tyre. Segment count is up from 20 so the silhouette
+                stops reading as a polygon at close range, and the
+                sidewall is a slightly smaller, slightly proud ring so
+                the tyre has a visible shoulder instead of being one
+                flat-ended cylinder. */}
             <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[WHEEL_RADIUS, WHEEL_RADIUS, 0.24, 20]} />
-              <meshStandardMaterial color={COLORS.truckTyre} roughness={0.95} />
+              <cylinderGeometry args={[WHEEL_RADIUS, WHEEL_RADIUS, 0.26, 32]} />
+              <meshStandardMaterial color={COLORS.truckTyre} roughness={0.98} />
             </mesh>
-            <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, pos[2] > 0 ? 0.135 : -0.135]}>
-              <cylinderGeometry args={[0.19, 0.19, 0.05, 16]} />
-              <meshStandardMaterial color={COLORS.truckRim} roughness={0.35} metalness={0.75} />
+            <mesh
+              rotation={[Math.PI / 2, 0, 0]}
+              position={[0, 0, pos[2] > 0 ? 0.06 : -0.06]}
+            >
+              <cylinderGeometry
+                args={[WHEEL_RADIUS * 0.93, WHEEL_RADIUS * 0.93, 0.16, 32]}
+              />
+              <meshStandardMaterial color={COLORS.truckTyreWall} roughness={0.9} />
             </mesh>
+
+            {/* Rim, recessed into the tyre rather than sitting flush on
+                its end cap, plus a hub and six bolts. The wheels
+                previously read as plain dark discs — the bolt circle is
+                what actually makes them look like truck wheels at this
+                distance. */}
+            <mesh
+              rotation={[Math.PI / 2, 0, 0]}
+              position={[0, 0, pos[2] > 0 ? 0.115 : -0.115]}
+            >
+              <cylinderGeometry args={[0.2, 0.2, 0.06, 24]} />
+              <meshStandardMaterial color={COLORS.truckRim} roughness={0.3} metalness={0.85} />
+            </mesh>
+            <mesh
+              rotation={[Math.PI / 2, 0, 0]}
+              position={[0, 0, pos[2] > 0 ? 0.145 : -0.145]}
+            >
+              <cylinderGeometry args={[0.075, 0.075, 0.03, 16]} />
+              <meshStandardMaterial color={COLORS.truckChrome} roughness={0.25} metalness={0.9} />
+            </mesh>
+            {Array.from({ length: 6 }).map((_, b) => {
+              const a = (b / 6) * Math.PI * 2;
+              return (
+                <mesh
+                  key={`bolt-${b}`}
+                  rotation={[Math.PI / 2, 0, 0]}
+                  position={[
+                    Math.cos(a) * 0.125,
+                    Math.sin(a) * 0.125,
+                    pos[2] > 0 ? 0.15 : -0.15,
+                  ]}
+                >
+                  <cylinderGeometry args={[0.017, 0.017, 0.02, 8]} />
+                  <meshStandardMaterial color={COLORS.truckChrome} roughness={0.3} metalness={0.9} />
+                </mesh>
+              );
+            })}
           </group>
         </group>
       ))}

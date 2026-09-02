@@ -51,12 +51,26 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       const hero = root.current!.querySelector<HTMLElement>('[data-hero-copy]');
       const scrim = root.current!.querySelector<HTMLElement>('[data-scrim]');
 
-      // Each step's visible window as a fraction of the pin's own 0..1
+      // Two windows per step, both as a fraction of the pin's own 0..1
       // progress (not the section's raw height — see note below).
-      const stepWindows: [number, number][] = [
-        [0.4, 0.62],
-        [0.5, 0.72],
-        [0.6, 0.85],
+      //
+      // `enter` is when the step arrives. `active` is when the truck is
+      // actually doing that thing, and it is deliberately aligned to the
+      // real beats of the set-piece rather than chosen to look evenly
+      // spaced: Pack runs across the box load-in (BoxStack's travel
+      // window), Move begins as the rear door finishes closing and
+      // carries the departure (EXIT_START), and Settle lands as the
+      // truck clears the frame. The labels narrate the animation instead
+      // of just appearing beside it.
+      const enterWindows: [number, number][] = [
+        [0.2, 0.36],
+        [0.29, 0.45],
+        [0.38, 0.54],
+      ];
+      const activeWindows: [number, number][] = [
+        [0.3, 0.75],
+        [0.75, 0.93],
+        [0.93, 1.0],
       ];
 
       gsap.set(steps, { opacity: 0, y: 30 });
@@ -89,9 +103,41 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         }
 
         steps.forEach((step, i) => {
-          const [start, end] = stepWindows[i];
-          const t = gsap.utils.clamp(0, 1, (progress - start) / (end - start));
-          gsap.set(step, { opacity: t, y: 30 * (1 - t) });
+          const [eStart, eEnd] = enterWindows[i];
+          const enter = gsap.utils.clamp(
+            0,
+            1,
+            (progress - eStart) / (eEnd - eStart),
+          );
+          const [aStart, aEnd] = activeWindows[i];
+          const active = gsap.utils.clamp(
+            0,
+            1,
+            (progress - aStart) / (aEnd - aStart),
+          );
+          // Dim until this step's turn, full while it is happening, and
+          // held slightly up afterwards — a completed step should read
+          // as done, not as switched off.
+          const emphasis = active >= 1 ? 0.62 : 0.42 + active * 0.58;
+          gsap.set(step, { opacity: enter * emphasis, y: 26 * (1 - enter) });
+
+          // The label's characters cascade in rather than the whole word
+          // arriving at once. Each one gets its own slice of the entry
+          // window, so the cascade is driven by scroll position and
+          // scrubs backwards cleanly.
+          const chars = step.querySelectorAll<HTMLElement>('[data-step-char]');
+          chars.forEach((ch, ci) => {
+            const span = 1 / (chars.length + 3);
+            const cT = gsap.utils.clamp(0, 1, (enter - ci * span) / (1 - ci * span));
+            gsap.set(ch, { yPercent: 100 * (1 - cT), opacity: cT });
+          });
+
+          // A rule that fills across the step while it is the live one.
+          const fill = step.querySelector<HTMLElement>('[data-step-fill]');
+          if (fill) gsap.set(fill, { scaleX: active });
+
+          const num = step.querySelector<HTMLElement>('[data-step-num]');
+          if (num) gsap.set(num, { opacity: 0.3 + active * 0.7 });
         });
       };
 
@@ -222,11 +268,42 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
               Move as One
             </p>
             <div className="grid gap-10 md:grid-cols-3">
-              {STEPS.map((step) => (
+              {STEPS.map((step, i) => (
                 <div key={step.label} data-step className="max-w-xs">
-                  <h3 className="text-4xl font-semibold tracking-tight">
-                    {step.label}
-                  </h3>
+                  {/* The rule sits above the step and fills left to
+                      right while that step is the live one, so the three
+                      of them read as a progress track across the whole
+                      set-piece. */}
+                  <div className="mb-5 h-px w-full origin-left bg-bone/15">
+                    <div
+                      data-step-fill
+                      className="h-px w-full origin-left scale-x-0 bg-fire"
+                    />
+                  </div>
+                  <div className="flex items-baseline gap-4">
+                    <span
+                      data-step-num
+                      className="font-mono text-xs text-fire opacity-30"
+                    >
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <h3 className="text-4xl font-semibold tracking-tight">
+                      {/* Per-character spans so the label can cascade.
+                          Each sits in its own overflow-hidden mask, so
+                          characters rise out of the line rather than
+                          fading in place. */}
+                      {step.label.split('').map((ch, ci) => (
+                        <span
+                          key={`${step.label}-${ci}`}
+                          className="inline-block overflow-hidden align-bottom"
+                        >
+                          <span data-step-char className="inline-block">
+                            {ch}
+                          </span>
+                        </span>
+                      ))}
+                    </h3>
+                  </div>
                   <p className="mt-4 leading-relaxed opacity-70">{step.body}</p>
                 </div>
               ))}

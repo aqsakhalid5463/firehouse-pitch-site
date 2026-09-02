@@ -2,7 +2,11 @@
 
 import Image from 'next/image';
 import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
+
+gsap.registerPlugin(ScrollTrigger);
 
 /**
  * A large editorial service card: photograph first, copy underneath.
@@ -36,6 +40,7 @@ export function ServiceCard({
   alt: string;
   priority?: boolean;
 }) {
+  const root = useRef<HTMLElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const img = useRef<HTMLImageElement>(null);
   const reduced = useReducedMotion();
@@ -45,6 +50,51 @@ export function ServiceCard({
   // so there is real material to move without exposing an edge, and the
   // travel is small — this should register as depth, not as a moving
   // picture competing with the ribbon.
+  // Entrance for the card's copy. The photograph already had parallax
+  // and a hover state; the title and body simply appeared, so the image
+  // animated into a caption that was already sitting there.
+  useEffect(() => {
+    if (reduced || !root.current) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: { trigger: root.current, start: 'top 82%' },
+      });
+      // The title's words rise out of their own masks, matching how
+      // section headings behave (RevealText) so a card reads as part of
+      // the same typographic system rather than its own effect.
+      tl.from('[data-card-num]', {
+        x: -10,
+        opacity: 0,
+        duration: 0.6,
+        ease: 'power3.out',
+      }).from(
+        '[data-card-word]',
+        {
+          yPercent: 115,
+          opacity: 0,
+          duration: 0.8,
+          ease: 'expo.out',
+          stagger: 0.05,
+        },
+        '-=0.35',
+      )
+        .from(
+          '[data-card-body]',
+          { y: 14, opacity: 0, duration: 0.7, ease: 'power3.out' },
+          // Overlaps the title rather than queueing after it: a strict
+          // sequence made the body arrive long enough later to read as a
+          // second, separate event.
+          '-=0.5',
+        )
+        .from(
+          '[data-card-rule]',
+          { scaleX: 0, duration: 0.7, ease: 'power3.out' },
+          '-=0.55',
+        );
+    }, root);
+    return () => ctx.revert();
+  }, [reduced]);
+
   useEffect(() => {
     if (reduced) return;
     const el = frame.current;
@@ -68,7 +118,7 @@ export function ServiceCard({
   }, [reduced]);
 
   return (
-    <article className="group relative">
+    <article ref={root} className="group relative">
       {/* 4:3 matches the source photographs' native 2048x1536, so
           object-cover has nothing to crop. Every card shares it: an
           earlier version alternated tall and short by index, but in a
@@ -112,17 +162,42 @@ export function ServiceCard({
         />
 
         <span
+          data-card-num
           aria-hidden="true"
-          className="absolute top-6 left-6 text-xs font-semibold tracking-[0.25em] text-bone/70"
+          className="absolute top-6 left-6 text-xs font-semibold tracking-[0.25em] text-bone/70 transition-colors duration-500 group-hover:text-fire"
         >
           {String(index + 1).padStart(2, '0')}
         </span>
       </div>
 
-      <h3 className="mt-7 text-[clamp(1.5rem,2.4vw,2rem)] font-semibold tracking-tight">
-        {title}
+      {/* A hairline that draws in under the image and picks up the
+          brand red on hover, tying the copy back to the card above it. */}
+      <div
+        data-card-rule
+        aria-hidden="true"
+        className="mt-6 h-px w-full origin-left bg-bone/15 transition-colors duration-500 group-hover:bg-fire/60"
+      />
+
+      <h3 className="mt-5 text-[clamp(1.5rem,2.4vw,2rem)] font-semibold tracking-tight">
+        {title.split(' ').flatMap((word, i, all) => {
+          const wrapped = (
+            <span
+              key={`w-${i}`}
+              className="inline-block overflow-hidden pb-[0.08em] align-bottom"
+            >
+              <span data-card-word className="inline-block">
+                {word}
+              </span>
+            </span>
+          );
+          // The space lives outside the mask, or the browser collapses
+          // it and the words run together.
+          return i < all.length - 1 ? [wrapped, ' '] : [wrapped];
+        })}
       </h3>
-      <p className="mt-3 max-w-md leading-relaxed text-bone/60">{body}</p>
+      <p data-card-body className="mt-3 max-w-md leading-relaxed text-bone/60">
+        {body}
+      </p>
     </article>
   );
 }

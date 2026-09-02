@@ -7,8 +7,8 @@ export function AboutHero() {
       <div className="mx-auto w-full max-w-7xl">
         {/* Matches the home hero's eyebrow — same role, same page
           position, so the two must not drift apart. See HeroCopy for
-          why this is 80 and not 60. */}
-        <p className="mb-8 text-xs font-semibold tracking-[0.3em] uppercase opacity-80">
+          why this is a colour and not an opacity utility. */}
+        <p className="mb-8 text-xs font-semibold tracking-[0.3em] text-bone/80 uppercase">
           About us
         </p>
         <RevealText

@@ -34,13 +34,20 @@ export function HeroCopy() {
             its generous size while its own grid row shrank around it,
             spilling "Move as One" into the CTAs below (round 17
             regression). */}
-        {/* Round 20: raised from opacity-60. At 12px, semibold, and
-            letter-spaced to 0.3em, 60% bone renders as a mid-grey that
-            the client read as hidden entirely — the wide tracking
-            leaves each stroke isolated with nothing around it to carry
-            the eye. 80% still sits clearly below the headline's full
-            strength, so it reads as secondary without disappearing. */}
-        <p className="mb-[clamp(1rem,4vh,2rem)] text-xs font-semibold tracking-[0.3em] uppercase opacity-80">
+        {/* Round 20. This line reading as "hidden" was never a contrast
+            problem. The nav's box is a fixed 94px tall; on a window
+            shorter than ~950px this copy is taller than its grid row,
+            and centring pushed the overflow evenly in both directions,
+            sliding the eyebrow up behind the nav's dark scrim and its
+            2px backdrop blur — dark and soft, while the headline below
+            stayed clear. The safe centring and padding floor in
+            Opening.tsx are the actual fix.
+            Tinting via `text-bone/80` rather than `opacity-80` is kept
+            on its own merits: an element with opacity < 1 paints into a
+            non-opaque layer, where Chrome drops subpixel antialiasing,
+            and at 12px tracked to 0.3em there is no stroke weight to
+            spare. */}
+        <p className="mb-[clamp(1rem,4vh,2rem)] text-xs font-semibold tracking-[0.3em] text-bone/80 uppercase">
           Lewisville, Texas · Licensed &amp; Insured
         </p>
         <RevealText

@@ -228,7 +228,7 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         className={
           collapsed
             ? 'relative flex flex-col gap-16 py-24'
-            : 'relative flex h-screen flex-col overflow-hidden pt-[clamp(3rem,10vh,7rem)] pb-[clamp(2rem,6vh,4rem)]'
+            : 'relative flex h-screen flex-col overflow-hidden pt-[clamp(6.5rem,10vh,7rem)] pb-[clamp(2rem,6vh,4rem)]'
         }
       >
         {/* The hero copy gets its own flexible region so it can stay
@@ -259,12 +259,31 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
               : 'grid h-full grid-rows-[1fr_auto] gap-[clamp(1rem,4vh,3.5rem)]'
           }
         >
-          <div data-hero-copy className="flex min-h-0 flex-col justify-center">
+          {/* `safe center` rather than plain centring. On a short
+              window the copy is taller than this row, and ordinary
+              centring splits the overflow evenly — pushing the eyebrow
+              up behind the nav's fixed 94px scrim, where it went dark
+              and blurred (the client's "text is hidden"). Safe centring
+              keeps the start edge put and lets the overflow fall
+              downward instead, into the process block, which is still
+              faded out at this point in the scroll and only appears
+              once this copy has begun fading away. */}
+          <div
+            data-hero-copy
+            className="flex min-h-0 flex-col [justify-content:safe_center]"
+          >
             {heroCopy}
           </div>
 
           <div id="process" className="mx-auto w-full max-w-7xl">
-            <p className="mb-10 text-xs font-semibold tracking-[0.3em] uppercase opacity-50">
+            {/* Hidden on short windows. The hero copy above is taller
+                than its row there and its overflow falls through this
+                row (see the safe-centring note above); the steps below
+                are still faded out at that point in the scroll, but this
+                marker is not, so it was the one thing that collided
+                with the subhead. Measured: the copy stops overflowing
+                somewhere between 800px and 900px of viewport height. */}
+            <p className="mb-10 text-xs font-semibold tracking-[0.3em] uppercase opacity-50 [@media(max-height:880px)]:hidden">
               Move as One
             </p>
             <div className="grid gap-10 md:grid-cols-3">

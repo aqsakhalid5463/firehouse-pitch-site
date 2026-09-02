@@ -50,18 +50,22 @@ const HERO_CAMERA_FOV_DEG = 42;
 const HERO_CAMERA_DISTANCE = 6.0 - HERO_OFFSET_Z;
 
 // Fraction of the camera's visible half-width, at the stack's depth,
-// that the stack's own centre sits at. Chosen so the stack clears
-// Highway's painted edge line (EDGE_LANE_X = 1.7, see Highway.tsx —
-// the client's original "boxes sitting on the edge line" complaint)
-// while leaving enough margin to the frame's right edge for the third
-// box's own offset footprint (see STACK_FOOTPRINT_RADIUS) not to clip,
-// verified at 1024/1440/1512/1920/2000 wide.
-const HERO_STACK_X_FRACTION = 0.56;
+// that the stack's right-hand extent (not its centre) is allowed to
+// reach — i.e. how far inside the frame's right edge the stack's
+// outermost box corner must stay. This is a margin fraction, not a
+// centre-placement fraction, so it does not need re-tuning when
+// BOX_SPECS changes size: the actual footprint (STACK_RIGHT_EXTENT,
+// derived from the real box dimensions below) is subtracted from the
+// visible half-width to find where the centre needs to sit. Verified at
+// 1024/1440/1512/1920/2000 wide and at short/wide aspects (e.g.
+// 1568x572) where a fixed centre-fraction previously ran the stack off
+// the right edge once BOX_SPECS grew.
+const HERO_STACK_MARGIN_FRACTION = 0.86;
 
 function heroStackX(aspect: number): number {
   const halfHeight = Math.tan((HERO_CAMERA_FOV_DEG * Math.PI) / 360) * HERO_CAMERA_DISTANCE;
   const halfWidth = halfHeight * aspect;
-  return halfWidth * HERO_STACK_X_FRACTION;
+  return halfWidth * HERO_STACK_MARGIN_FRACTION - STACK_RIGHT_EXTENT;
 }
 
 type BoxSpec = {
@@ -163,6 +167,16 @@ const STACK_FOOTPRINT_RADIUS =
   Math.max(BOX_SPECS[0].size[0], BOX_SPECS[0].size[2]) * 0.6 +
   Math.abs(HERO_STACK_LOCAL[2][0]) * 0.55;
 
+// The stack's own rightmost extent, in world units from its group
+// origin: the outermost box's local x offset plus its own half-width.
+// heroStackX() uses this — derived from the real BOX_SPECS/HERO_STACK_LOCAL
+// geometry, not a re-tuned constant — to keep that actual right edge
+// inside the frame, so a future resize of BOX_SPECS can't silently push
+// the stack past the visible edge again.
+const STACK_RIGHT_EXTENT = Math.max(
+  ...BOX_SPECS.map((spec, i) => HERO_STACK_LOCAL[i][0] + spec.size[0] / 2)
+);
+
 // --- Cargo-fit sanity check --------------------------------------------
 // Verifies, at module load, that every box's *shrunk* rest footprint
 // clears the bay's floor, ceiling, both side walls, the front wall, the
@@ -249,6 +263,8 @@ function CardboardBox({
 export function BoxStack() {
   const pathname = usePathname();
   const boxRefs = useRef<(THREE.Group | null)[]>([]);
+  const shadowRef = useRef<THREE.Mesh | null>(null);
+  const shadowMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
   // Recomputed only when the canvas itself resizes (not every frame),
   // via `size` from R3F's reactive store — this is what keeps the
   // stack's X a consistent frame-fraction across viewport widths
@@ -267,6 +283,7 @@ export function BoxStack() {
       boxRefs.current.forEach((g) => {
         if (g) g.visible = false;
       });
+      if (shadowRef.current) shadowRef.current.visible = false;
       return;
     }
 
@@ -311,6 +328,19 @@ export function BoxStack() {
 
       const bob = Math.sin(state.clock.elapsedTime * 0.5 + i) * 0.06 * (1 - approachEase);
       const idleSpin = state.clock.elapsedTime * 0.12 * (1 - approachEase);
+
+      // The contact shadow belongs to the stack as it sits at the hero
+      // position, not to any box once it starts travelling. Box 0
+      // (loadDelay 0, the first to leave) sets the pace: its own
+      // approachEase going from 0 -> 1 as it lifts off and heads for the
+      // truck is exactly the signal that should fade the shadow out, so
+      // it is gone by the time any box — let alone the page itself —
+      // has moved past the hero rest position.
+      if (i === 0 && shadowRef.current && shadowMatRef.current) {
+        const shadowVisible = local < 1 && approachEase < 1;
+        shadowRef.current.visible = shadowVisible;
+        shadowMatRef.current.opacity = 0.35 * (1 - approachEase);
+      }
 
       const stackLocal = HERO_STACK_LOCAL[i];
       const heroWorld: Vec3 = [
@@ -378,10 +408,25 @@ export function BoxStack() {
         />
       ))}
       {/* Contact shadow at the hero rest position: sells the grounding
-          before the boxes start moving. */}
-      <mesh position={[heroX, 0.005, HERO_OFFSET_Z]} rotation={[-Math.PI / 2, 0, 0]}>
+          before the boxes start moving. Visibility and opacity are
+          driven every frame in useFrame above, tied to box 0's own
+          approach progress — it only exists while the stack is actually
+          resting at the hero position, fades as the boxes lift off, and
+          is never visible once the page has moved past the hero (in
+          particular never during the light/cream half of the page). */}
+      <mesh
+        ref={shadowRef}
+        visible={false}
+        position={[heroX, 0.005, HERO_OFFSET_Z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
         <circleGeometry args={[STACK_FOOTPRINT_RADIUS, 24]} />
-        <meshBasicMaterial color={COLORS.asphaltDark} transparent opacity={0.35} />
+        <meshBasicMaterial
+          ref={shadowMatRef}
+          color={COLORS.asphaltDark}
+          transparent
+          opacity={0.35}
+        />
       </mesh>
     </group>
   );

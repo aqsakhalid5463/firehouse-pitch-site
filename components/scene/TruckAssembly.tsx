@@ -598,16 +598,6 @@ export function TruckAssembly() {
           ))}
         </group>
 
-        {/* Fenders / wheel arches, positioned relative to the assembled
-            body so they read as part of it rather than floating props. */}
-        <mesh position={[-2.45, -0.95, 0.9]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.44, 0.44, 0.22, 16, 1, false, 0, Math.PI]} />
-          <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} metalness={0.2} />
-        </mesh>
-        <mesh position={[-2.45, -0.95, -0.9]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.44, 0.44, 0.22, 16, 1, false, 0, Math.PI]} />
-          <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} metalness={0.2} />
-        </mesh>
       </group>
 
       {/* Wheels: dark tyre + lighter rim, instanced per corner. An inner

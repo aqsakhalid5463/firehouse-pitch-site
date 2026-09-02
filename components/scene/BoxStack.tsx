@@ -28,13 +28,19 @@ import {
 // truck's own cargo (see useFrame below) — there is exactly one set of
 // boxes; nothing is duplicated in TruckAssembly and nothing fades away.
 //
-// x = 2.6 is deliberately past Highway's painted edge line
+// x = 3.15 is deliberately past Highway's painted edge line
 // (EDGE_LANE_X = 1.7, see Highway.tsx) — the client's exact complaint
 // was boxes sitting "on the side of the road" on that line. Highway's
-// paved surface runs out to ROAD_HALF_WIDTH = 4.6, so 2.6 is still
-// comfortably on the road surface itself (not the shoulder/verge)
-// while staying clear of the centre-frame truck assembly.
-const HERO_OFFSET: Vec3 = [2.6, ROAD_SURFACE_Y, 0.15];
+// paved surface runs out to ROAD_HALF_WIDTH = 4.6, so 3.15 is still
+// comfortably on the road surface itself (not the shoulder/verge) while
+// staying clear of the centre-frame truck assembly.
+//
+// Bumped from 2.6 (round 16): the opening camera's hero-rest target no
+// longer yaws right to "balance" the stack (see camera-path.ts) — with
+// the road itself now centred in frame, the stack needs to sit further
+// out on its own to read as deliberately anchored in the right third
+// rather than drifting toward the middle of a now-centred scene.
+const HERO_OFFSET: Vec3 = [3.15, ROAD_SURFACE_Y, 0.15];
 
 type BoxSpec = {
   size: Vec3;

@@ -50,6 +50,7 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
     const ctx = gsap.context(() => {
       const steps = gsap.utils.toArray<HTMLElement>('[data-step]');
       const hero = root.current!.querySelector<HTMLElement>('[data-hero-copy]');
+      const scrim = root.current!.querySelector<HTMLElement>('[data-scrim]');
 
       // Each step's visible window as a fraction of the pin's own 0..1
       // progress (not the section's raw height — see note below).
@@ -69,6 +70,11 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         if (hero) {
           const heroT = 1 - gsap.utils.clamp(0, 1, (progress - 0.18) / (0.4 - 0.18));
           gsap.set(hero, { opacity: heroT });
+          // The scrim exists only to help the hero copy read against the
+          // road; once that copy is gone (loading/departure beats) there
+          // is no text left for it to protect, so it fades out with it
+          // rather than dimming the rest of the set-piece.
+          if (scrim) gsap.set(scrim, { opacity: heroT });
         }
 
         steps.forEach((step, i) => {
@@ -110,8 +116,10 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       // the copy/steps at opacity 0 / offset.
       const steps = gsap.utils.toArray<HTMLElement>('[data-step]', root.current ?? undefined);
       const hero = root.current?.querySelector<HTMLElement>('[data-hero-copy]');
+      const scrim = root.current?.querySelector<HTMLElement>('[data-scrim]');
       gsap.set(steps, { clearProps: 'opacity,y' });
       if (hero) gsap.set(hero, { clearProps: 'opacity' });
+      if (scrim) gsap.set(scrim, { clearProps: 'opacity' });
       ctx.revert();
       // The truck must not render fully assembled (and the box stack must
       // not sit mid-load) after this section unmounts (e.g. reduced
@@ -122,18 +130,44 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
   }, [reduced]);
 
   return (
-    <section ref={root} className={collapsed ? 'relative min-h-screen px-6' : 'relative h-[350vh] px-6'}>
+    <section
+      ref={root}
+      className={
+        collapsed
+          ? 'relative min-h-screen px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32'
+          : 'relative h-[350vh] px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32'
+      }
+    >
+      {/* A soft dark falloff from the left edge, sitting strictly behind
+          the hero copy/steps (both plain in-flow children below, so they
+          paint above this negative-z, absolutely-positioned layer within
+          this section's own stacking context — see the comment on
+          layout.tsx for why that's already enough to keep it under the
+          canvas's z-10 wrapper too). It exists to make the road/scene
+          read less brightly behind the left-column text, not to be
+          visible as its own shape, so it is a wide, low-opacity gradient
+          rather than a hard-edged band. Its opacity is driven down in
+          lockstep with the hero copy's own fade (see applyProgress
+          below) so it never dims the loading/departure beats once the
+          hero copy itself is gone. */}
+      <div
+        data-scrim
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-dark-bg/70 via-dark-bg/25 to-transparent"
+      />
       <div
         data-pin
         className={
           collapsed
-            ? 'relative flex flex-col justify-center gap-16 py-24'
-            : 'relative flex h-screen flex-col justify-center overflow-hidden pb-24'
+            ? 'relative flex flex-col gap-16 py-24'
+            : 'relative flex h-screen flex-col overflow-hidden pt-28 pb-16'
         }
       >
-        <div data-hero-copy>{heroCopy}</div>
+        <div data-hero-copy className="flex flex-1 flex-col justify-center">
+          {heroCopy}
+        </div>
 
-        <div id="process" className="mx-auto mt-auto w-full max-w-7xl">
+        <div id="process" className="mx-auto w-full max-w-7xl">
           <p className="mb-10 text-xs font-semibold tracking-[0.3em] uppercase opacity-50">
             Move as One
           </p>

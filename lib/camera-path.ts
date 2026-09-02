@@ -75,11 +75,16 @@ const HOME_POSITIONS: Vec3[] = [
   [-0.6, 1.3, 10.4],
 ];
 
-// The first two keyframes (the hero rest pose and early assembly) are
-// pulled right to balance the box stack, which now sits in the right
-// third of the frame (see BoxStack's HERO_OFFSET) instead of dead
-// centre — without this the composition reads lopsided even though the
-// boxes themselves are no longer covering the headline.
+// Keyframes 0-1 (the hero rest pose and early assembly) used to aim at
+// positive X (0.55 / 0.5), which yaws the camera right and pushes the
+// road's vanishing point well left of centre — that was the client's
+// "the road does not look center" complaint (round 16). Both now aim at
+// x=0, matching keyframe 2's target and, for keyframe 0, the camera's
+// own position X (also 0) — that equality is what makes the hero-rest
+// look straight down the road instead of across it. The box stack's
+// right-third placement is handled entirely by BoxStack's own
+// HERO_OFFSET now that the camera isn't already skewing the frame left
+// to "balance" it.
 //
 // Keyframes 4-5: see the comment on HOME_POSITIONS above — these two
 // targets converge their X onto the camera's own X (rather than sitting
@@ -87,8 +92,8 @@ const HOME_POSITIONS: Vec3[] = [
 // the road, so camera→target runs parallel to the truck's departure
 // heading instead of cutting across it.
 const HOME_TARGETS: Vec3[] = [
-  [0.55, -0.35, 0],
-  [0.5, -0.1, 0],
+  [0, -0.35, 0],
+  [0, -0.1, 0],
   [0, 0.15, 0],
   [0, 0.1, 0],
   [-0.5, 0.25, -4],

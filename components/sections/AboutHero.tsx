@@ -1,4 +1,5 @@
 import { RevealText } from '@/components/ui/RevealText';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 export function AboutHero() {
   return (
@@ -17,12 +18,14 @@ export function AboutHero() {
             paraphrases their own description of the business. The
             previous version invented a founding story — one truck, one
             crew — that they never told us. */}
+        <FadeUp delay={0.3}>
         <p className="mt-8 max-w-xl text-lg leading-relaxed opacity-70">
           A growing franchise moving company in Lewisville, Texas, offering a
           full range of services to households and businesses across
           Dallas-Fort Worth and beyond. We are here to take the stress out of
           relocating.
         </p>
+        </FadeUp>
       </div>
     </section>
   );

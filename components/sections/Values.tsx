@@ -1,6 +1,7 @@
 import { VALUES } from '@/lib/content';
 import { RevealText } from '@/components/ui/RevealText';
 import { TiltCard } from '@/components/ui/TiltCard';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 export function Values() {
   return (
@@ -12,7 +13,7 @@ export function Values() {
         >
           What you actually get
         </RevealText>
-        <div className="mt-20 grid gap-6 md:grid-cols-2">
+        <FadeUp stagger className="mt-20 grid gap-6 md:grid-cols-2">
           {VALUES.map((value) => (
             <TiltCard key={value.title}>
               <div className="p-8">
@@ -21,7 +22,7 @@ export function Values() {
               </div>
             </TiltCard>
           ))}
-        </div>
+        </FadeUp>
       </div>
     </section>
   );

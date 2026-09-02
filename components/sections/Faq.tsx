@@ -3,6 +3,7 @@
 import { useRef, useState, useId } from 'react';
 import { FAQ } from '@/lib/content';
 import { RevealText } from '@/components/ui/RevealText';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 /**
  * The questions people ask before booking a mover.
@@ -93,7 +94,7 @@ export function Faq() {
           The things people ask before they book
         </RevealText>
 
-        <div className="mt-16 border-b border-bone/12">
+        <FadeUp stagger className="mt-16 border-b border-bone/12">
           {FAQ.map((item, i) => (
             <Item
               key={item.q}
@@ -103,7 +104,7 @@ export function Faq() {
               onToggle={() => setOpenIndex(openIndex === i ? null : i)}
             />
           ))}
-        </div>
+        </FadeUp>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import { BUSINESS } from '@/lib/constants';
 import { RevealText } from '@/components/ui/RevealText';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 const CREDENTIALS = [
   {
@@ -26,14 +27,14 @@ export function Credentials() {
         >
           Credentials that matter on moving day
         </RevealText>
-        <div className="mt-16 grid gap-12 md:grid-cols-3">
+        <FadeUp stagger className="mt-16 grid gap-12 md:grid-cols-3">
           {CREDENTIALS.map((c) => (
             <div key={c.title} className="border-t border-current/15 pt-6">
               <h3 className="text-xl font-semibold">{c.title}</h3>
               <p className="mt-3 leading-relaxed opacity-70">{c.body}</p>
             </div>
           ))}
-        </div>
+        </FadeUp>
         <div className="mt-16 space-y-3 text-sm opacity-50">
           <p>
             {BUSINESS.name} · {BUSINESS.address}

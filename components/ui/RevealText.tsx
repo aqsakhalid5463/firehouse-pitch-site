@@ -27,12 +27,23 @@ export function RevealText({
     if (reduced || !root.current) return;
     const words = root.current.querySelectorAll('[data-word]');
     const ctx = gsap.context(() => {
+      // Words rise out of their own overflow-hidden mask, so the motion
+      // reads as type being set rather than a block sliding in. The
+      // rotation and the slight horizontal offset are what stop it
+      // looking mechanical: each word arrives on a marginally different
+      // path, so a long heading does not resolve as one rigid row.
+      //
+      // `stagger.from: 'start'` with an ease means the first few words
+      // land close together and the tail spreads out, which reads much
+      // more like natural phrasing than an even cadence.
       gsap.from(words, {
-        yPercent: 110,
+        yPercent: 118,
+        rotate: 4,
+        x: -6,
         opacity: 0,
-        duration: 0.9,
-        ease: 'power3.out',
-        stagger: 0.035,
+        duration: 1.05,
+        ease: 'expo.out',
+        stagger: { each: 0.045, from: 'start', ease: 'power2.in' },
         delay,
         scrollTrigger: { trigger: root.current, start: 'top 85%' },
       });
@@ -46,7 +57,7 @@ export function RevealText({
         const wrapped = (
           <span
             key={`word-${i}`}
-            className="inline-block overflow-hidden align-bottom"
+            className="inline-block overflow-hidden pb-[0.12em] align-bottom"
           >
             <span data-word className="inline-block">
               {word}

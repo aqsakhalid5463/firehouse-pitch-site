@@ -1,6 +1,7 @@
 import { BUSINESS } from '@/lib/constants';
 import { RevealText } from '@/components/ui/RevealText';
 import { MagneticButton } from '@/components/ui/MagneticButton';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 /**
  * The closing call to action.
@@ -24,19 +25,21 @@ export function ClosingCTA() {
           Tell us what is moving. We will tell you what it costs.
         </RevealText>
 
+        <FadeUp delay={0.15}>
         <p className="mx-auto mt-8 max-w-xl text-lg leading-relaxed text-bone/60">
           A written quote, a crew sized to the job, and a delivery window
           we commit to. Local or long-distance, out of {BUSINESS.city}.
         </p>
+        </FadeUp>
 
-        <div className="mt-12 flex flex-wrap justify-center gap-4">
+        <FadeUp delay={0.25} className="mt-12 flex flex-wrap justify-center gap-4">
           <MagneticButton href={BUSINESS.phoneHref}>
             Call {BUSINESS.phone}
           </MagneticButton>
           <MagneticButton href={`mailto:${BUSINESS.email}`} variant="ghost">
             Email us
           </MagneticButton>
-        </div>
+        </FadeUp>
 
         <p className="mt-14 font-mono text-xs tracking-wider text-bone/40">
           {BUSINESS.usdot} · {BUSINESS.txdmv} · Licensed &amp; insured

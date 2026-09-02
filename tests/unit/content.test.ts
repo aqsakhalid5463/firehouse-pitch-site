@@ -7,6 +7,9 @@ import {
   FAQ,
   PILLARS,
   VALUES,
+  EXTRAS,
+  TRUST_MARKS,
+  MANIFESTO,
 } from '@/lib/content';
 import { BUSINESS } from '@/lib/constants';
 
@@ -98,5 +101,34 @@ describe('about-page copy', () => {
     ].join(' ');
     expect(all).not.toMatch(/one truck/i);
     expect(all).not.toMatch(/showed up late/i);
+  });
+});
+
+describe('extras', () => {
+  it('every entry has a real image and a distinct alt', () => {
+    const alts = new Set<string>();
+    for (const e of EXTRAS) {
+      expect(e.image.startsWith('/images/')).toBe(true);
+      expect(e.alt.length).toBeGreaterThan(10);
+      alts.add(e.alt);
+    }
+    expect(alts.size).toBe(EXTRAS.length);
+  });
+
+  it('does not advertise gift cards', () => {
+    // A "Gift cards" entry was inferred from a filename in the client's
+    // image directory and removed: their copy never mentions them, and
+    // the photograph showed third-party cards. Nothing should
+    // reintroduce an offering the business has not published.
+    const all = EXTRAS.map((e) => `${e.title} ${e.body}`).join(' ');
+    expect(all).not.toMatch(/gift card/i);
+  });
+});
+
+describe('manifesto and trust marks', () => {
+  it('keeps the client\'s own wording', () => {
+    expect(MANIFESTO).toContain('trusted moving techniques');
+    expect(TRUST_MARKS).toContain('Licensed & Insured');
+    expect(TRUST_MARKS).toContain('Trained Moving Experts');
   });
 });

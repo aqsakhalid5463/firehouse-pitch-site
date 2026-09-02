@@ -1,5 +1,6 @@
 import { GUARANTEES } from '@/lib/content';
 import { RevealText } from '@/components/ui/RevealText';
+import { FadeUp } from '@/components/ui/FadeUp';
 
 export function Guarantees() {
   return (
@@ -11,7 +12,9 @@ export function Guarantees() {
         >
           Three promises we put in writing
         </RevealText>
-        <div className="mt-24">
+        {/* The rows used to appear with no transition while the heading
+            above them animated in, which drew attention to the join. */}
+        <FadeUp stagger className="mt-24">
           {GUARANTEES.map((g, i) => (
             <div
               key={g.title}
@@ -28,7 +31,7 @@ export function Guarantees() {
               </p>
             </div>
           ))}
-        </div>
+        </FadeUp>
       </div>
     </section>
   );

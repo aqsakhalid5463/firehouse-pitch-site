@@ -244,3 +244,64 @@ export const FAQ = [
     a: `Both. We carry insurance on every move and every crew, and our registrations (${BUSINESS.usdot}, ${BUSINESS.txdmv}) are public — you can look them up before you book.`,
   },
 ] as const;
+
+/**
+ * The company's own description of itself, from the paragraph under the
+ * headline on their site. Reproduced closely because it is the one place
+ * they say in their own words what they think they are selling.
+ */
+export const MANIFESTO =
+  'Built by a dedicated team with years of experience, Firehouse Movers gives you access to trusted moving techniques, reliable crews, and modern tools that make relocating simple.';
+
+/**
+ * Things they offer beyond the move itself: an on-site inspection
+ * before quoting, packing materials, and uniformed trained crews. All
+ * three are on the client's own site, but only the inspection had made
+ * it into this build, buried as one step of the process. They are the
+ * details that separate a franchise from a van and two people, so they
+ * get their own section.
+ */
+export const EXTRAS = [
+  {
+    title: 'On-site inspection',
+    body: 'For larger homes and offices we walk the property before quoting, so the crew, the truck, and the number are all sized to the actual job.',
+    image: '/images/onsite_inspection.jpg',
+    alt: 'A mover surveying a property room by room before a move',
+  },
+  {
+    title: 'Packing supplies',
+    body: 'Boxes, wrap, and materials rated for fragile, high-value, and oversized items — whether we pack for you or you would rather do it yourself.',
+    image: '/images/supplies.jpg',
+    alt: 'Stacked moving boxes and packing materials ready for collection',
+  },
+  {
+    title: 'Uniformed crews',
+    body: 'The people who turn up are trained movers in company uniform, not whoever was free that morning. You will know who is in your house.',
+    image: '/images/uniform.jpg',
+    alt: 'A Firehouse Movers crew member in company uniform',
+  },
+] as const;
+
+/*
+ * A fourth entry, "Gift cards", was removed rather than shipped.
+ *
+ * It came from spotting gift_cards.jpg in the client's image directory
+ * and inferring an offering from the filename — their published copy
+ * never mentions gift cards. The photograph turned out to show someone
+ * holding Uber and Starbucks cards, which is almost certainly a staff
+ * reward and not a product, so the section would have advertised a
+ * service the business may not sell, illustrated by a competitor's
+ * branding. Three well-supported items beat four with one invented.
+ */
+
+/**
+ * The three claims the client puts in their own footer, verbatim. Short
+ * enough to run as a marquee band rather than a list.
+ */
+export const TRUST_MARKS = [
+  'Licensed & Insured',
+  '5-Star Rated Service',
+  'Trained Moving Experts',
+  'Climate-Controlled Storage',
+  'Federally Licensed Interstate',
+] as const;

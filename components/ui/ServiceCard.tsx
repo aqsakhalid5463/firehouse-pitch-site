@@ -20,7 +20,6 @@ export function ServiceCard({
   body,
   image,
   alt,
-  tall,
   priority = false,
 }: {
   index: number;
@@ -28,16 +27,19 @@ export function ServiceCard({
   body: string;
   image: string;
   alt: string;
-  tall: boolean;
   priority?: boolean;
 }) {
   return (
     <article className="group relative">
-      <div
-        className={`relative overflow-hidden rounded-3xl ring-1 ring-bone/10 ${
-          tall ? 'aspect-4/5' : 'aspect-4/3'
-        }`}
-      >
+      {/* 4:3 matches the source photographs' native 2048x1536, so
+          object-cover has nothing to crop. Every card shares it: an
+          earlier version alternated tall and short by index, but in a
+          two-column grid even indices are always the left column, so
+          the alternation read as "the left column is bigger" rather
+          than as rhythm. The vertical stagger in Services carries the
+          asymmetry instead, and uniform cards keep the six services
+          reading as equal offerings. */}
+      <div className="relative aspect-4/3 overflow-hidden rounded-3xl ring-1 ring-bone/10">
         <Image
           src={image}
           alt={alt}

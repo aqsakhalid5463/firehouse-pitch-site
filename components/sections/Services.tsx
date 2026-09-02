@@ -27,9 +27,6 @@ export function Services() {
                 body={service.body}
                 image={service.image}
                 alt={service.alt}
-                // Alternating aspect ratios so the two columns never
-                // line up into an accidental grid.
-                tall={i % 2 === 0}
                 priority={i < 2}
               />
             </div>

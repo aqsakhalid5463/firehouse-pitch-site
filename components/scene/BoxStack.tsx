@@ -311,11 +311,11 @@ export function BoxStack() {
     // the hero copy (see Opening.tsx's applyProgress) was still fully or
     // mostly opaque, so a large box crossed directly through legible
     // text. BOX_TRAVEL_START sits just after the hero copy's own fade
-    // finishes (opacity reaches 0 at progress 0.14), so no box begins
+    // finishes (opacity reaches 0 at progress 0.26), so no box begins
     // moving until the text column is already empty — a clean handoff
     // instead of an overlap. p still reaches 1 at local = 0.75 exactly
     // as before, so the door-close coupling is unaffected.
-    const BOX_TRAVEL_START = 0.16;
+    const BOX_TRAVEL_START = 0.28;
     const p = clamp01((local - BOX_TRAVEL_START) / (0.75 - BOX_TRAVEL_START));
 
     BOX_SPECS.forEach((spec, i) => {

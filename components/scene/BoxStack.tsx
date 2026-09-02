@@ -157,6 +157,22 @@ export const BOX_LANDING_LOCALS: readonly number[] = BOX_SPECS.map((spec) => {
 // size grew.
 const LOAD_SHRINK = 0.4;
 
+/**
+ * Peak idle yaw sway of a resting hero box, in radians (~4.6°). Small on
+ * purpose: these are cartons sitting on a road, not objects in orbit.
+ */
+const IDLE_SWAY = 0.08;
+
+/**
+ * Bob phase per box, keyed by which resting stack it belongs to.
+ *
+ * Boxes 0 and 1 are one stack (box 1 sits on box 0's top face), so they
+ * share a phase and rise and fall together. Box 2 stands alone on the
+ * ground beside them and gets its own phase, so the group still does not
+ * pulse in unison.
+ */
+const BOB_PHASE = [0, 0, 1.6];
+
 // Hero "at rest" local offsets. Box 0 is the base, sitting flat on the
 // ground. Box 1 stacks on top of box 0: its resting Y is derived from
 // box 0's own top face (centre Y + half its height) plus box 1's own
@@ -259,24 +275,17 @@ function CardboardBox({
         <meshStandardMaterial color={color} roughness={0.92} metalness={0.02} />
       </RoundedBox>
 
-      {/* Packing tape: across the top seam and down the front face. */}
+      {/* Packing tape across the top seam only.
+          There used to be a matching strip down the front face and two
+          dark flap-seam lines on the top. Both were single-sided planes
+          lying on a box that rotates: as soon as a face turned away from
+          the key light, meshStandardMaterial lit it from ambient alone
+          and the light-tan tape rendered as a dark band across the
+          carton. The top strip is the one that survives every angle the
+          boxes are actually seen from, so it is the one that stays. */}
       <mesh position={[0, h / 2 + 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[w * 0.22, d + 0.01]} />
         <meshStandardMaterial color={COLORS.packingTape} roughness={0.35} metalness={0.05} />
-      </mesh>
-      <mesh position={[0, 0, d / 2 + 0.002]}>
-        <planeGeometry args={[w * 0.22, h + 0.01]} />
-        <meshStandardMaterial color={COLORS.packingTape} roughness={0.35} metalness={0.05} />
-      </mesh>
-
-      {/* Flap seam lines on the top face, so it reads as a closed carton. */}
-      <mesh position={[0, h / 2 + 0.003, d * 0.28]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[w * 0.96, 0.012]} />
-        <meshStandardMaterial color={COLORS.boxSeam} roughness={0.9} />
-      </mesh>
-      <mesh position={[0, h / 2 + 0.003, -d * 0.28]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[w * 0.96, 0.012]} />
-        <meshStandardMaterial color={COLORS.boxSeam} roughness={0.9} />
       </mesh>
     </group>
   );
@@ -371,8 +380,28 @@ export function BoxStack() {
       const enterT = clamp01((delayedP - 0.32) / 0.68);
       const enterEase = enterT * enterT * (3 - 2 * enterT);
 
-      const bob = Math.sin(state.clock.elapsedTime * 0.5 + i) * 0.06 * (1 - approachEase);
-      const idleSpin = state.clock.elapsedTime * 0.12 * (1 - approachEase);
+      // Boxes that rest on each other must bob as one body. This used
+      // to be phased by `+ i`, which gave box 1 a different vertical
+      // offset from the box 0 it is stacked on: the two drifted into and
+      // out of each other by up to twice the bob amplitude, opening a
+      // gap and then interpenetrating, once per cycle. Phase is per
+      // stack, not per box, so a stack moves rigidly.
+      const bob =
+        Math.sin(state.clock.elapsedTime * 0.5 + BOB_PHASE[i]) *
+        0.06 *
+        (1 - approachEase);
+      // A small bounded sway, not a rotation. This used to be
+      // `elapsedTime * 0.12`, which accumulated without limit — a box
+      // was a few degrees off after a second but several radians round
+      // after a minute, so how much the boxes spun on their way into the
+      // truck depended entirely on how long the page had been open. A
+      // sine keeps the idle motion alive while never exceeding
+      // IDLE_SWAY, and the phase offset keeps the three boxes from
+      // swaying in lockstep.
+      const idleSpin =
+        Math.sin(state.clock.elapsedTime * 0.35 + i * 1.7) *
+        IDLE_SWAY *
+        (1 - approachEase);
 
       // The contact shadow belongs to the stack as it sits at the hero
       // position, not to any box once it starts travelling. Box 0
@@ -462,7 +491,15 @@ export function BoxStack() {
       <mesh
         ref={shadowRef}
         visible={false}
-        position={[heroX, 0.005, HERO_OFFSET_Z]}
+        // Sits just above the road surface. This used to be a bare
+        // 0.005, which is 0.005 above the world origin — but the road is
+        // at ROAD_SURFACE_Y (-1.35), so the disc floated ~1.35 units up,
+        // at the exact height of the box resting on top of the stack.
+        // A large translucent dark disc lying horizontally through a box
+        // renders as a hard-edged dark band across it, which is what
+        // looked like a strap around the carton. It came and went
+        // between frames because this mesh's opacity is scroll-driven.
+        position={[heroX, ROAD_SURFACE_Y + 0.005, HERO_OFFSET_Z]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
         <circleGeometry args={[STACK_FOOTPRINT_RADIUS, 24]} />

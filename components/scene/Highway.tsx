@@ -90,10 +90,18 @@ const roadFragmentShader = /* glsl */ `
     vec3 base = mix(uColorA, uColorB, grain);
     base = mix(base, base * 1.15, grainFine);
 
-    // Faked specular sheen from a fixed key light roughly overhead/front,
-    // narrow and streaky like wet tarmac.
-    float sheen = pow(clamp(grain, 0.0, 1.0), 6.0);
-    base += uSheenColor * sheen * 0.5;
+    // A faint sheen, kept far below the point where it reads as paint.
+    //
+    // This was a near-white highlight (headlight white at 0.5) driven by
+    // the same scrolling noise field, which produced large pale patches
+    // drifting up the asphalt — the road looked like it was crossfading
+    // between dark tarmac and a light-coloured surface as you scrolled.
+    // The exponent is raised so only the very top of the noise range
+    // lights at all, the amount is cut hard, and the tint is now a cool
+    // grey rather than white, so what is left reads as damp asphalt
+    // catching a little light instead of a change of material.
+    float sheen = pow(clamp(grain, 0.0, 1.0), 12.0);
+    base += uSheenColor * sheen * 0.08;
 
     // Depth fade: darken and fold toward a faint red horizon glow as the
     // road recedes, then fade fully at the far edge so it dissolves into
@@ -291,7 +299,9 @@ export function Highway() {
       uOpacity: { value: 1 },
       uColorA: { value: new THREE.Color(COLORS.asphaltDark) },
       uColorB: { value: new THREE.Color(COLORS.asphaltPanel) },
-      uSheenColor: { value: new THREE.Color(COLORS.headlightWhite) },
+      // Cool grey, not headlight white: see the sheen term in the
+      // road fragment shader for why this was toned down.
+      uSheenColor: { value: new THREE.Color(COLORS.roadSheen) },
       uHorizonColor: { value: new THREE.Color(COLORS.fireRed) },
     }),
     [],

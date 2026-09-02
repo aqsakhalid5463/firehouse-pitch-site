@@ -42,6 +42,9 @@ export const COLORS = {
   asphaltDark: '#0F0F12',
   asphaltPanel: '#18181C',
   panelGrey: '#2B2B30',
+  // Damp-asphalt sheen tint. Deliberately a cool grey rather than the
+  // headlight white this used to reuse, which read as pale paint.
+  roadSheen: '#6E7480',
   roadMarkingWhite: '#EDEEF0',
   roadMarkingDim: '#B8BABF',
   // Silvery glass tint for translucent frosted-glass UI panels (the hero

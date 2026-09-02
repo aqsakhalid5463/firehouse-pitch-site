@@ -38,9 +38,14 @@ const WAYPOINTS: readonly (readonly [number, number])[] = [
   [0.82, 0.45],
   [0.28, 0.58],
   [0.7, 0.71],
-  [0.22, 0.84],
-  [0.5, 0.95],
-  [0.5, 1.0],
+  [0.25, 0.83],
+  // The tail sweeps out past the right edge rather than running down
+  // the middle. Ending centred put the line straight through the
+  // closing call-to-action and parked the truck behind its button;
+  // driving off the frame also bookends the hero, which opens with the
+  // 3D truck leaving down the road.
+  [0.66, 0.9],
+  [1.15, 0.95],
 ];
 
 /**
@@ -184,7 +189,10 @@ export function Ribbon() {
           {/* Top-down truck at the drawing tip. Drawn pointing along +X
               so the tangent angle can be applied directly. */}
           <g ref={truckRef} style={{ opacity: 0 }}>
-            <g transform="translate(-16 -11) scale(1)">
+            {/* Drawn at 32x22 in its own coordinates, then scaled up
+                and re-centred on the path. At 1x it read as an
+                indistinct blob against a 10px stroke. */}
+            <g transform="translate(-27 -19) scale(1.7)">
               <rect
                 x="0"
                 y="3"

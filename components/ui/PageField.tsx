@@ -13,7 +13,19 @@
  */
 export function PageField() {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20 overflow-hidden">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 -z-20 overflow-hidden"
+      style={{
+        // The field begins exactly where the pinned opening ends, and
+        // both the grid and the clipped top glow would otherwise start
+        // on a hard horizontal seam right under the 3D scene. Fading
+        // the whole layer in over the first 240px makes the handoff
+        // from road to page continuous.
+        maskImage: 'linear-gradient(to bottom, transparent 0, black 240px)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 240px)',
+      }}
+    >
       <div
         className="absolute inset-0 opacity-[0.5]"
         style={{

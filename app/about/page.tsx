@@ -6,6 +6,8 @@ import { Story } from '@/components/sections/Story';
 import { Values } from '@/components/sections/Values';
 import { Credentials } from '@/components/sections/Credentials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
+import { Ribbon } from '@/components/ui/Ribbon';
+import { PageField } from '@/components/ui/PageField';
 
 export const metadata: Metadata = {
   title: 'About — Firehouse Movers Inc.',
@@ -18,11 +20,18 @@ export default function About() {
     <>
       <Nav />
       <main>
-        <AboutHero />
-        <Story />
-        <Values />
-        <Credentials />
-        <ClosingCTA />
+        {/* Same background world as the home page: About has no 3D
+            set-piece of its own, so the ribbon starts at the top and
+            carries the whole page rather than picking up from a road. */}
+        <div className="relative z-10">
+          <PageField />
+          <Ribbon />
+          <AboutHero />
+          <Story />
+          <Values />
+          <Credentials />
+          <ClosingCTA />
+        </div>
       </main>
       <Footer />
     </>

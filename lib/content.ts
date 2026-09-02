@@ -1,7 +1,7 @@
 export const SERVICES = [
   {
     title: 'Local Moving',
-    image: '/images/local.jpg',
+    image: '/images/local-move.jpg',
     alt: 'A Firehouse Movers crew loading a truck on a residential street',
     body: 'Same-day and next-day moves across Lewisville and the greater DFW area, with crews who know the neighborhoods.',
   },

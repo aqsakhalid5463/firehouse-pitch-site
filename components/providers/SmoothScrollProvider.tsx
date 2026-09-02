@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useScrollStore } from '@/lib/scroll-store';
 import { normalizeScroll } from '@/lib/scroll-math';
-import { themeAt } from '@/lib/theme';
+import { THEME } from '@/lib/theme';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -19,12 +19,14 @@ export function SmoothScrollProvider({
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const setScroll = useScrollStore.getState().setScroll;
 
+    // The palette no longer moves with scroll (see lib/theme.ts), so it
+    // is written once here rather than on every scroll event.
+    const root = document.documentElement;
+    root.style.setProperty('--page-bg', THEME.bg);
+    root.style.setProperty('--page-ink', THEME.ink);
+
     const publish = (progress: number, velocity: number) => {
       setScroll(progress, velocity);
-      const theme = themeAt(progress);
-      const root = document.documentElement;
-      root.style.setProperty('--page-bg', theme.bg);
-      root.style.setProperty('--page-ink', theme.ink);
     };
 
     if (reduced) {

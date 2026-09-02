@@ -19,7 +19,6 @@ describe('constants', () => {
     // Round 7: shifted off cream toward a clean off-white/light-grey per
     // client feedback ("their colour theme is red / white / black /
     // dark-grey") — cream is not in that palette.
-    expect(COLORS.lightBg).toBe('#F0F0EE');
     expect(COLORS.fireRed).toBe('#E23D28');
   });
 

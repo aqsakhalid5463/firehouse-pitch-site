@@ -1,51 +1,41 @@
 import { describe, it, expect } from 'vitest';
-import { themeAt, mixHex } from '@/lib/theme';
+import { THEME, roadOpacityAt, ROAD_FADE_START } from '@/lib/theme';
 import { COLORS } from '@/lib/constants';
 
-describe('mixHex', () => {
-  it('returns the endpoints exactly', () => {
-    expect(mixHex('#000000', '#FFFFFF', 0)).toBe('#000000');
-    expect(mixHex('#000000', '#FFFFFF', 1)).toBe('#ffffff');
+describe('THEME', () => {
+  it('is the dark palette, with no light half', () => {
+    expect(THEME.bg).toBe(COLORS.darkBg);
+    expect(THEME.fog).toBe(COLORS.darkFog);
+    expect(THEME.ink).toBe(COLORS.bone);
   });
 
-  it('mixes the midpoint', () => {
-    expect(mixHex('#000000', '#FFFFFF', 0.5)).toBe('#808080');
+  it('keeps bloom on, since nothing dissolves it away any more', () => {
+    expect(THEME.bloomIntensity).toBeGreaterThan(0);
   });
 });
 
-describe('themeAt', () => {
-  it('is fully dark through the hero and the set-piece', () => {
-    for (const p of [0, 0.1, 0.3, 0.5, 0.6]) {
-      expect(themeAt(p).bg.toLowerCase()).toBe(COLORS.darkBg.toLowerCase());
+describe('roadOpacityAt', () => {
+  it('holds the road at full strength until the fade starts', () => {
+    expect(roadOpacityAt(0)).toBe(1);
+    expect(roadOpacityAt(ROAD_FADE_START)).toBe(1);
+  });
+
+  it('is fully faded by the end of the departure', () => {
+    expect(roadOpacityAt(1)).toBe(0);
+  });
+
+  it('never leaves the 0..1 range, including out-of-range input', () => {
+    for (let i = -2; i <= 12; i++) {
+      const v = roadOpacityAt(i / 10);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
     }
   });
 
-  it('is fully light after the dissolve completes', () => {
-    for (const p of [0.75, 0.85, 1]) {
-      expect(themeAt(p).bg.toLowerCase()).toBe(COLORS.lightBg.toLowerCase());
-    }
-  });
-
-  it('is partway through the dissolve at its midpoint', () => {
-    const mid = themeAt(0.675).bg.toLowerCase();
-    expect(mid).not.toBe(COLORS.darkBg.toLowerCase());
-    expect(mid).not.toBe(COLORS.lightBg.toLowerCase());
-  });
-
-  it('drops bloom to zero in the light and peaks it in the dark', () => {
-    expect(themeAt(0.5).bloomIntensity).toBeGreaterThan(themeAt(1).bloomIntensity);
-    expect(themeAt(1).bloomIntensity).toBe(0);
-  });
-
-  it('fades embers out across the dissolve', () => {
-    expect(themeAt(0.6).emberOpacity).toBe(1);
-    expect(themeAt(0.75).emberOpacity).toBe(0);
-  });
-
-  it('moves bloom monotonically downward across the dissolve', () => {
-    let prev = Infinity;
-    for (let p = 0.6; p <= 0.7501; p += 0.01) {
-      const v = themeAt(p).bloomIntensity;
+  it('decreases monotonically once the fade has begun', () => {
+    let prev = 1;
+    for (let i = 0; i <= 20; i++) {
+      const v = roadOpacityAt(ROAD_FADE_START + ((1 - ROAD_FADE_START) * i) / 20);
       expect(v).toBeLessThanOrEqual(prev + 1e-9);
       prev = v;
     }

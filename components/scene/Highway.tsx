@@ -3,8 +3,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getScrollProgress } from '@/lib/scroll-store';
-import { themeAt } from '@/lib/theme';
+import { roadOpacityAt } from '@/lib/theme';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 import { getExitProgress } from '@/lib/move-as-one-progress';
 
@@ -318,12 +317,15 @@ export function Highway() {
   );
 
   useFrame((_, delta) => {
-    const opacity = themeAt(getScrollProgress()).emberOpacity;
+    const exit = getExitProgress();
+    // The road is a set-piece of the pinned opening: it dissolves behind
+    // the departing truck rather than persisting down the page, handing
+    // the through-line over to the SVG ribbon (components/ui/Ribbon).
+    const opacity = roadOpacityAt(exit);
     // Ramps the marking/tail-light streaming speed up to 1.6x during the
     // truck's drive-away so the whole highway feels like it accelerates
     // with it — subtle (eased, capped), meant to register as energy
     // rather than a speed-up glitch.
-    const exit = getExitProgress();
     const speedBoost = 1 + 0.6 * (exit * exit);
     const boostedDelta = delta * speedBoost;
 

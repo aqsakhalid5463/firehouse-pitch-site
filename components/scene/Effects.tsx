@@ -1,26 +1,17 @@
 'use client';
 
-import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
-import { getScrollProgress } from '@/lib/scroll-store';
-import { themeAt } from '@/lib/theme';
+import { THEME } from '@/lib/theme';
 
 export function Effects() {
-  const bloom = useRef<{ intensity: number }>(null);
-
-  useFrame(() => {
-    if (bloom.current) {
-      bloom.current.intensity = themeAt(getScrollProgress()).bloomIntensity;
-    }
-  });
-
+  // Bloom used to be animated down to 0 across the dark-to-light
+  // dissolve. The page is dark throughout now (lib/theme.ts), so it is a
+  // fixed prop and the per-frame ref write is gone.
   return (
     <EffectComposer multisampling={0}>
       <Bloom
-        ref={bloom as never}
-        intensity={1.15}
+        intensity={THEME.bloomIntensity}
         luminanceThreshold={0.25}
         luminanceSmoothing={0.9}
         mipmapBlur

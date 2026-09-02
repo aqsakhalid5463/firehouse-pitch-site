@@ -1,10 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useEffect, useRef } from 'react';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getScrollProgress } from '@/lib/scroll-store';
-import { themeAt } from '@/lib/theme';
+import { THEME } from '@/lib/theme';
 import { COLORS } from '@/lib/constants';
 
 export function ThemeSync() {
@@ -19,13 +18,15 @@ export function ThemeSync() {
   const fog = useRef(new THREE.Fog(COLORS.darkFog, 6, 30));
   const bg = useRef(new THREE.Color(COLORS.darkBg));
 
-  useFrame(() => {
-    const theme = themeAt(getScrollProgress());
-    fog.current.color.set(theme.fog);
-    bg.current.set(theme.bg);
+  // Fog and background are constants now that the dark-to-light
+  // dissolve is gone (lib/theme.ts), so this runs on mount instead of
+  // re-setting identical values every frame.
+  useEffect(() => {
+    fog.current.color.set(THEME.fog);
+    bg.current.set(THEME.bg);
     scene.fog = fog.current;
     scene.background = bg.current;
-  });
+  }, [scene]);
 
   return null;
 }

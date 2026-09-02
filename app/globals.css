@@ -3,13 +3,9 @@
 @theme {
   --color-dark-bg: #08070A;
   --color-dark-fog: #0D0B12;
-  --color-light-bg: #F0F0EE;
-  --color-light-fog: #E3E3E0;
   --color-ink: #1A1917;
   --color-bone: #F0F0EE;
   --color-fire: #E23D28;
-  /* Off-brand amber; kept only so existing token references resolve.
-     Do not use for new UI — see lib/constants.ts. */
   --color-panel-grey: #2B2B30;
   /* Silvery glass tint for translucent frosted panels (e.g. the hero
      subhead backing) — see lib/constants.ts COLORS.silverGlass, which
@@ -19,7 +15,9 @@
 }
 
 :root {
-  /* Driven at runtime by the scroll pipeline (Task 3). */
+  /* The page is dark end-to-end; these are the final values, not a
+     starting point the scroll pipeline animates away from. See
+     lib/theme.ts for why the dissolve was removed. */
   --page-bg: #08070A;
   --page-ink: #F0F0EE;
 }
@@ -46,9 +44,6 @@ body {
   }
 }
 
-@media (scripting: none) {
-  :root {
-    --page-bg: #F0F0EE;
-    --page-ink: #1A1917;
-  }
-}
+/* No JS: the custom properties above already hold the final dark
+   palette, so there is nothing to override — the page renders in the
+   same colours it would with the scroll pipeline running. */

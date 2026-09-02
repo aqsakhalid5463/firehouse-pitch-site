@@ -12,8 +12,6 @@ export const HERO_HEADLINE =
 export const COLORS = {
   darkBg: '#08070A',
   darkFog: '#0D0B12',
-  lightBg: '#F0F0EE',
-  lightFog: '#E3E3E0',
   ink: '#1A1917',
   bone: '#F0F0EE',
   fireRed: '#E23D28',

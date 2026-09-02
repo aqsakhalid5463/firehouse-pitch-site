@@ -1,48 +1,46 @@
-import { COLORS, SECTIONS } from './constants';
-import { rangeProgress, lerp } from './scroll-math';
-
-export type ThemeValues = {
-  bg: string;
-  fog: string;
-  ink: string;
-  lightIntensity: number;
-  bloomIntensity: number;
-  emberOpacity: number;
-};
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function toHex(n: number): string {
-  return Math.round(n).toString(16).padStart(2, '0');
-}
-
-export function mixHex(a: string, b: string, t: number): string {
-  if (t <= 0) return a;
-  if (t >= 1) return `#${hexToRgb(b).map(toHex).join('')}`;
-  const [ar, ag, ab] = hexToRgb(a);
-  const [br, bg, bb] = hexToRgb(b);
-  return `#${toHex(lerp(ar, br, t))}${toHex(lerp(ag, bg, t))}${toHex(lerp(ab, bb, t))}`;
-}
+import { COLORS } from './constants';
+import { clamp01 } from './scroll-math';
 
 /**
- * The dark to light dissolve. Every value is a function of scroll
- * progress, interpolated across the Guarantees range and nowhere else.
+ * The page is dark end-to-end.
+ *
+ * Earlier rounds dissolved from a dark hero into a light editorial half.
+ * That was dropped deliberately: the red ribbon (components/ui/Ribbon)
+ * now runs the full length of the page as the connecting motif, and it
+ * only reads against a dark field. Committing to one world — the way the
+ * Lusion reference does — also removed a whole class of contrast bugs
+ * where nav and body copy had to stay legible against a moving
+ * background whose luminance inverted mid-scroll.
+ *
+ * These are constants rather than functions of scroll on purpose: there
+ * is nothing left to interpolate, and the per-frame `themeAt(progress)`
+ * calls that used to drive fog, bloom, and the CSS custom properties are
+ * now one-time assignments.
  */
-export function themeAt(p: number): ThemeValues {
-  const t = rangeProgress(p, SECTIONS.guarantees);
-  return {
-    bg: mixHex(COLORS.darkBg, COLORS.lightBg, t),
-    fog: mixHex(COLORS.darkFog, COLORS.lightFog, t),
-    ink: mixHex(COLORS.bone, COLORS.ink, t),
-    lightIntensity: lerp(0.6, 2.4, t),
-    bloomIntensity: lerp(1.15, 0, t),
-    emberOpacity: lerp(1, 0, t),
-  };
+export const THEME = {
+  bg: COLORS.darkBg,
+  fog: COLORS.darkFog,
+  ink: COLORS.bone,
+  lightIntensity: 0.6,
+  bloomIntensity: 1.15,
+} as const;
+
+/**
+ * Fraction of the pin's departure at which the road begins dimming out.
+ * Deliberately later than the departure's start so the truck is never
+ * seen driving on a road that is already half-faded — the road holds at
+ * full strength while the truck pulls away, then dissolves behind it.
+ */
+export const ROAD_FADE_START = 0.55;
+
+/**
+ * Road opacity as a function of the truck's departure progress
+ * (`getExitProgress()`), not global scroll. The road is a set-piece
+ * belonging to the pinned opening; once the truck has gone, the road
+ * goes with it and the SVG ribbon takes over as the through-line for the
+ * rest of the page. Smoothstepped so the dissolve has no visible corner.
+ */
+export function roadOpacityAt(exit: number): number {
+  const t = clamp01((exit - ROAD_FADE_START) / (1 - ROAD_FADE_START));
+  return 1 - t * t * (3 - 2 * t);
 }

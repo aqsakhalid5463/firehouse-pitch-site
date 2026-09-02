@@ -41,3 +41,19 @@ test('all six service names are in the server HTML', async ({ request }) => {
     expect(html).toContain(name);
   }
 });
+
+test('the preloader lifts and hands the page back', async ({ page }) => {
+  await page.goto('/');
+  const preloader = page.locator('.preloader');
+
+  // It must be in the server HTML, or the page flashes before the
+  // curtain arrives.
+  const html = await (await page.request.get('/')).text();
+  expect(html).toContain('class="preloader');
+
+  await expect(preloader).toHaveCount(0, { timeout: 15000 });
+  // The lock is released by an effect keyed on completion, not by an
+  // unmount cleanup — the component stays mounted and renders null.
+  await expect(page.locator('html')).not.toHaveClass(/is-loading/);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+});

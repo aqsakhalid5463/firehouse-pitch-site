@@ -3,6 +3,7 @@ import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { SceneCanvas } from '@/components/scene/SceneCanvas';
 import { Cursor } from '@/components/ui/Cursor';
+import { Preloader } from '@/components/ui/Preloader';
 import { BUSINESS } from '@/lib/constants';
 
 export const metadata: Metadata = {
@@ -25,6 +26,10 @@ export default function RootLayout({
           {/* Above everything, including the nav, so the cursor is never
               occluded by page chrome. */}
           <Cursor />
+          {/* Mounted last and painted above everything, including the
+              cursor layer. Client-side navigation between routes does
+              not remount the layout, so this runs once per page load. */}
+          <Preloader />
         </SmoothScrollProvider>
       </body>
     </html>

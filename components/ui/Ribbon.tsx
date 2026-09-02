@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { clamp01 } from '@/lib/scroll-math';
+import { TruckGlyph } from './TruckGlyph';
 
 /**
  * The red ribbon: one continuous line running from the end of the 3D
@@ -371,25 +372,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
                 and re-centred on the path. At 1x it read as an
                 indistinct blob against a 10px stroke. */}
             <g transform="translate(-27 -19) scale(1.7)">
-              <rect
-                x="0"
-                y="3"
-                width="21"
-                height="16"
-                rx="2"
-                fill="var(--color-silver-glass)"
-              />
-              <rect
-                x="20"
-                y="1"
-                width="12"
-                height="20"
-                rx="3"
-                fill="var(--color-fire)"
-              />
-              <rect x="28" y="5" width="3" height="12" rx="1.5" fill="#0A0A0C" />
-              <rect x="2" y="0" width="15" height="3" rx="1.5" fill="#0A0A0C" />
-              <rect x="2" y="19" width="15" height="3" rx="1.5" fill="#0A0A0C" />
+              <TruckGlyph />
             </g>
           </g>
         </svg>

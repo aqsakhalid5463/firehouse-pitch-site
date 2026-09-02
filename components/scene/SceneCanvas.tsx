@@ -2,7 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CameraRig } from './CameraRig';
 import { ThemeSync } from './ThemeSync';
 import { BoxStack } from './BoxStack';
@@ -12,10 +12,25 @@ import { Effects } from './Effects';
 import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 import { COLORS } from '@/lib/constants';
 import { StaticBackdrop } from './StaticBackdrop';
+import { FirstFrame } from './FirstFrame';
+import { markReady } from '@/lib/preload-store';
 
 export function SceneCanvas() {
   const enabled = useCanvasEnabled();
   const [degraded, setDegraded] = useState(false);
+
+  // No canvas means FirstFrame never mounts and the preloader would sit
+  // at 50% forever. The backdrop is a plain gradient, ready on mount.
+  useEffect(() => {
+    if (enabled) return;
+    // useCanvasEnabled starts false and only flips true inside its own
+    // mount effect, so checking synchronously here would report "no
+    // canvas" on desktop as well. Deferring by a tick lets it settle —
+    // if it does flip, this effect re-runs and the cleanup below cancels
+    // the report before it fires.
+    const id = setTimeout(() => markReady('frame'), 0);
+    return () => clearTimeout(id);
+  }, [enabled]);
 
   if (!enabled) return <StaticBackdrop />;
 
@@ -35,6 +50,7 @@ export function SceneCanvas() {
           onDecline={() => setDegraded(true)}
           onIncline={() => setDegraded(false)}
         />
+        <FirstFrame />
         <ThemeSync />
         <CameraRig />
         <ambientLight intensity={0.4} />

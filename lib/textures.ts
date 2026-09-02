@@ -144,7 +144,7 @@ const LOGO_SRC = '/fire_house_logo.svg';
  * do the same work twice for the truck's two sides.
  */
 let logoPromise: Promise<HTMLImageElement> | null = null;
-function loadLogo(): Promise<HTMLImageElement> {
+export function loadLogo(): Promise<HTMLImageElement> {
   if (!logoPromise) {
     logoPromise = new Promise((resolve, reject) => {
       const img = new Image();

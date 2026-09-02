@@ -199,3 +199,17 @@ body {
   }
   .cursor-layer { display: none; }
 }
+
+/* ---- Preloader (components/ui/Preloader) -------------------------- */
+
+/* Held while the curtain is up. Lenis reads native scroll, so hiding
+   overflow on the root is enough to stop both wheel and keyboard
+   scrolling without having to reach into the Lenis instance. */
+html.is-loading,
+html.is-loading body {
+  overflow: hidden;
+}
+
+/* Without JS the curtain would render (it is server-rendered so the
+   page never flashes behind it) and never lift, so the component
+   carries a <noscript> block that hides .preloader outright. */

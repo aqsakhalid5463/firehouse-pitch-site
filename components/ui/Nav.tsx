@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/constants';
 import { SoundToggle } from '@/components/ui/SoundToggle';
@@ -13,8 +14,20 @@ export function Nav() {
       style={{ color: 'var(--page-ink)' }}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-        <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase">
-          Firehouse
+        <Link href="/" className="flex items-center gap-2.5">
+          {/* The official badge. It is white-on-red artwork, so it needs
+              no plate behind it on the dark nav. */}
+          <Image
+            src="/fire_house_logo.svg"
+            alt=""
+            width={30}
+            height={30}
+            priority
+            className="size-[30px]"
+          />
+          <span className="text-sm font-bold tracking-[0.2em] uppercase">
+            Firehouse
+          </span>
         </Link>
         <div className="flex items-center gap-8 text-sm">
           <Link href="/" className="hidden sm:inline hover:opacity-70">

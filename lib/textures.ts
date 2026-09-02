@@ -133,106 +133,27 @@ export function cardboardRoughness(): THREE.CanvasTexture {
   return tex;
 }
 
+/** Path to the official badge, served from /public. */
+const LOGO_SRC = '/fire_house_logo.svg';
+
 /**
- * Draws the company's circular badge: a white ring carrying the name,
- * with a fire helmet at its centre. Traced from the livery in
- * public/images/two_trucks.jpg.
+ * Loads the official logo once and shares the single decoded image
+ * between every texture that needs it.
+ *
+ * The logo is a 290KB SVG of 219 paths; decoding it per texture would
+ * do the same work twice for the truck's two sides.
  */
-function drawBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  // White disc with a red rim.
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = COLORS.truckBodyRed;
-  ctx.lineWidth = r * 0.07;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.93, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // "FIREHOUSE" arched over the top, "MOVERS" along the bottom. Each
-  // glyph is rotated to sit on the circle's tangent.
-  // Top of the ring: each glyph is rotated onto the circle's tangent,
-  // so the word arches over the badge.
-  const arcTop = (text: string, radius: number) => {
-    ctx.save();
-    ctx.fillStyle = COLORS.truckBodyRed;
-    ctx.font = `bold ${r * 0.2}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const step = (r * 0.145) / radius;
-    const start = -(step * (text.length - 1)) / 2;
-    for (let i = 0; i < text.length; i++) {
-      ctx.save();
-      ctx.rotate(start + step * i);
-      ctx.translate(0, -radius);
-      ctx.fillText(text[i], 0, 0);
-      ctx.restore();
-    }
-    ctx.restore();
-  };
-
-  // Bottom of the ring: glyphs follow the arc's *position* but stay
-  // upright. Rotating them onto the tangent the way the top word does
-  // turns each letter through 180 degrees down here, which renders the
-  // word upside down.
-  const arcBottom = (text: string, radius: number) => {
-    ctx.save();
-    ctx.fillStyle = COLORS.truckBodyRed;
-    ctx.font = `bold ${r * 0.2}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const step = (r * 0.15) / radius;
-    const start = -(step * (text.length - 1)) / 2;
-    for (let i = 0; i < text.length; i++) {
-      const a = start + step * i;
-      ctx.fillText(text[i], Math.sin(a) * radius, Math.cos(a) * radius);
-    }
-    ctx.restore();
-  };
-
-  arcTop('FIREHOUSE', r * 0.74);
-  arcBottom('MOVERS', r * 0.72);
-
-  // Fire helmet, drawn as a silhouette in three parts: the wide brim
-  // that sweeps up at the sides, the domed crown, and the front shield.
-  // An earlier version stacked an ellipse, a half-disc and a triangle,
-  // which fused into a shapeless blob at badge size — the brim's upward
-  // sweep and the shield are what actually make it read as a fire
-  // helmet rather than a hat.
-  ctx.fillStyle = COLORS.truckBodyRed;
-
-  // Brim: flat underside, curved top, tips lifted.
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.46, r * 0.16);
-  ctx.quadraticCurveTo(0, r * 0.3, r * 0.46, r * 0.16);
-  ctx.quadraticCurveTo(0, r * 0.08, -r * 0.46, r * 0.16);
-  ctx.closePath();
-  ctx.fill();
-
-  // Crown: dome rising from the brim.
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.29, r * 0.17);
-  ctx.quadraticCurveTo(-r * 0.3, -r * 0.2, 0, -r * 0.24);
-  ctx.quadraticCurveTo(r * 0.3, -r * 0.2, r * 0.29, r * 0.17);
-  ctx.closePath();
-  ctx.fill();
-
-  // Front shield, in white so it separates from the crown behind it.
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.12, -r * 0.13);
-  ctx.lineTo(r * 0.12, -r * 0.13);
-  ctx.lineTo(r * 0.1, r * 0.05);
-  ctx.lineTo(0, r * 0.13);
-  ctx.lineTo(-r * 0.1, r * 0.05);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.restore();
+let logoPromise: Promise<HTMLImageElement> | null = null;
+function loadLogo(): Promise<HTMLImageElement> {
+  if (!logoPromise) {
+    logoPromise = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = LOGO_SRC;
+    });
+  }
+  return logoPromise;
 }
 
 /**
@@ -249,49 +170,81 @@ export function truckLiveryTexture(mirrored: boolean): THREE.CanvasTexture {
   const H = 648;
   const { canvas, ctx } = makeCanvas(W, H);
 
-  if (mirrored) {
-    ctx.translate(W, 0);
-    ctx.scale(-1, 1);
-  }
+  // Everything except the badge is painted synchronously, so the truck
+  // is never seen with a blank trailer while the logo decodes.
+  const paintBase = () => {
+    ctx.save();
+    if (mirrored) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
 
-  ctx.fillStyle = COLORS.truckBodyRed;
-  ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = COLORS.truckBodyRed;
+    ctx.fillRect(0, 0, W, H);
 
-  // Faint horizontal panel seams, the way a real box body is ribbed.
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-  ctx.lineWidth = 2;
-  for (let i = 1; i < 8; i++) {
-    const x = (W / 8) * i;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, H);
-    ctx.stroke();
-  }
+    // Faint vertical panel seams, the way a real box body is ribbed.
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 2;
+    for (let i = 1; i < 8; i++) {
+      const x = (W / 8) * i;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
 
-  drawBadge(ctx, W * 0.5, H * 0.47, H * 0.3);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    // Set outboard of the badge and sized to clear it.
+    ctx.font = `bold ${H * 0.06}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('972-412-6033', W * 0.14, H * 0.4);
+    ctx.fillText('817-572-9797', W * 0.86, H * 0.4);
 
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textBaseline = 'middle';
-  // Set outboard of the badge and sized to clear it — at the previous
-  // size and position both numbers ran under the disc and lost their
-  // last digits.
-  ctx.font = `bold ${H * 0.068}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('972-412-6033', W * 0.17, H * 0.4);
-  ctx.fillText('817-572-9797', W * 0.83, H * 0.4);
+    ctx.font = `${H * 0.05}px system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText('firehousemovers.com', W * 0.05, H * 0.14);
 
-  ctx.font = `${H * 0.05}px system-ui, sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.fillText('firehousemovers.com', W * 0.05, H * 0.14);
+    // The registrations, small and low, exactly where they sit on the
+    // real vehicle — and they are what makes the licensing claim
+    // checkable.
+    ctx.font = `${H * 0.038}px system-ui, sans-serif`;
+    ctx.fillText(BUSINESS.usdot, W * 0.05, H * 0.86);
+    ctx.fillText(BUSINESS.txdmv, W * 0.05, H * 0.92);
 
-  // The registrations, small and low, exactly where they sit on the real
-  // vehicle — and they are what makes the licensing claim checkable.
-  ctx.font = `${H * 0.038}px system-ui, sans-serif`;
-  ctx.fillText(BUSINESS.usdot, W * 0.05, H * 0.86);
-  ctx.fillText(BUSINESS.txdmv, W * 0.05, H * 0.92);
+    ctx.restore();
+  };
+
+  paintBase();
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
+
+  // The official badge replaces a hand-traced approximation. It is a
+  // white-on-red disc in its own right, so it is drawn straight onto the
+  // body with no plate behind it.
+  void loadLogo()
+    .then((img) => {
+      // Sized to leave the phone numbers clear: the badge is drawn over
+      // them, so any overlap eats their digits.
+      const d = H * 0.7;
+      ctx.save();
+      if (mirrored) {
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(img, W * 0.5 - d / 2, H * 0.5 - d / 2, d, d);
+      ctx.restore();
+      // Without this the GPU keeps the copy uploaded before the logo
+      // arrived, and the trailer stays blank for the whole session.
+      tex.needsUpdate = true;
+    })
+    .catch(() => {
+      // If the logo cannot be fetched the trailer still reads as a
+      // liveried vehicle — body colour, phone numbers, and web address
+      // are all already painted.
+    });
+
   return tex;
 }

@@ -30,30 +30,54 @@ import { clamp01 } from '@/lib/scroll-math';
  * road's vanishing point sits, so the ribbon reads as the road
  * continuing rather than as a new element appearing.
  */
-const WAYPOINTS: readonly (readonly [number, number])[] = [
-  // Enters from off the left edge rather than the centre-top. Starting
-  // mid-frame made the line appear to begin in mid-air; coming in past
-  // the edge means it is already travelling when it first becomes
-  // visible, the way a road arrives from somewhere off-screen.
-  [-0.18, 0.03],
-  // Irregular on purpose. An earlier version alternated left-right on an
-  // even vertical pitch, which read as a decorative snake rather than a
-  // route: the eye predicted every turn. These vary both how far the
-  // line swings and how long it runs before the next turn, including a
-  // couple of shallow stretches that barely move at all.
-  [0.34, 0.08],
-  [0.79, 0.15],
-  [0.62, 0.24],
-  [0.16, 0.33],
-  [0.28, 0.42],
-  [0.74, 0.5],
-  [0.9, 0.59],
-  [0.47, 0.67],
-  [0.19, 0.75],
-  [0.55, 0.84],
+/**
+ * Waypoints, generated from a fixed seed rather than written by hand.
+ *
+ * Hand-placed points kept betraying a pattern — first a strict
+ * left-right alternation, then a hand-varied version that still had an
+ * obvious rhythm, because a person choosing "random" numbers does not
+ * produce runs, near-repeats, or the occasional barely-there turn that
+ * real randomness contains. A seeded generator does, and seeding it
+ * keeps the road identical on every load and between server and client.
+ *
+ * Constraints on the raw random values: each step down the page is a
+ * different height, and each new x must be a real distance from the last
+ * so the line always commits to a turn instead of wobbling in place.
+ */
+function seeded(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
+const WAYPOINTS: readonly (readonly [number, number])[] = (() => {
+  const rand = seeded(918273);
+  // Starts off the left edge and above the top of the section, so the
+  // road is already travelling when it enters view rather than
+  // appearing to begin in mid-air.
+  const pts: [number, number][] = [[-0.22, 0.005]];
+  let y = 0.005;
+  let prevX = -0.22;
+
+  while (y < 0.9) {
+    // Uneven vertical spacing: some legs are long runs, some are quick
+    // successive turns.
+    y += 0.05 + rand() * 0.085;
+    let x = 0.1 + rand() * 0.8;
+    // Reject a turn too small to read as a turn, and push it out to the
+    // side it was already leaning toward.
+    if (Math.abs(x - prevX) < 0.2) x += x > prevX ? 0.24 : -0.24;
+    x = Math.min(0.93, Math.max(0.07, x));
+    pts.push([x, Math.min(y, 0.9)]);
+    prevX = x;
+  }
+
   // Leaves past the right edge, so the tail is not seen to stop.
-  [1.18, 0.92],
-];
+  pts.push([1.22, Math.min(0.99, y + 0.07)]);
+  return pts;
+})();
 
 /**
  * Builds a smooth cubic path through every waypoint using Catmull-Rom
@@ -193,7 +217,12 @@ export function Ribbon() {
     <div
       ref={host}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      // Extended upward past the section's own top edge: the road used
+      // to begin level with the first service card, which read as it
+      // starting halfway down the page. Reaching up into the dark space
+      // under the pinned opening means it is already established by the
+      // time the first heading arrives.
+      className="pointer-events-none absolute -top-[38vh] right-0 bottom-0 left-0 -z-10 overflow-hidden"
     >
       {size.w > 0 && (
         <svg

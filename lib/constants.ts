@@ -47,6 +47,9 @@ export const COLORS = {
   // large panel square-on, whereas the real vehicles are painted a
   // darker crimson that holds its colour under direct light.
   truckBodyRed: '#A81C22',
+  // Roof and side marker lamps. Amber is the regulated colour for
+  // forward-facing clearance lights on a commercial vehicle.
+  markerAmber: '#E8A33D',
   tailLightRed: '#C81E1E',
   tailLightGlow: '#FF3B2E',
   // Dark-grey / asphalt palette additions for the road (round 7: real

@@ -6,7 +6,11 @@ import { usePathname } from 'next/navigation';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { getMoveAsOneProgress, getExitProgress } from '@/lib/move-as-one-progress';
-import { truckLiveryTexture, rollerDoorTexture } from '@/lib/textures';
+import {
+  truckLiveryTexture,
+  rollerDoorTexture,
+  cabDoorTexture,
+} from '@/lib/textures';
 import { clamp01, lerp } from '@/lib/scroll-math';
 import { COLORS, ROAD_SURFACE_Y } from '@/lib/constants';
 
@@ -370,13 +374,17 @@ export function TruckAssembly() {
   const liveryFar = useMemo(() => truckLiveryTexture(false), []);
   const liveryNear = useMemo(() => truckLiveryTexture(true), []);
   const doorTex = useMemo(() => rollerDoorTexture(), []);
+  const cabDoorFar = useMemo(() => cabDoorTexture(false), []);
+  const cabDoorNear = useMemo(() => cabDoorTexture(true), []);
   useEffect(
     () => () => {
       liveryFar.dispose();
       liveryNear.dispose();
       doorTex.dispose();
+      cabDoorFar.dispose();
+      cabDoorNear.dispose();
     },
-    [liveryFar, liveryNear, doorTex],
+    [liveryFar, liveryNear, doorTex, cabDoorFar, cabDoorNear],
   );
 
   return (
@@ -391,9 +399,25 @@ export function TruckAssembly() {
 
       {/* Cab */}
       <group ref={cabRef}>
+        {/* Body red, not the brighter brand accent — the cab has to
+            match the trailer it is pulling, and for the same reason:
+            the accent saturates to pink under the key light. */}
         <RoundedBox args={[1.3, 1.25, 1.7]} radius={0.12} smoothness={3}>
-          <meshStandardMaterial color={COLORS.fireRed} roughness={0.45} metalness={0.25} />
+          <meshStandardMaterial color={COLORS.truckBodyRed} roughness={0.45} metalness={0.25} />
         </RoundedBox>
+
+        {/* Doors. The cab was one smooth block with no seam, handle, or
+            branding, which is most of why it read as a placeholder
+            beside the liveried trailer. These sit just proud of the
+            cab's own side so they never fight it for depth. */}
+        <mesh position={[-0.02, -0.14, 0.856]}>
+          <planeGeometry args={[0.92, 0.6]} />
+          <meshStandardMaterial map={cabDoorFar} roughness={0.5} metalness={0.15} />
+        </mesh>
+        <mesh position={[-0.02, -0.14, -0.856]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.92, 0.6]} />
+          <meshStandardMaterial map={cabDoorNear} roughness={0.5} metalness={0.15} />
+        </mesh>
 
         {/* Windshield — mounted on the cab's -X face, the true nose end
             (see the truck-local axis note above the CHASSIS/CAB/BODY
@@ -457,6 +481,42 @@ export function TruckAssembly() {
         <mesh position={[-0.55, 0.28, -0.92]}>
           <boxGeometry args={[0.16, 0.2, 0.04]} />
           <meshStandardMaterial color={COLORS.truckChrome} roughness={0.3} metalness={0.8} />
+        </mesh>
+
+        {/* Front bumper, stepped proud of the grille. */}
+        <mesh position={[-0.7, -0.5, 0]}>
+          <boxGeometry args={[0.12, 0.18, 1.72]} />
+          <meshStandardMaterial color={COLORS.truckChrome} roughness={0.35} metalness={0.8} />
+        </mesh>
+
+        {/* Grille bars. The grille was one flat plate; three recessed
+            slots give the nose something to catch light on. */}
+        {[-0.1, 0, 0.1].map((dy) => (
+          <mesh key={`bar-${dy}`} position={[-0.675, -0.28 + dy, 0]}>
+            <boxGeometry args={[0.02, 0.035, 1.04]} />
+            <meshStandardMaterial color={COLORS.truckChrome} roughness={0.4} metalness={0.75} />
+          </mesh>
+        ))}
+
+        {/* Roof marker lights: the five-lamp cluster that reads as
+            "commercial vehicle" more than any other single detail, and
+            the one part of the cab visible from directly behind. */}
+        {[-0.34, -0.17, 0, 0.17, 0.34].map((z) => (
+          <mesh key={`marker-${z}`} position={[-0.2, 0.66, z]}>
+            <boxGeometry args={[0.1, 0.05, 0.07]} />
+            <meshStandardMaterial
+              color={COLORS.markerAmber}
+              emissive={COLORS.markerAmber}
+              emissiveIntensity={0.9}
+              roughness={0.4}
+            />
+          </mesh>
+        ))}
+
+        {/* Exhaust stack, up behind the cab. */}
+        <mesh position={[0.55, 0.15, 0.78]} rotation={[0, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 1.1, 12]} />
+          <meshStandardMaterial color={COLORS.truckChrome} roughness={0.3} metalness={0.9} />
         </mesh>
       </group>
 

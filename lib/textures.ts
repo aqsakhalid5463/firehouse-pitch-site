@@ -306,3 +306,78 @@ export function rollerDoorTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+
+/**
+ * The cab door: body red with the badge, the phone number under it, and
+ * the shut line and handle that make a door read as a door.
+ *
+ * The cab was a single smooth red block — no seam, no handle, no
+ * branding — which is most of why it looked like a placeholder next to
+ * the liveried trailer. The real vehicles carry the badge on the door
+ * as well as the trailer.
+ *
+ * `mirrored` exists for the same reason as the trailer's: the two sides
+ * are opposite-handed, so without it the lettering reads backwards on
+ * one of them.
+ */
+export function cabDoorTexture(mirrored: boolean): THREE.CanvasTexture {
+  const W = 512;
+  const H = 320;
+  const { canvas, ctx } = makeCanvas(W, H);
+
+  const paintBase = () => {
+    ctx.save();
+    if (mirrored) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
+
+    ctx.fillStyle = COLORS.truckBodyRed;
+    ctx.fillRect(0, 0, W, H);
+
+    // Door shut line down the trailing edge, and the handle beside it.
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.8, H * 0.06);
+    ctx.lineTo(W * 0.8, H * 0.94);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(W * 0.66, H * 0.42, W * 0.1, H * 0.05);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.fillRect(W * 0.66, H * 0.42, W * 0.1, H * 0.016);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${H * 0.085}px system-ui, sans-serif`;
+    ctx.fillText('972-412-6033', W * 0.33, H * 0.83);
+
+    ctx.restore();
+  };
+
+  paintBase();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
+
+  void loadLogo()
+    .then((img) => {
+      const d = H * 0.6;
+      ctx.save();
+      if (mirrored) {
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(img, W * 0.33 - d / 2, H * 0.42 - d / 2, d, d);
+      ctx.restore();
+      tex.needsUpdate = true;
+    })
+    .catch(() => {
+      // Door still reads as a door: seam, handle, and number are drawn.
+    });
+
+  return tex;
+}

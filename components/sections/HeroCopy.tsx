@@ -54,20 +54,15 @@ export function HeroCopy() {
             definite behind this specific paragraph — a "silvery
             transparent background" — because the wide dark scrim alone
             still let the road's surface/markings show faintly through
-            during the set-piece. `relative` here plus the absolutely
-            positioned panel below give the paragraph its own frosted
-            backing without touching layout (the panel is sized off the
+            during the set-piece. positioned panel below give the paragraph its own frosted
+            backing without touching layout (the panel is a padded, content-sized
             paragraph's own box via inset, not a fixed size). This whole
             block sits inside the parent's [data-hero-copy] wrapper, so it
             fades out on the exact same GSAP-driven opacity as the rest of
             the hero copy (see Opening.tsx's applyProgress) — no separate
             fade logic needed here, and it is therefore already gone
             before the loading beat and never present in the light half. */}
-        <div className="relative mt-[clamp(1rem,4vh,2rem)]">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-x-4 -inset-y-3 -z-10 rounded-2xl bg-silver-glass/10 ring-1 ring-silver-glass/20 backdrop-blur-md"
-          />
+        <div className="mt-[clamp(1rem,4vh,2rem)] w-fit max-w-[34rem] rounded-2xl bg-silver-glass/10 px-5 py-4 ring-1 ring-silver-glass/20 backdrop-blur-md">
           <p className="text-lg leading-relaxed opacity-90">
             Local and long-distance movers for homes and offices across the
             DFW area. Packing, storage, and a crew that shows up when we

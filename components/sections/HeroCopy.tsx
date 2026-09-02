@@ -43,7 +43,14 @@ export function HeroCopy() {
         >
           {HERO_HEADLINE}
         </RevealText>
-        <p className="mt-[clamp(1rem,4vh,2rem)] text-lg leading-relaxed opacity-70">
+        {/* Round 18: raised from opacity-70 — at 70% this mid-grey text
+            washed out against the road's light-grey surface and lane
+            markings it crosses (the client's "not as readable because of
+            Road" complaint). Still kept short of the headline's full
+            strength so it reads as clearly secondary. Paired with a
+            strengthened/reshaped scrim in Opening.tsx so the text sits on
+            a genuinely darker field rather than relying on opacity alone. */}
+        <p className="mt-[clamp(1rem,4vh,2rem)] text-lg leading-relaxed opacity-90">
           Local and long-distance movers for homes and offices across the DFW
           area. Packing, storage, and a crew that shows up when we said we
           would.

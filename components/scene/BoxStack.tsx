@@ -80,12 +80,16 @@ type BoxSpec = {
 // on the ground — scaled up substantially from the old two-box pair (the
 // client's "looks empty" complaint) so the stack reads as a confident
 // feature of the right third of the frame. These are HERO sizes in world
-// units; they shrink by LOAD_SHRINK as they settle into the truck (see
-// below) rather than staying this large and clipping the bay.
+// units, scaled 1.5x from the previous hero size (round 18: "same boxes
+// enlarged, cover up more space on the right") so the stack fills
+// noticeably more of the frame at rest. They shrink by LOAD_SHRINK as
+// they settle into the truck (see below) — LOAD_SHRINK was deepened by
+// the same 1.5x factor so the final in-bay size is unchanged from before
+// this round; only the hero-rest size grew.
 const BOX_SPECS: BoxSpec[] = [
-  { size: [0.86, 0.72, 0.78], color: COLORS.cardboardTan, restRotationY: 0.08, loadDelay: 0 },
-  { size: [0.62, 0.52, 0.58], color: COLORS.cardboardTanDark, restRotationY: -0.16, loadDelay: 0.22 },
-  { size: [0.7, 0.6, 0.66], color: COLORS.cardboardTan, restRotationY: 0.3, loadDelay: 0.44 },
+  { size: [1.29, 1.08, 1.17], color: COLORS.cardboardTan, restRotationY: 0.08, loadDelay: 0 },
+  { size: [0.93, 0.78, 0.87], color: COLORS.cardboardTanDark, restRotationY: -0.16, loadDelay: 0.22 },
+  { size: [1.05, 0.9, 0.99], color: COLORS.cardboardTan, restRotationY: 0.3, loadDelay: 0.44 },
 ];
 
 // World-space (x, z) offsets from the door waypoint for each box's own
@@ -118,10 +122,14 @@ if (MAX_LOAD_DELAY >= 0.6) {
 // truck (enterEase 0 -> 1 below) — the hero sizes above are deliberately
 // large for the empty-looking hero frame, but the cargo bay's *interior*
 // is fixed geometry (see TruckAssembly's CARGO_* constants) that cannot
-// grow to match. Shrinking slightly on the way in reads as natural
+// grow to match. Shrinking on the way in reads as natural
 // perspective/settling rather than boxes clipping through a wall, and
 // keeps every rest slot verifiably inside the bay (see CARGO_FIT below).
-const LOAD_SHRINK = 0.6;
+// Round 18 enlarged BOX_SPECS by 1.5x, so this was deepened from 0.6 to
+// 0.6 / 1.5 = 0.4 in lockstep — hero size * LOAD_SHRINK (the effective
+// in-bay size) is unchanged from before this round, only the hero-rest
+// size grew.
+const LOAD_SHRINK = 0.4;
 
 // Hero "at rest" local offsets. Box 0 is the base, sitting flat on the
 // ground. Box 1 stacks on top of box 0: its resting Y is derived from

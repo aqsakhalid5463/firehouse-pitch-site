@@ -150,10 +150,21 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
           lockstep with the hero copy's own fade (see applyProgress
           below) so it never dims the loading/departure beats once the
           hero copy itself is gone. */}
+      {/* Round 18: the via stop's 25% opacity was too weak across the
+          horizontal band where the subhead extends (roughly 55% of
+          viewport width) — the road's light-grey surface and lane
+          markings showed straight through it, which is why the subhead
+          disappeared (the client's "not as readable because of Road"
+          complaint). Strengthened to 50% and pushed the via stop out to
+          65% width so the darker field covers the subhead's full run,
+          then falls to transparent by 90% — well short of the boxes/road
+          on the right, which keep their punch. Still a soft gradient, not
+          a hard-edged band, so it stays tasteful and doesn't read as a
+          visible dark rectangle. */}
       <div
         data-scrim
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-dark-bg/70 via-dark-bg/25 to-transparent"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-dark-bg/70 via-dark-bg/50 via-65% to-transparent to-90%"
       />
       <div
         data-pin

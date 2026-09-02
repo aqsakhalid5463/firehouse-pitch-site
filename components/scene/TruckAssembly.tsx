@@ -467,10 +467,16 @@ export function TruckAssembly() {
           <boxGeometry args={[3.0, 0.08, 1.75]} />
           <meshStandardMaterial color={COLORS.truckChassis} roughness={0.7} metalness={0.2} />
         </mesh>
-        {/* Front wall (toward the cab) — body red, like the sides. */}
+        {/* Front wall (toward the cab). +X faces back into the bay, so
+            that one gets the plywood lining rather than body paint. */}
         <mesh position={[-1.46, 0, 0]}>
           <boxGeometry args={[0.08, 1.9, 1.75]} />
-          <meshStandardMaterial color={COLORS.truckBodyRed} roughness={0.5} metalness={0.15} />
+          <meshStandardMaterial attach="material-0" color={COLORS.truckInterior} roughness={0.85} />
+          <meshStandardMaterial attach="material-1" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-2" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-3" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-4" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-5" color={COLORS.truckBodyRed} roughness={0.5} />
         </mesh>
         {/* Side walls, carrying the company livery.
             The body used to be blank cream. The real vehicles are deep
@@ -479,26 +485,34 @@ export function TruckAssembly() {
             what this texture is traced from. The two large faces of a
             box get opposite-handed UVs, so the -Z side uses a mirrored
             copy or the lettering would read backwards on that side. */}
+        {/* Per-face materials, not one material for the whole box.
+            BoxGeometry's groups run +X, -X, +Y, -Y, +Z, -Z, and only the
+            outward-facing one carries the livery: a wall textured on all
+            six faces showed the branding reversed on its inner surface,
+            visible straight through the open rear door for the whole
+            load-in. The inside of a real body is plywood lining.
+
+            (Self-illumination was tried on the livery to stop the red
+            key light tinting the badge, and abandoned: it pushed the
+            panel past the bloom threshold and blew it out to pale pink.
+            The real cause was the body colour — see truckBodyRed.) */}
         <mesh position={[0, 0, 0.835]}>
           <boxGeometry args={[3.0, 1.9, 0.08]} />
-          <meshStandardMaterial
-            map={liveryFar}
-            roughness={0.5}
-            metalness={0.1}
-          />
+          <meshStandardMaterial attach="material-0" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-1" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-2" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-3" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-4" map={liveryFar} roughness={0.5} metalness={0.1} />
+          <meshStandardMaterial attach="material-5" color={COLORS.truckInterior} roughness={0.85} />
         </mesh>
         <mesh position={[0, 0, -0.835]}>
           <boxGeometry args={[3.0, 1.9, 0.08]} />
-          {/* Self-illumination was tried here to stop the red key light
-              tinting the badge, and abandoned: it pushed the body past
-              the bloom threshold (luminance 0.25) and blew the whole
-              panel out to pale pink. The real cause was the body colour
-              itself — see COLORS.truckBodyRed. */}
-          <meshStandardMaterial
-            map={liveryNear}
-            roughness={0.5}
-            metalness={0.1}
-          />
+          <meshStandardMaterial attach="material-0" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-1" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-2" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-3" color={COLORS.truckBodyRed} roughness={0.5} />
+          <meshStandardMaterial attach="material-4" color={COLORS.truckInterior} roughness={0.85} />
+          <meshStandardMaterial attach="material-5" map={liveryNear} roughness={0.5} metalness={0.1} />
         </mesh>
 
         {/* Cargo-hold back wall — the true far wall of the bay, near the
@@ -598,16 +612,29 @@ export function TruckAssembly() {
               metalness={0.5}
               transparent
             />
+            {/* Scored lines matching the slat pitch, so the closed door
+                reads as a segmented roller door rather than a
+                featureless sheet.
+
+                These are children of the panel, not siblings of it, and
+                that nesting is the whole point: three.js visibility
+                inherits down the graph, so they disappear exactly when
+                the panel does. As siblings they kept their own
+                visible=true after the panel faded out on opening, and
+                six dark strips were left hanging across the empty cargo
+                bay for the entire load-in. Positions are relative to the
+                panel's own origin at [0.011, 0.005, 0]. */}
+            {Array.from({ length: DOOR_SLAT_COUNT - 1 }).map((_, i) => (
+              <mesh key={`score-${i}`} position={[0.01, -0.685 + i * 0.24, 0]}>
+                <boxGeometry args={[0.001, 0.01, 1.58]} />
+                <meshStandardMaterial
+                  color={COLORS.truckChassis}
+                  roughness={0.6}
+                  metalness={0.3}
+                />
+              </mesh>
+            ))}
           </mesh>
-          {/* Scored lines across the solid panel matching the slat
-              pitch, so the closed door still reads as a segmented
-              roller door rather than a featureless sheet. */}
-          {Array.from({ length: DOOR_SLAT_COUNT - 1 }).map((_, i) => (
-            <mesh key={`score-${i}`} position={[0.021, -0.68 + i * 0.24, 0]}>
-              <boxGeometry args={[0.001, 0.01, 1.58]} />
-              <meshStandardMaterial color={COLORS.truckChassis} roughness={0.6} metalness={0.3} />
-            </mesh>
-          ))}
 
           {/* Tail lights either side of the roller door */}
           {[0.68, -0.68].map((z, i) => (

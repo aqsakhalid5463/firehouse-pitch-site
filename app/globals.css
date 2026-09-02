@@ -12,6 +12,11 @@
      mirrors this value so non-Tailwind (three.js) code can reference the
      same token instead of a re-typed hex literal. */
   --color-silver-glass: #C7CBD1;
+  /* Mirrors lib/constants.ts COLORS.ribbonAsphalt / ribbonEdge so the
+     SVG road (components/ui/Ribbon) and any three.js consumer resolve to
+     the same value rather than re-typed hex literals. */
+  --color-ribbon-asphalt: #5A5F69;
+  --color-ribbon-edge: #787E89;
 }
 
 :root {

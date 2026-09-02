@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { clamp01 } from '@/lib/scroll-math';
 
@@ -31,21 +31,28 @@ import { clamp01 } from '@/lib/scroll-math';
  * continuing rather than as a new element appearing.
  */
 const WAYPOINTS: readonly (readonly [number, number])[] = [
-  [0.5, 0.0],
-  [0.12, 0.08],
-  [0.74, 0.19],
-  [0.18, 0.32],
-  [0.82, 0.45],
-  [0.28, 0.58],
-  [0.7, 0.71],
-  [0.25, 0.83],
-  // The tail sweeps out past the right edge rather than running down
-  // the middle. Ending centred put the line straight through the
-  // closing call-to-action and parked the truck behind its button;
-  // driving off the frame also bookends the hero, which opens with the
-  // 3D truck leaving down the road.
-  [0.66, 0.9],
-  [1.15, 0.95],
+  // Enters from off the left edge rather than the centre-top. Starting
+  // mid-frame made the line appear to begin in mid-air; coming in past
+  // the edge means it is already travelling when it first becomes
+  // visible, the way a road arrives from somewhere off-screen.
+  [-0.18, 0.03],
+  // Irregular on purpose. An earlier version alternated left-right on an
+  // even vertical pitch, which read as a decorative snake rather than a
+  // route: the eye predicted every turn. These vary both how far the
+  // line swings and how long it runs before the next turn, including a
+  // couple of shallow stretches that barely move at all.
+  [0.34, 0.08],
+  [0.79, 0.15],
+  [0.62, 0.24],
+  [0.16, 0.33],
+  [0.28, 0.42],
+  [0.74, 0.5],
+  [0.9, 0.59],
+  [0.47, 0.67],
+  [0.19, 0.75],
+  [0.55, 0.84],
+  // Leaves past the right edge, so the tail is not seen to stop.
+  [1.18, 0.92],
 ];
 
 /**
@@ -71,10 +78,18 @@ function buildPath(w: number, h: number): string {
   return d;
 }
 
+/** Stroke width of the road surface itself, in CSS pixels. */
+const ROAD_WIDTH = 22;
+
 export function Ribbon() {
   const host = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
+  const maskPathRef = useRef<SVGPathElement>(null);
+  const glowPathRef = useRef<SVGPathElement>(null);
+  const edgePathRef = useRef<SVGPathElement>(null);
   const truckRef = useRef<SVGGElement>(null);
+  // useId keeps the mask reference unique when both pages mount a Ribbon.
+  const maskId = `ribbon-reveal-${useId().replace(/:/g, '')}`;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reduced = useReducedMotion();
 
@@ -95,18 +110,37 @@ export function Ribbon() {
     return () => ro.disconnect();
   }, []);
 
+  const d = useMemo(
+    () => (size.w > 0 ? buildPath(size.w, size.h) : ''),
+    [size.w, size.h],
+  );
+
   useEffect(() => {
     const el = host.current;
     const path = pathRef.current;
     if (!el || !path || size.w === 0) return;
 
     const length = path.getTotalLength();
-    path.style.strokeDasharray = `${length}`;
+    // Every layer that makes up the road is revealed by the same
+    // stroke-dasharray trick, so they are collected once and written
+    // together — the surface, the kerb, the glow, and the mask that
+    // clips the centre-line dashes to the drawn length.
+    const revealed = [
+      path,
+      maskPathRef.current,
+      glowPathRef.current,
+      edgePathRef.current,
+    ].filter((p): p is SVGPathElement => p !== null);
+    revealed.forEach((p) => {
+      p.style.strokeDasharray = `${length}`;
+    });
 
     if (reduced) {
       // Show the finished line with no animation and park the truck at
       // its end, so the composition still reads.
-      path.style.strokeDashoffset = '0';
+      revealed.forEach((p) => {
+        p.style.strokeDashoffset = '0';
+      });
       const end = path.getPointAtLength(length);
       truckRef.current?.setAttribute(
         'transform',
@@ -124,7 +158,10 @@ export function Ribbon() {
       const mid = window.innerHeight / 2;
       const progress = clamp01((mid - r.top) / (r.height || 1));
 
-      path.style.strokeDashoffset = `${length * (1 - progress)}`;
+      const offset = `${length * (1 - progress)}`;
+      revealed.forEach((p) => {
+        p.style.strokeDashoffset = offset;
+      });
 
       const g = truckRef.current;
       if (g) {
@@ -166,24 +203,70 @@ export function Ribbon() {
           fill="none"
           className="absolute inset-0"
         >
-          {/* A soft wide copy of the same path under the crisp one, so
-              the ribbon casts a glow into the dark page instead of
-              sitting on it like a sticker. */}
+          <defs>
+            {/* The revealed length of the road, reused as a mask.
+                The lane markings need their own stroke-dasharray for the
+                dashes themselves, so they cannot also use dasharray to
+                animate the draw-on. Masking them with the road's
+                revealed stroke gets both: the dashes stay dashes, and
+                they only appear where road already exists. */}
+            <mask id={maskId}>
+              <path
+                d={d}
+                stroke="#fff"
+                strokeWidth={ROAD_WIDTH}
+                strokeLinecap="round"
+                fill="none"
+                ref={maskPathRef}
+              />
+            </mask>
+          </defs>
+
+          {/* Soft glow under the road, so it sits in the page rather
+              than on top of it. */}
           <path
-            d={buildPath(size.w, size.h)}
-            stroke="var(--color-fire)"
-            strokeWidth={26}
+            d={d}
+            stroke="var(--color-ribbon-asphalt)"
+            strokeWidth={ROAD_WIDTH + 16}
             strokeLinecap="round"
-            opacity={0.14}
-            style={{ filter: 'blur(22px)' }}
+            fill="none"
+            opacity={0.18}
+            style={{ filter: 'blur(18px)' }}
+            ref={glowPathRef}
           />
+
+          {/* The road surface. */}
           <path
             ref={pathRef}
-            d={buildPath(size.w, size.h)}
-            stroke="var(--color-fire)"
-            strokeWidth={10}
+            d={d}
+            stroke="var(--color-ribbon-asphalt)"
+            strokeWidth={ROAD_WIDTH}
             strokeLinecap="round"
-            opacity={0.85}
+            fill="none"
+          />
+
+          {/* Kerb lines down both edges, drawn as one stroke sitting
+              just inside the road's own width. */}
+          <path
+            d={d}
+            stroke="var(--color-ribbon-edge)"
+            strokeWidth={ROAD_WIDTH - 3}
+            strokeLinecap="round"
+            fill="none"
+            opacity={0.55}
+            ref={edgePathRef}
+          />
+
+          {/* Dashed centre line. */}
+          <path
+            d={d}
+            stroke="#E8EAEE"
+            strokeWidth={2.5}
+            strokeDasharray="14 20"
+            strokeLinecap="butt"
+            fill="none"
+            opacity={0.75}
+            mask={`url(#${maskId})`}
           />
 
           {/* Top-down truck at the drawing tip. Drawn pointing along +X

@@ -24,6 +24,10 @@ export const COLORS = {
   truckChassis: '#2A2A2F',
   truckWindshield: '#12121A',
   truckBoxBody: '#D8D2C6',
+  // Plywood lining inside the cargo bay. The livery belongs on the
+  // outer face of each wall only — a box geometry textured on all six
+  // faces shows the branding reversed from inside the open bay.
+  truckInterior: '#8F7F68',
   headlightWhite: '#F3F4F6',
   cardboardTan: '#C69A6D',
   cardboardTanDark: '#B08654',
@@ -51,6 +55,12 @@ export const COLORS = {
   // Damp-asphalt sheen tint. Deliberately a cool grey rather than the
   // headlight white this used to reuse, which read as pale paint.
   roadSheen: '#6E7480',
+  // The page-length SVG ribbon reads as a road rather than a brand
+  // flourish, so it takes asphalt grey with white lane markings. It ran
+  // in brand red, which competed with the red the CTAs and section
+  // labels use to mean "act here".
+  ribbonAsphalt: '#5A5F69',
+  ribbonEdge: '#787E89',
   roadMarkingWhite: '#EDEEF0',
   roadMarkingDim: '#B8BABF',
   // Silvery glass tint for translucent frosted-glass UI panels (the hero

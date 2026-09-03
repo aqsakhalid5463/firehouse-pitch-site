@@ -196,8 +196,10 @@ test('the process steps hand the spotlight along in order', async ({ page }) => 
 
   // Every step gets its turn at being enlarged.
   for (const p of peaks) expect(p).toBeGreaterThan(1.05);
-  // The swell is large enough to be worth the name.
-  expect(Math.max(...peaks)).toBeGreaterThan(1.25);
+  // The swell is large enough to be worth the name. The bar sits below
+  // the real 1.5x peak because the sampling is discrete — a wheel step
+  // can straddle the moment a step is at its largest.
+  expect(Math.max(...peaks)).toBeGreaterThan(1.4);
   // And they take those turns in order, never skipping or going back.
   expect(leaders).toEqual([...leaders].sort((a, b) => a - b));
   expect(leaders[0]).toBe(0);

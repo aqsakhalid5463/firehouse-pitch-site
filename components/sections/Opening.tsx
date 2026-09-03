@@ -159,15 +159,18 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             // thing in the row.
             opacity: enter * Math.min(1, emphasis + focus * 0.38),
             y: 26 * (1 - enter) - focus * 6,
-            // These sit in a fixed three-column grid, so growth has to go
-            // somewhere that isn't the neighbour's text. Scaling about
-            // the left edge rather than the centre sends all of it
-            // rightward, into the slack between this column's max-w-xs
-            // content and the column's own width plus the grid gap —
-            // measured at 1440px, a swelled step's right edge still
-            // clears the next step's left edge.
-            scale: 1 + focus * 0.3,
-            transformOrigin: 'left center',
+            // Grown about the centre, not the left edge.
+            //
+            // The left-edge origin was chosen when I believed the gap
+            // between steps was the grid's 40px. Measured at 1440px it
+            // is actually 109px: the columns are considerably wider than
+            // their max-w-xs content, so each step has ~55px of slack on
+            // both sides. At 1.5x a centred step reaches 80px past each
+            // edge, which still clears its neighbour — and growing in
+            // place reads as emphasis where growing rightward reads as
+            // the step sliding.
+            scale: 1 + focus * 0.5,
+            transformOrigin: 'center center',
           });
 
           // The label's characters cascade in rather than the whole word

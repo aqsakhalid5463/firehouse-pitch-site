@@ -70,9 +70,12 @@ export function Story() {
               <p className="text-xs font-semibold tracking-[0.2em] uppercase opacity-40">
                 {entry.label}
               </p>
-              <h3 className="mt-4 text-3xl font-semibold tracking-tight">
+              <RevealText
+                as="h3"
+                className="mt-4 text-3xl font-semibold tracking-tight"
+              >
                 {entry.title}
-              </h3>
+              </RevealText>
               <p className="mt-4 text-lg leading-relaxed opacity-70">
                 {entry.body}
               </p>

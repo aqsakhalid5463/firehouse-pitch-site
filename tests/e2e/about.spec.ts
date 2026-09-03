@@ -49,3 +49,46 @@ test('nav links move between the two pages', async ({ page }) => {
   await page.getByRole('link', { name: 'Home' }).first().click();
   await expect(page).toHaveURL(/\/$/);
 });
+
+// About's sub-headings (the pillars, the value cards, the credentials)
+// were plain <h3> elements while every h2 on the page animated, so the
+// page went flat below each section title. They now run the same
+// per-character entrance, which — like every heading — replays whenever
+// it comes back into view.
+test('about sub-headings animate and replay', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+
+  const midFlip = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('h3 [data-char]')].some((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) return false;
+        // Opacity, not transform: a settled character keeps an inline
+        // 3D transform matrix that is visually identity but does not
+        // compare equal to one, so transform would report every
+        // finished heading as still animating.
+        return Number(getComputedStyle(el).opacity) < 0.99;
+      }),
+    );
+
+  const wheel = async (n: number, dy: number) => {
+    for (let i = 0; i < n; i++) {
+      await page.mouse.wheel(0, dy);
+      await page.waitForTimeout(20);
+    }
+  };
+
+  // The h3 bands (pillars, then value cards, then credentials) sit
+  // roughly 1200-3600px down at this viewport.
+  await wheel(8, 400);
+  await page.waitForTimeout(150);
+  expect(await midFlip()).toBe(true);
+
+  await page.waitForTimeout(1500);
+  await wheel(5, -400);
+  await page.waitForTimeout(600);
+  await wheel(5, 400);
+  await page.waitForTimeout(120);
+  expect(await midFlip()).toBe(true);
+});

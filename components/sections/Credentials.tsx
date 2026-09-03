@@ -30,7 +30,9 @@ export function Credentials() {
         <FadeUp stagger className="mt-16 grid gap-12 md:grid-cols-3">
           {CREDENTIALS.map((c) => (
             <div key={c.title} className="border-t border-current/15 pt-6">
-              <h3 className="text-xl font-semibold">{c.title}</h3>
+              <RevealText as="h3" className="text-xl font-semibold">
+                {c.title}
+              </RevealText>
               <p className="mt-3 leading-relaxed opacity-70">{c.body}</p>
             </div>
           ))}

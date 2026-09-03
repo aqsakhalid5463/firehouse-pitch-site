@@ -230,8 +230,11 @@ test('heading entrances replay on a second visit', async ({ page }) => {
       [...document.querySelectorAll('[data-char]')].some((el) => {
         const r = el.getBoundingClientRect();
         if (r.bottom < 0 || r.top > window.innerHeight) return false;
-        const t = getComputedStyle(el).transform;
-        return t !== 'none' && t !== 'matrix(1, 0, 0, 1, 0, 0)';
+        // Opacity, not transform: a settled character keeps an inline
+        // 3D transform matrix that is visually identity but does not
+        // compare equal to one, so transform would report every
+        // finished heading as still animating.
+        return Number(getComputedStyle(el).opacity) < 0.99;
       }),
     );
 

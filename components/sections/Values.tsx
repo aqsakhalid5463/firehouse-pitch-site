@@ -17,7 +17,9 @@ export function Values() {
           {VALUES.map((value) => (
             <TiltCard key={value.title}>
               <div className="p-8">
-                <h3 className="text-2xl font-semibold">{value.title}</h3>
+                <RevealText as="h3" className="text-2xl font-semibold">
+                  {value.title}
+                </RevealText>
                 <p className="mt-4 leading-relaxed opacity-70">{value.body}</p>
               </div>
             </TiltCard>

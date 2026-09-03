@@ -14,11 +14,10 @@ import { TruckGlyph } from './TruckGlyph';
 
 gsap.registerPlugin(ScrollTrigger);
 
-/** Slats the curtain is cut into. They lift in sequence like the truck's
- *  roller door — the same gesture the cargo bay makes in the hero, which
- *  is why it is a door and not a fade. Kept low deliberately: each slat
- *  is a full-viewport composited layer, and removing a pile of those in
- *  one frame is what makes compositors drop tiles. */
+/** Seams painted across the curtain, so it reads as the truck's roller
+ *  door — the same gesture the cargo bay makes in the hero, which is why
+ *  it is a door and not a fade. These are painted lines on one element,
+ *  not separate panels: see the note on the curtain markup below. */
 const SLATS = 5;
 
 /** Digits on the odometer. Three gets us 000-100 with the leading zeros
@@ -184,19 +183,16 @@ export function Preloader() {
     let raf = 0;
     let exiting = false;
 
-    // Handing the page over is deliberately split from the last frame
-    // of the animation. Unmounting a stack of composited full-screen
-    // layers in the same frame their transform lands can leave Chrome
-    // compositing a half-updated screen — the page comes back in
-    // horizontal bands of stale black. Hiding first, clearing the
-    // promoted transforms, then unmounting two frames later gives the
-    // compositor a clean frame to settle on.
+    // Handing the page over is deliberately split from the last frame of
+    // the animation: hide, clear the promoted properties, then unmount
+    // two frames later, so the compositor gets a clean frame to settle
+    // on rather than losing the layer mid-update.
     const handOver = () => {
       const el = root.current;
       if (el) {
         el.style.visibility = 'hidden';
-        gsap.set(el.querySelectorAll('[data-slat]'), {
-          clearProps: 'transform,willChange',
+        gsap.set(el.querySelectorAll('[data-curtain]'), {
+          clearProps: 'clipPath,transform,willChange',
         });
       }
       requestAnimationFrame(() =>
@@ -211,6 +207,15 @@ export function Preloader() {
           // beat later, the visitor is looking at a page that is already
           // there, and the upgrade lands under a scroll rather than
           // under a curtain.
+          // Belt and braces against the same artifact: ask the page
+          // itself for a fresh paint once the curtain is gone. Reading a
+          // layout property between the two writes is what forces them
+          // to be two separate styles rather than one coalesced no-op.
+          const html = document.documentElement;
+          html.style.opacity = '0.999';
+          void html.offsetHeight;
+          html.style.opacity = '';
+
           setTimeout(setLifted, UPGRADE_DELAY_MS);
         }),
       );
@@ -259,14 +264,14 @@ export function Preloader() {
             '-=0.22',
           )
           .to(
-            '[data-slat]',
+            '[data-curtain]',
             {
-              yPercent: -101,
-              duration: 0.6,
+              // Clipping from the top edge downward: the door's visible
+              // area shrinks upward, which is the same gesture the
+              // stacked slats made when they translated off the top.
+              clipPath: 'inset(100% 0 0 0)',
+              duration: 0.62,
               ease: 'power4.inOut',
-              // Top slat first, so the curtain reads as a door rolling
-              // up rather than every panel dropping at once.
-              stagger: 0.04,
             },
             '-=0.16',
           );
@@ -415,21 +420,35 @@ export function Preloader() {
         <style>{'.preloader{display:none!important}'}</style>
       </noscript>
 
-      {/* The door itself. Overlapping heights (calc + 1px) hide the
-          sub-pixel seams that show between neighbouring slats at
-          fractional viewport heights. */}
+      {/* The door itself: ONE element, not a stack of slats.
+          
+          It used to be five full-screen absolutely-positioned divs, each
+          promoted to its own compositor layer by the transform lifting
+          it. Removing that many composited layers in a single frame is
+          what left the page behind them rendered in horizontal bands of
+          stale black — the artifact reported twice, and the reason the
+          slat count was already cut from seven to five as a mitigation.
+          It was never a real fix, because the cause is the number of
+          layers being torn down at once, not how many there are.
+          
+          One layer cannot band against itself. The roller-door gesture
+          is kept by animating this element's own `clip-path` upward
+          instead of translating separate panels, and the seams between
+          the slats are painted into it as a gradient, so it still reads
+          as a segmented door. clip-path animates on the main thread
+          rather than the compositor, which is affordable precisely
+          because the exit now runs with no long tasks left (see the
+          measurements on COMMIT_MS). */}
       <div aria-hidden="true" className="absolute inset-0">
-        {Array.from({ length: SLATS }, (_, i) => (
-          <div
-            key={i}
-            data-slat
-            className="absolute left-0 w-full bg-dark-bg"
-            style={{
-              top: `${(i * 100) / SLATS}%`,
-              height: `calc(${100 / SLATS}% + 1px)`,
-            }}
-          />
-        ))}
+        <div
+          data-curtain
+          className="absolute inset-0 bg-dark-bg"
+          style={{
+            clipPath: 'inset(0% 0 0 0)',
+            backgroundImage: `repeating-linear-gradient(180deg, rgba(255,255,255,0.022) 0, rgba(255,255,255,0.022) 1px, transparent 1px, transparent calc(100% / ${SLATS}))`,
+            backgroundSize: `100% 100%`,
+          }}
+        />
         {/* A single low glow behind the centre, so the panel is not a
             flat rectangle of pure black before anything moves. */}
         <div

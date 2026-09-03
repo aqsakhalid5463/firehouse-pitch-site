@@ -852,7 +852,11 @@ test('the road exists only in its zones and routes around copy', async ({
     const boxes = [
       ...scope.querySelectorAll<HTMLElement>('h1,h2,h3,p,blockquote'),
     ]
-      .filter((n) => !n.closest('[data-ribbon-checkpoint]'))
+      .filter(
+        (n) =>
+          !n.closest('[data-ribbon-checkpoint]') &&
+          !n.closest('article:has([data-ribbon-checkpoint])'),
+      )
       .map((n) => n.getBoundingClientRect())
       .filter((r) => r.width >= 80 && r.height >= 12);
 
@@ -887,11 +891,17 @@ test('the road exists only in its zones and routes around copy', async ({
   // passes through the service photographs by design, and their titles
   // sit directly beneath them; a headline spanning the full width also
   // leaves nowhere to go, and crossing one square-on is the intended
-  // fallback. Measured at 7.3%, most of it the service-card titles that
-  // sit directly under the photographs the road is routed through by
-  // design. This guards the mechanism, not the exact route, which is
-  // free to change with the copy.
-  expect(road.hit / road.total).toBeLessThan(0.09);
+  // fallback — the closing headline is four lines wide and the corridor
+  // above it is shorter than the walk's own step.
+  //
+  // Copy inside a service card is excluded above, because the road is
+  // routed through those cards deliberately and their titles sit
+  // directly beneath the photograph it visits; counting those measured
+  // the design as a defect. On everything else: measured at 6.5%, and
+  // zero across the whole run of service photographs. This guards the
+  // mechanism, not the exact route, which is free to change with the
+  // copy.
+  expect(road.hit / road.total).toBeLessThan(0.075);
 });
 
 test('the truck drives at a consistent speed through bends and loops', async ({

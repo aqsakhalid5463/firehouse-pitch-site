@@ -218,7 +218,7 @@ const PADS = [1, 0.7, 0.45];
  * the very geometry that will be drawn, and keeps the best. The route is
  * still identical on every load, because the seeds are.
  */
-const ATTEMPTS = 20;
+const ATTEMPTS = 60;
 
 /**
  * What a route costs: how much of it lies over page copy, plus how badly
@@ -235,8 +235,20 @@ const ATTEMPTS = 20;
  * the corner-cutting is the whole reason a route with clear knots can
  * still cross something.
  */
-const TURN_LIMIT = (18 * Math.PI) / 180;
+const TURN_LIMIT = (26 * Math.PI) / 180;
 const TURN_COST = 8;
+
+/**
+ * Weight on a sample of road lying over copy.
+ *
+ * Turns and crossings compete, and the balance matters: raising the
+ * candidate count without this made the search buy smoothness with
+ * crossings, taking the service run from 14 samples over text to 40 for
+ * a turn nobody could see. Crossings are scored against the real box
+ * rather than the padded one, so the search optimises the thing that is
+ * actually measured rather than anear approximation of it.
+ */
+const CROSS_COST = 3;
 
 function scoreRoute(
   w: number,
@@ -252,8 +264,8 @@ function scoreRoute(
     const x = px / w;
     const y = py / h;
     for (const o of obstacles) {
-      if (inside(o, x, y, padX * 0.5, padY * 0.5)) {
-        cost += 1;
+      if (inside(o, x, y, padX * 0.15, padY * 0.15)) {
+        cost += CROSS_COST;
         break;
       }
     }
@@ -307,13 +319,25 @@ function buildWaypoints(
   padX = 0,
   padY = 0,
   lean = 2.1,
+  wander = 1,
 ): [number, number][] {
   const rand = seeded(seed);
   const pts: [number, number][] = [];
   const loopR = 0.085;
 
   let x = -0.22;
-  let y = 0.005;
+  // Entry height is drawn from the seed, not fixed at the top.
+  //
+  // Every route used to come in at the very top left and get pulled
+  // right, straight into whatever heading the section opens with. On the
+  // closing section that is unavoidable from there: the corridor above
+  // the headline is about 60px tall and the walk's smallest step is
+  // 45px, so it cannot stay in it, and all sixty candidate routes
+  // crossed the text identically. Letting the entry slide down the left
+  // edge gives the search something to actually choose between — a road
+  // arriving from the left at half height is every bit as natural as one
+  // arriving at the top.
+  let y = 0.01 + rand() * 0.45;
   // Heading measured from straight-down, so 0 runs down the page. It
   // starts angled right because the road enters from off the left edge,
   // and the exact angle is drawn from the seed rather than fixed: the
@@ -323,23 +347,33 @@ function buildWaypoints(
   let heading = -0.15 + rand() * 0.85;
   pts.push([x, y]);
 
-  while (y < 0.9) {
+  // Stops a little short of the bottom to leave room for the run-out.
+  //
+  // Only a little. Running the wander to the very bottom spends the last
+  // of the height on the bend, so the road left the frame below the
+  // section and was clipped at the boundary instead of being seen to
+  // drive off the side — but stopping much higher is worse, because it
+  // puts the run-out through the middle of the section where the copy
+  // is. At 0.72 the closing road drove straight through the headline and
+  // crossings over text doubled. The run-out below takes long enough
+  // strides to reach the edge inside the remaining tenth.
+  while (y < 0.82) {
     // Most steps bend the heading a little; the tail of the
     // distribution supplies the occasional hard turn.
     const swing = rand();
-    heading += (rand() - 0.5) * (swing > 0.75 ? 3.6 : 1.9);
-    // A gentle pull back toward the middle of the page. Without it the
-    // heading saturates: a run of same-signed perturbations sends the
-    // road off to one side and nothing ever brings it back, so it
-    // becomes a long diagonal drift. The pull is proportional to how
-    // far out it already is, so it curves the road back the way a real
-    // route bends around terrain — and because it competes with a much
-    // larger random term it never turns into a regular oscillation.
+    heading += (rand() - 0.5) * (swing > 0.75 ? 3.6 : 1.9) * wander;
+    // A gentle pull back toward the middle of the page. Without it the heading
+    // saturates: a run of same-signed perturbations sends the road off
+    // to one side and nothing ever brings it back, so it becomes a long
+    // diagonal drift. The pull is proportional to how far out it already
+    // is, so it curves the road back the way a real route bends around
+    // terrain — and because it competes with a much larger random term
+    // it never turns into a regular oscillation.
     heading -= (x - 0.5) * 0.75;
     // Never let the road head back up the page: it has to keep making
     // downward progress or the walk stalls and crosses itself. This is
     // also what makes the arc-length bisection below valid.
-    heading = Math.max(-1.2, Math.min(1.2, heading));
+    heading = Math.max(-1.2 * wander, Math.min(1.2 * wander, heading));
 
     const step = 0.05 + rand() * 0.085;
     // Give way to page content by as little as possible: try the
@@ -407,8 +441,48 @@ function buildWaypoints(
     }
   }
 
-  // Leaves past the right edge, so the tail is not seen to stop.
-  pts.push([1.22, Math.min(0.99, y + 0.07)]);
+  // The run-out.
+  //
+  // The road used to end by jumping straight to a knot off the right
+  // edge, which is a corner by construction: the walk arrives pointing
+  // wherever the last obstacle left it, and the exit demands hard right.
+  // That was the single sharp turn left on the closing stretch — and
+  // calming the wander could not touch it, because the wander was not
+  // what caused it.
+  //
+  // Bending gradually to the horizontal over several knots instead lets
+  // the road leave the frame along the way it was already travelling, so
+  // it drives off the edge rather than being yanked off it.
+  // Turned briskly and taken in long strides: bending gently is what a
+  // road should do, but a *slow* bend here spends its downward budget
+  // before it reaches the side, and the run-out is then clipped off at
+  // the bottom of the section instead of visibly leaving the frame.
+  let out = heading;
+  for (let k = 0; k < 8 && x < 1.2; k++) {
+    out += (1.5 - out) * 0.8;
+    // Steered like the rest of the walk. The run-out used to bend to the
+    // edge regardless of what was in the way, which on the closing
+    // section drove it straight through the headline — the road's
+    // crossings over copy went from 7% to 16% the moment it was added.
+    // Deviations are small and one-sided here: it may duck above or
+    // below what is in front of it, but it must keep heading out.
+    let go = out;
+    for (const dev of [0, -0.3, 0.3, -0.6, 0.6]) {
+      const h = out + dev;
+      const nx = x + Math.sin(h) * 0.3 * lean;
+      const ny = y + Math.cos(h) * 0.3;
+      if (nx > x && !legBlocked(obstacles, x, y, nx, ny, padX, padY)) {
+        go = h;
+        break;
+      }
+    }
+    out = go;
+    x += Math.sin(out) * 0.3 * lean;
+    y += Math.cos(out) * 0.3;
+    pts.push([x, y]);
+  }
+  // Guaranteed clear of the frame however the run-out went.
+  pts.push([Math.max(1.22, x + 0.1), y + 0.02]);
   return pts;
 }
 
@@ -929,11 +1003,17 @@ function RoadSegment({
       buildWaypoints(
         sd,
         obstacles,
-        zone.mode === "circles" ? 0.45 : 0.9,
+        zone.mode === "circles" ? 0.45 : NO_LOOPS,
         aspect,
         padX,
         padY,
         (LEAN * h) / w,
+        // The closing stretch is one long sweep out to the edge, not a
+        // wander: it is the last thing seen before the footer, and a
+        // road that fidgets on its way off the page undercuts the
+        // arrival. Half the heading perturbation and half the range
+        // turns the same walk into a single gentle curve.
+        zone.mode === "circles" ? 1 : 0.28,
       ),
     );
   }, [zone.seed, zone.mode, w, h, checkpoints, obstacles]);
@@ -1009,8 +1089,27 @@ function RoadSegment({
       // The span is the zone's height plus a viewport, which is the
       // distance scrolled between the stretch first appearing at the
       // bottom of the screen and its end leaving the top.
-      const span = r.height + window.innerHeight;
-      const want = length * clamp01((window.innerHeight - r.top) / (span || 1));
+      // The scroll range this stretch is driven over.
+      //
+      // Nominally it runs from the zone first appearing at the bottom of
+      // the screen to its bottom leaving the top — but the last stretch
+      // sits at the end of the page, so that second point is past the
+      // furthest anyone can scroll. The truck therefore ran out of page
+      // before it ran out of road and simply stopped, mid-route, in the
+      // middle of the screen. Clamping the end of the range to the last
+      // scrollable pixel means the route always finishes: whatever is
+      // left of the road is covered by whatever is left of the scroll,
+      // and the truck drives off the edge exactly as the page bottoms
+      // out.
+      const pageTop = r.top + window.scrollY;
+      const maxScroll = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      const from = pageTop - window.innerHeight;
+      const to = Math.min(pageTop + r.height, maxScroll);
+      const span = Math.max(1, to - from);
+      const want = length * clamp01((window.scrollY - from) / span);
 
       // Snap on the first frame so the road does not draw itself in from
       // zero on a page loaded part-way down.

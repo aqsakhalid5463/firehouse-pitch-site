@@ -110,23 +110,42 @@ function buildWaypoints(seed: number): [number, number][] {
 }
 
 /**
- * Eight points around an ellipse, entered and left at its top.
+ * A loop in the road, entered and left travelling downward.
  *
- * Catmull-Rom through these reads as a genuine loop in the road — the
- * kind a cloverleaf makes — rather than a kink. Eight is the fewest that
- * stays circular once smoothed; fewer looks like a rounded diamond.
+ * Where a loop is joined matters more than how round it is. Entering at
+ * the *top* of a circle — the obvious choice — is what produced the
+ * sharp spike in the first version: the tangent at the top of a circle
+ * is horizontal, so a road arriving vertically had to turn 90° to get on
+ * to it and 90° again to get off. No amount of extra sample points or
+ * smoothing fixes a join that is geometrically a corner.
+ *
+ * Entering at the *side* instead, where the circle's own tangent is
+ * already vertical, means the road joins and leaves the loop travelling
+ * the way it was already going. The coil also drifts downward as it
+ * goes round, so it exits below where it entered rather than on top of
+ * itself, which would leave two coincident knots and a cusp between
+ * them.
  */
-function loopPoints(
-  cx: number,
-  cy: number,
+function loopFrom(
+  x: number,
+  y: number,
   r: number,
   aspect: number,
   dir: 1 | -1,
+  drift: number,
 ): [number, number][] {
+  // Centre placed so the entry point is exactly where the road already
+  // is, at the circle's side.
+  const cx = x - dir * r;
   const out: [number, number][] = [];
-  for (let k = 1; k <= 8; k++) {
-    const a = -Math.PI / 2 + dir * ((k * Math.PI * 2) / 8);
-    out.push([cx + r * Math.cos(a), cy + r * aspect * Math.sin(a)]);
+  const STEPS = 14;
+  for (let k = 1; k <= STEPS; k++) {
+    const t = k / STEPS;
+    const a = t * Math.PI * 2;
+    out.push([
+      cx + dir * r * Math.cos(a),
+      y + r * aspect * Math.sin(a) + drift * t,
+    ]);
   }
   return out;
 }
@@ -171,21 +190,32 @@ function buildCheckpointWaypoints(
 
     // A loop needs vertical room, or it collides with the checkpoint it
     // is meant to sit between.
-    if (i > 0 && gap > 0.1 && rand() > 0.45) {
-      const ly = prevY + gap * 0.45;
-      const lx = Math.min(0.86, Math.max(0.14, cx - side * SWING * 0.7));
-      pts.push([lx, ly - loopR * aspect]);
-      pts.push(...loopPoints(lx, ly, loopR, aspect, side > 0 ? 1 : -1));
+    if (i > 0 && gap > 0.16 && rand() > 0.45) {
+      const dir: 1 | -1 = side > 0 ? 1 : -1;
+      const ly = prevY + gap * 0.4;
+      const lx = Math.min(0.82, Math.max(0.18, cx - side * SWING * 0.7));
+      // A knot directly above the entry, so the road is already running
+      // vertically when it meets the loop's own vertical tangent.
+      pts.push([lx, ly - loopR * aspect * 1.2]);
+      pts.push(...loopFrom(lx, ly, loopR, aspect, dir, loopR * aspect * 1.2));
     }
 
-    // Swing wide of the checkpoint, then run through its centre. The
-    // pair is what makes the arrival read as a turn into the card
-    // instead of the line happening to cross it.
-    pts.push([
-      Math.min(0.94, Math.max(0.06, cx + side * SWING)),
-      Math.max(prevY + 0.01, cy - Math.min(0.09, Math.max(0.03, gap * 0.45))),
-    ]);
+    // Three knots per checkpoint, not two: swing wide, run through the
+    // centre, then swing wide again on the *other* side. Stopping at the
+    // centre left the road turning at the card, which is a corner; the
+    // exit knot turns the visit into one continuous S through it, and
+    // the alternating sides are what make the run of cards read as a
+    // zig-zag rather than a weave.
+    const approachY = Math.max(
+      prevY + 0.01,
+      cy - Math.min(0.1, Math.max(0.045, gap * 0.5)),
+    );
+    pts.push([Math.min(0.94, Math.max(0.06, cx + side * SWING)), approachY]);
     pts.push([cx, cy]);
+    pts.push([
+      Math.min(0.94, Math.max(0.06, cx - side * SWING * 0.75)),
+      cy + (cy - approachY) * 0.8,
+    ]);
   });
 
   // Past the last checkpoint the page still runs on for several
@@ -195,11 +225,14 @@ function buildCheckpointWaypoints(
   let [x, y] = pts[pts.length - 1];
   let heading = 0.2;
   while (y < 0.9) {
-    heading += (rand() - 0.5) * 1.9;
-    heading -= (x - 0.5) * 0.75;
-    heading = Math.max(-1.2, Math.min(1.2, heading));
+    // Gentler than the standalone walk's: out here the road is between
+    // sections rather than visiting anything, and a hard turn every
+    // couple of steps reads as jitter rather than as route.
+    heading += (rand() - 0.5) * 1.1;
+    heading -= (x - 0.5) * 0.6;
+    heading = Math.max(-1.0, Math.min(1.0, heading));
 
-    const step = 0.02 + rand() * 0.035;
+    const step = 0.03 + rand() * 0.04;
     x += Math.sin(heading) * step * 2.1;
     y += Math.cos(heading) * step;
 
@@ -218,9 +251,10 @@ function buildCheckpointWaypoints(
     // gets the same treatment as the run between the photographs.
     if (y < 0.82 && rand() > 0.86) {
       const dir: 1 | -1 = x > 0.5 ? -1 : 1;
-      const lx = Math.min(0.86, Math.max(0.14, x));
-      pts.push(...loopPoints(lx, y + loopR * aspect, loopR, aspect, dir));
-      y += loopR * aspect * 2;
+      const lx = Math.min(0.82, Math.max(0.18, x));
+      pts.push(...loopFrom(lx, y, loopR, aspect, dir, loopR * aspect * 1.2));
+      x = lx;
+      y += loopR * aspect * 1.2;
     }
   }
 
@@ -230,28 +264,102 @@ function buildCheckpointWaypoints(
 }
 
 /**
- * Builds a smooth cubic path through every waypoint using Catmull-Rom
- * control points converted to beziers. Chaining hand-written curves
- * would not guarantee tangent continuity at the joins, and any kink
- * shows up as a visible corner in a stroke this heavy.
+ * Builds a smooth cubic path through every waypoint, using *centripetal*
+ * Catmull-Rom (alpha = 0.5) rather than the uniform variant.
+ *
+ * Uniform Catmull-Rom assumes the waypoints are evenly spaced. This road
+ * is anything but: an approach swing can be 400px long while two points
+ * around a loop are 60px apart. Where spacing changes sharply the
+ * uniform form overshoots, and the overshoot shows up as the cusp at the
+ * top of a loop and the hard corner where the road rejoins itself — a
+ * kink no vehicle could drive.
+ *
+ * Centripetal parameterisation weights each segment by the square root
+ * of its length, which is provably free of cusps and self-intersections
+ * within a segment, so the road stays drivable regardless of how
+ * unevenly the route is sampled.
  */
+/**
+ * Minimum spacing between consecutive waypoints, in CSS pixels. Two
+ * knots closer than this carry no useful shape information but do force
+ * the curve through a very tight radius — which is where the hairpins
+ * came from, not from the loops themselves.
+ */
+const MIN_KNOT_GAP = 34;
+
+/**
+ * One round of Chaikin corner-cutting: every interior corner is replaced
+ * by the two points a quarter and three quarters along its edges.
+ *
+ * Run before the spline, this caps how sharply the route can turn no
+ * matter what produced it — an edge bounce in the walk, two cards at
+ * nearly the same height, a loop rejoining the road. Endpoints are kept
+ * exactly, so the road still enters and leaves off-screen.
+ */
+function chaikin(pts: readonly (readonly [number, number])[]) {
+  if (pts.length < 3) return pts.map((p) => [p[0], p[1]] as [number, number]);
+  const out: [number, number][] = [[pts[0][0], pts[0][1]]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+    out.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+  }
+  out.push([pts[pts.length - 1][0], pts[pts.length - 1][1]]);
+  return out;
+}
+
 function buildPath(
   w: number,
   h: number,
   waypoints: readonly (readonly [number, number])[],
 ): string {
-  const pts = waypoints.map(([fx, fy]) => [fx * w, fy * h] as const);
+  // Scale, then drop knots that sit on top of each other, then round off
+  // the corners twice. Only after that is the spline asked to draw
+  // anything — smoothing the route is a property of the route, not
+  // something the spline can be tuned into rescuing.
+  const scaled = waypoints.map(([fx, fy]) => [fx * w, fy * h] as [number, number]);
+  const pruned: [number, number][] = [scaled[0]];
+  for (let i = 1; i < scaled.length; i++) {
+    const last = pruned[pruned.length - 1];
+    const far =
+      Math.hypot(scaled[i][0] - last[0], scaled[i][1] - last[1]) >= MIN_KNOT_GAP;
+    // The final knot is off-screen and defines where the road leaves, so
+    // it is kept whether or not it clears the gap.
+    if (far || i === scaled.length - 1) pruned.push(scaled[i]);
+  }
+  const pts = chaikin(chaikin(chaikin(pruned)));
+  const dist = (a: readonly number[], b: readonly number[]) =>
+    Math.sqrt((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5;
+
   let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i];
     const p1 = pts[i];
     const p2 = pts[i + 1];
     const p3 = pts[i + 2] ?? p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
+
+    // Knot spacings. A zero (two coincident waypoints) would divide by
+    // zero below, so it falls back to the uniform weight.
+    const d1 = dist(p0, p1) || 1;
+    const d2 = dist(p1, p2) || 1;
+    const d3 = dist(p2, p3) || 1;
+
+    const c1: [number, number] = [0, 0];
+    const c2: [number, number] = [0, 0];
+    for (let k = 0; k < 2; k++) {
+      c1[k] =
+        (d1 * d1 * p2[k] -
+          d2 * d2 * p0[k] +
+          (2 * d1 * d1 + 3 * d1 * d2 + d2 * d2) * p1[k]) /
+        (3 * d1 * (d1 + d2));
+      c2[k] =
+        (d3 * d3 * p1[k] -
+          d2 * d2 * p3[k] +
+          (2 * d3 * d3 + 3 * d3 * d2 + d2 * d2) * p2[k]) /
+        (3 * d3 * (d3 + d2));
+    }
+    d += ` C ${c1[0].toFixed(2)} ${c1[1].toFixed(2)}, ${c2[0].toFixed(2)} ${c2[1].toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
   }
   return d;
 }

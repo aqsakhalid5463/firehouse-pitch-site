@@ -368,6 +368,33 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   // photograph rather than merely nearby.
   for (const m of misses) expect(m).toBeLessThan(40);
 
+  // No hairpins: the sharpest turn anywhere on the road, measured over
+  // 8px of arc. A corner sharp enough to see reads as a kink in a road
+  // a truck is supposed to be driving — the first loop version peaked at
+  // ~55 degrees here, which is a 4px turning radius.
+  const worstTurn = await page.evaluate(() => {
+    const path = document.querySelector(
+      'div[aria-hidden="true"] > svg path',
+    ) as SVGPathElement | null;
+    if (!path) return 999;
+    const len = path.getTotalLength();
+    const n = Math.floor(len / 8);
+    const pts = Array.from({ length: n + 1 }, (_, i) =>
+      path.getPointAtLength((i / n) * len),
+    );
+    let worst = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a1 = Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x);
+      const a2 = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x);
+      const d =
+        (Math.abs(((a2 - a1 + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * 180) /
+        Math.PI;
+      worst = Math.max(worst, d);
+    }
+    return worst;
+  });
+  expect(worstTurn).toBeLessThan(20);
+
   // And the truck tracks the middle of the screen while the road is
   // being driven, rather than racing ahead on the sideways stretches.
   const truckY = () =>

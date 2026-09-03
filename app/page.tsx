@@ -7,7 +7,6 @@ import { Guarantees } from '@/components/sections/Guarantees';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { Process } from '@/components/sections/Process';
-import { Extras } from '@/components/sections/Extras';
 import { ServiceArea } from '@/components/sections/ServiceArea';
 import { Faq } from '@/components/sections/Faq';
 import { SceneAudio } from '@/components/scene/SceneAudio';
@@ -32,7 +31,6 @@ export default function Home() {
           <Ribbon seed={918273} />
           <Services />
           <Process />
-          <Extras />
           <Guarantees />
           <ServiceArea />
           <Testimonials />

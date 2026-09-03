@@ -261,6 +261,12 @@ export const MANIFESTO =
  * details that separate a franchise from a van and two people, so they
  * get their own section.
  */
+/**
+ * The "Beyond the move" section was removed from the home page at the
+ * client's request; this data is kept because it is their own published
+ * copy and the content-integrity tests below still guard it, so the
+ * section can be restored without re-deriving any of it.
+ */
 export const EXTRAS = [
   {
     title: 'On-site inspection',

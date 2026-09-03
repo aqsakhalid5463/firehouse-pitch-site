@@ -138,12 +138,24 @@ export function StackedCards({
             // so it exits past the camera rather than shrinking away —
             // the difference between a card being taken off a stack and
             // one falling down a hole.
+            //
+            // It stays opaque while it goes.
+            //
+            // Fading a card that is still on top of the next one is what
+            // produced the muddle the client screenshotted: two promises
+            // legible through each other at once. Speeding the fade up
+            // does not fix it, it just shortens it — any partial opacity
+            // over another card is a double read. So the card holds full
+            // opacity until it is most of the way out of frame and only
+            // then fades. The card underneath is revealed the way a card
+            // lifted off a deck reveals the next one: by being uncovered,
+            // not by being seen through.
             const s = Math.min(-d, 2);
-            y = -s * 170;
-            z = s * 260;
-            scale = 1 + s * 0.06;
+            y = -s * 620;
+            z = s * 200;
+            scale = 1 + s * 0.05;
             rotateX = s * 14;
-            opacity = Math.max(0, 1 - s * 1.35);
+            opacity = s < 0.8 ? 1 : Math.max(0, 1 - (s - 0.8) * 3.4);
           }
 
           card.style.opacity = opacity.toFixed(3);

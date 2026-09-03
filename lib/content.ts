@@ -43,14 +43,24 @@ export const GUARANTEES = [
   {
     title: 'Fast moves',
     body: 'Crews sized to the job so your move finishes in a day, not a weekend.',
+    // The client's own photographs, matched to the promise each one
+    // actually shows. Nothing here is stock: a promise illustrated by
+    // someone else's crew would be the same problem as an invented
+    // testimonial.
+    image: '/images/two_trucks.jpg',
+    alt: 'Two Firehouse Movers trucks loaded and ready on a job.',
   },
   {
     title: 'Safe handling',
     body: 'Every item padded, inventoried, and inspected before it leaves and after it arrives.',
+    image: '/images/packing.jpg',
+    alt: 'A Firehouse Movers crew member wrapping and boxing household items.',
   },
   {
     title: 'On-time delivery',
     body: 'A delivery window we commit to in writing, and hit.',
+    image: '/images/local-move.jpg',
+    alt: 'A Firehouse Movers truck and trailer parked outside a home on moving day.',
   },
 ] as const;
 

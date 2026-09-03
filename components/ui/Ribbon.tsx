@@ -177,14 +177,40 @@ function buildCheckpointWaypoints(
   // Sideways reach of the approach, as a fraction of width. Big enough
   // that the zig-zag is legible at a glance; the checkpoints themselves
   // are what stop it becoming a uniform weave.
-  const SWING = 0.3;
-  const loopR = 0.075;
+  const SWING = 0.22;
+  const loopR = 0.06;
   // Loops are drawn in width fractions and squashed by the container's
   // aspect so they come out round on screen rather than as tall ovals.
   const aspect = h > 0 ? w / h : 1;
 
-  checkpoints.forEach(([cx, cy], i) => {
-    const side = i % 2 === 0 ? -1 : 1;
+  // Cards come in rows of two. Threading through *both* centres of a
+  // row is geometrically a hairpin and nothing downstream can smooth it
+  // away: the pair is ~660px apart horizontally and ~120px apart
+  // vertically, so the road would have to run almost level, stop, and
+  // double back. One card per row — alternating sides down the page —
+  // gives every leg the full height of a row to make its sideways move
+  // in, which is what turns the route into a real zig-zag. The road
+  // still passes close to the skipped card, because its neighbour's
+  // approach and exit swing out across that column.
+  const ROW_TOLERANCE = 0.03;
+  const rows: [number, number][][] = [];
+  checkpoints.forEach((cp) => {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(cp[1] - row[0][1]) < ROW_TOLERANCE) row.push([...cp] as [number, number]);
+    else rows.push([[...cp] as [number, number]]);
+  });
+  const visited = rows.map((row, i) => {
+    // Alternate which side of the row is visited, so consecutive legs
+    // cross the page instead of running down one column.
+    const wantLeft = i % 2 === 0;
+    const sorted = [...row].sort((a, b) => a[0] - b[0]);
+    return wantLeft ? sorted[0] : sorted[sorted.length - 1];
+  });
+
+  visited.forEach(([cx, cy], i) => {
+    // Approach from the side the road is coming *from*, so the visit
+    // continues the crossing rather than reversing it.
+    const side = cx < 0.5 ? 1 : -1;
     const prevY = pts[pts.length - 1][1];
     const gap = cy - prevY;
 
@@ -206,15 +232,25 @@ function buildCheckpointWaypoints(
     // exit knot turns the visit into one continuous S through it, and
     // the alternating sides are what make the run of cards read as a
     // zig-zag rather than a weave.
-    const approachY = Math.max(
-      prevY + 0.01,
-      cy - Math.min(0.1, Math.max(0.045, gap * 0.5)),
-    );
-    pts.push([Math.min(0.94, Math.max(0.06, cx + side * SWING)), approachY]);
+    // How far sideways the swing may reach is set by how much vertical
+    // room there is before the card, not by a fixed number. A wide swing
+    // with little height between two cards is exactly what the spline
+    // has to draw as a hairpin U-turn — the road doubling back beside a
+    // card. Trading swing for gentleness where the cards are close makes
+    // every leg a gradual diagonal instead, which is what a zig-zag
+    // actually is. (`aspect` converts a width fraction to the vertical
+    // scale so the two are comparable.)
+    const room = Math.max(0.03, gap);
+    const swing = Math.min(SWING, (room * 0.55) / aspect);
+    const approachY = cy - room * 0.5;
+
+    pts.push([Math.min(0.94, Math.max(0.06, cx + side * swing)), approachY]);
+    // The centre knot is exact: this is the whole point of a checkpoint,
+    // so it is never nudged for smoothness.
     pts.push([cx, cy]);
     pts.push([
-      Math.min(0.94, Math.max(0.06, cx - side * SWING * 0.75)),
-      cy + (cy - approachY) * 0.8,
+      Math.min(0.94, Math.max(0.06, cx - side * swing * 0.6)),
+      cy + room * 0.35,
     ]);
   });
 
@@ -363,6 +399,19 @@ function buildPath(
   }
   return d;
 }
+
+/**
+ * Fastest the truck may travel, in path pixels per frame (~1.4k px/s at
+ * 60fps). Fast enough that it still keeps up with an ordinary scroll on
+ * the straight sections, slow enough that a loop is visibly driven.
+ */
+const MAX_STEP = 26;
+
+/**
+ * How far behind (in path pixels) the truck has to fall before it is
+ * allowed to travel faster than driving speed to catch up.
+ */
+const CATCH_UP_AFTER = 900;
 
 /** Stroke width of the road surface itself, in CSS pixels. */
 const ROAD_WIDTH = 22;
@@ -530,7 +579,29 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
       const want = lengthAtY(targetY);
       // Snap on the first frame so the road does not draw itself in from
       // zero on a page loaded part-way down.
-      at = at < 0 ? want : at + (want - at) * 0.18;
+      if (at < 0) {
+        at = want;
+      } else {
+        // Chase the target, but never faster than MAX_STEP px of road
+        // per frame. Pinning the truck to the middle of the screen means
+        // its speed along the road is set by how much road there is per
+        // pixel of page — and through a loop or a sideways stretch that
+        // is enormous, so it covered the whole loop in a couple of
+        // frames and read as a blur rather than as driving. The cap
+        // trades a little of that pinning for a believable speed: the
+        // truck falls behind the centre through a loop and catches up on
+        // the straight after it.
+        const behind = Math.abs(want - at);
+        // Two speeds. Driving speed is capped hard, which is what stops
+        // a loop being covered in two frames. But after a fast scroll
+        // the truck can be thousands of pixels of road behind, and
+        // crawling all of that back at driving speed leaves the screen
+        // empty for seconds — so once it is a long way out it is allowed
+        // to close the gap quickly, then settles back to driving.
+        const cap = behind > CATCH_UP_AFTER ? MAX_STEP * 4 : MAX_STEP;
+        const move = (want - at) * 0.18;
+        at += Math.max(-cap, Math.min(cap, move));
+      }
       const progress = clamp01(at / (length || 1));
 
       const offset = `${length * (1 - progress)}`;

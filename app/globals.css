@@ -67,7 +67,10 @@ body {
    
    The client supplied the treatment they wanted as a block of CSS:
    Helvetica Neue at weight 100, -0.06em tracking, 0.83 line height,
-   uppercase, set large. That is a display style, not a body style — the
+   uppercase, set large. The weight is the one departure: at 100 the
+   headings read as hairlines against a near-black page — legible in the
+   reference, which sets them on white — so this runs at 600 while
+   keeping the tracking, leading and case that give the style its shape. That is a display style, not a body style — the
    negative tracking and sub-1 leading only work on short uppercase runs,
    which is why it is scoped to h1/h2 and not applied site-wide.
    
@@ -83,7 +86,7 @@ body {
    background box is twice the character's height and slides on hover, so
    the red rises through the letter instead of switching. */
 .heading-display {
-  font-weight: 100;
+  font-weight: 600;
   letter-spacing: -0.06em;
   line-height: 0.83;
   text-transform: uppercase;

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Nav } from '@/components/ui/Nav';
 import { Footer } from '@/components/ui/Footer';
 import { AboutHero } from '@/components/sections/AboutHero';
+import { Manifesto } from '@/components/sections/Manifesto';
 import { Story } from '@/components/sections/Story';
 import { Values } from '@/components/sections/Values';
 import { Credentials } from '@/components/sections/Credentials';
@@ -29,6 +30,7 @@ export default function About() {
               not repeat the same road. */}
           <Ribbon seed={5512094} />
           <AboutHero />
+          <Manifesto />
           <Story />
           <Values />
           <Credentials />

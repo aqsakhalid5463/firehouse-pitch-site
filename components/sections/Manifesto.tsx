@@ -4,13 +4,17 @@ import { ScrubText } from '@/components/ui/ScrubText';
 import { FadeUp } from '@/components/ui/FadeUp';
 
 /**
- * The company in its own words, immediately after the 3D opening.
+ * The company in its own words. This is the one place on the site using
+ * the scrubbed word-by-word reveal — the reader's scroll uncovers the
+ * sentence — and it earns it by being the statement the site most wants
+ * read.
  *
- * The page went from the set-piece straight into a grid of services,
- * which meant a visitor was being sold to before being told who was
- * selling. This is the one place on the page using the scrubbed
- * word-by-word reveal — the reader's scroll uncovers the sentence — and
- * it earns it by being the statement the page most wants read.
+ * It opened the home page directly after the 3D set-piece, on the
+ * reasoning that a visitor shouldn't be sold to before being told who
+ * is selling. Moved to About at the client's request: it is the same
+ * question that page exists to answer, so it belongs beside the story
+ * and the credentials rather than delaying the home page's services.
+ * The home page now runs from the set-piece into Services.
  */
 export function Manifesto() {
   return (

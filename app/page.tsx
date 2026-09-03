@@ -6,7 +6,6 @@ import { Services } from '@/components/sections/Services';
 import { Guarantees } from '@/components/sections/Guarantees';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
-import { Manifesto } from '@/components/sections/Manifesto';
 import { Process } from '@/components/sections/Process';
 import { Extras } from '@/components/sections/Extras';
 import { ServiceArea } from '@/components/sections/ServiceArea';
@@ -31,7 +30,6 @@ export default function Home() {
           <PageField />
           {/* Seeded so Home and About get visibly different roads. */}
           <Ribbon seed={918273} />
-          <Manifesto />
           <Services />
           <Process />
           <Extras />

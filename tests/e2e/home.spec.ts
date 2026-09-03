@@ -122,16 +122,24 @@ test('headings lean into a scroll and settle back straight', async ({ page }) =>
   }
 
   // Mid-flick the heading should actually be leaning, or the effect is
-  // not doing anything.
+  // not doing anything. Sampled repeatedly rather than once: a single
+  // snapshot can land on a stretch of page with no heading in the
+  // viewport at all (which is how this read -Infinity when the Manifesto
+  // section moved to About), which says nothing about the effect.
   const during = await Promise.all([
     (async () => {
       for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 900);
     })(),
     (async () => {
-      await page.waitForTimeout(120);
-      return skews();
+      const seen: number[] = [];
+      for (let i = 0; i < 8; i++) {
+        await page.waitForTimeout(80);
+        seen.push(...(await skews()));
+      }
+      return seen;
     })(),
   ]).then((r) => r[1]);
+  expect(during.length).toBeGreaterThan(0);
   expect(Math.max(...during.map(Math.abs))).toBeGreaterThan(0.5);
   // ...but never past the clamp, which is what keeps it readable.
   expect(Math.max(...during.map(Math.abs))).toBeLessThanOrEqual(5.01);

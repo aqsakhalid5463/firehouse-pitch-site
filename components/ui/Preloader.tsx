@@ -72,6 +72,35 @@ const CREEP_RATE = 0.05;
  */
 const UPGRADE_DELAY_MS = 400;
 
+/**
+ * How often the loader hands a new position to the browser, and how long
+ * the browser is given to move there.
+ *
+ * The loader used to write a transform on every animation frame, which
+ * means its motion is only as smooth as the main thread — and the main
+ * thread during a page load is exactly where the work is. Even after
+ * cutting the scene's cost there is ~1.1s of blocking left in a
+ * production load, with single tasks over 400ms, and every millisecond
+ * of that froze the truck and the digits solid.
+ *
+ * Instead, positions are committed occasionally and interpolated by a
+ * CSS transition, which runs on the compositor. The transition window is
+ * deliberately longer than the commit interval, so there is always
+ * runway left: when a long task stops the commits, the browser is still
+ * mid-transition and keeps moving without us.
+ */
+const COMMIT_MS = 120;
+const TRANSITION_MS = 320;
+
+/**
+ * The transition itself, as a string, because the wrap handling below
+ * has to put it back after switching it off for one frame. Restoring it
+ * to `''` would clear the inline style outright and leave that digit
+ * column with no transition for the rest of the load — which is exactly
+ * what happened on the first wrap of the units wheel.
+ */
+const ROLL_TRANSITION = `transform ${TRANSITION_MS}ms linear`;
+
 export function Preloader() {
   const root = useRef<HTMLDivElement>(null);
   const reelsRef = useRef<HTMLDivElement>(null);
@@ -147,6 +176,11 @@ export function Preloader() {
     const started = performance.now();
     let shown = 0;
     let last = performance.now();
+    let lastCommit = 0;
+    // Last offset written to each digit column, so a wheel wrapping from
+    // 10 back to 0 can be snapped instead of transitioned — a transition
+    // would run the whole column backwards past every digit.
+    const lastOffsets = new Array<number>(REELS).fill(0);
     let raf = 0;
     let exiting = false;
 
@@ -185,6 +219,12 @@ export function Preloader() {
     const exit = () => {
       if (exiting) return;
       exiting = true;
+
+      // The run used CSS transitions to stay smooth under load; the
+      // drive-off is a GSAP tween on the same property, and leaving the
+      // transition in place would make every frame of that tween chase a
+      // 320ms interpolation of its own.
+      if (truckRef.current) truckRef.current.style.transition = 'none';
 
       if (reduced) {
         gsap.to(root.current, { opacity: 0, duration: 0.3, onComplete: handOver });
@@ -259,6 +299,14 @@ export function Preloader() {
       }
       if (target >= 1 && shown > 0.995) shown = 1;
 
+      // Commit on a schedule rather than every frame; the CSS transition
+      // set up on these elements covers the gaps.
+      if (now - lastCommit < COMMIT_MS && shown !== 1) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      lastCommit = now;
+
       const value = shown * 100;
 
       // Odometer. Each reel carries 0-9 plus a repeated 0 to wrap
@@ -288,7 +336,23 @@ export function Preloader() {
           // column of digits that actually rolls.
           const column = reels.children[REELS - 1 - i]
             ?.firstElementChild as HTMLElement | undefined;
-          if (column) column.style.transform = `translateY(${(-offset / 11) * 100}%)`;
+          if (column) {
+            const wrapped = offset < lastOffsets[i] - 0.001;
+            if (wrapped) {
+              // 10 and 0 are the same digit — the column carries a
+              // repeated 0 to wrap against — so jumping between them is
+              // invisible, while transitioning between them is not.
+              column.style.transition = 'none';
+            }
+            column.style.transform = `translateY(${(-offset / 11) * 100}%)`;
+            if (wrapped) {
+              // Force the jump to be applied before the transition is
+              // restored, or it is simply coalesced into the next one.
+              void column.offsetHeight;
+              column.style.transition = ROLL_TRANSITION;
+            }
+            lastOffsets[i] = offset;
+          }
         }
       }
 
@@ -411,7 +475,16 @@ export function Preloader() {
           >
             {Array.from({ length: REELS }, (_, i) => (
               <span key={i} className="block h-[1em] overflow-hidden">
-                <span className="block">
+                {/* Linear, and longer than the commit interval: this is
+                    what keeps the drum turning while the main thread is
+                    busy. See COMMIT_MS. */}
+                <span
+                  className="block"
+                  style={{
+                    transition: ROLL_TRANSITION,
+                    willChange: 'transform',
+                  }}
+                >
                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((d, j) => (
                     <span key={j} className="block h-[1em]">
                       {d}
@@ -435,7 +508,11 @@ export function Preloader() {
           <div
             ref={tintRef}
             className="absolute inset-0 origin-left bg-linear-to-r from-transparent to-fire/12"
-            style={{ transform: 'scaleX(0)' }}
+            style={{
+              transform: 'scaleX(0)',
+              transition: ROLL_TRANSITION,
+              willChange: 'transform',
+            }}
           />
           {/* Centre line. Static, not scrolling: the camera is fixed on
               the road and the truck is what moves, so sliding the
@@ -462,7 +539,12 @@ export function Preloader() {
             // is a transform (see the tick above). `will-change` keeps
             // the glyph on its own compositor layer for the whole load
             // rather than being promoted and dropped repeatedly.
-            style={{ left: '6%', willChange: 'transform', transform: 'translate3d(0, -50%, 0)' }}
+            style={{
+              left: '6%',
+              willChange: 'transform',
+              transform: 'translate3d(0, -50%, 0)',
+              transition: ROLL_TRANSITION,
+            }}
           >
             <svg viewBox="0 0 32 22" className="h-full w-full overflow-visible">
               <TruckGlyph />

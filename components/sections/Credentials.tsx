@@ -24,7 +24,7 @@ export function Credentials() {
         <RevealText
           as="h2"
           variant="wipe"
-          className="text-[clamp(1.75rem,4vw,3rem)] font-semibold tracking-tight"
+          className="text-[clamp(1.75rem,4vw,3rem)]"
         >
           Credentials that matter on moving day
         </RevealText>

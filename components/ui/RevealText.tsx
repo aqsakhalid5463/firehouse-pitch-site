@@ -201,61 +201,45 @@ export function RevealText({
       // amplitude you can actually see, where the fixed per-word
       // rotation it replaced was not — a permanent tilt reads as a
       // typesetting bug, a transient lean reads as weight.
-      // Paint that follows the pointer through the letters.
+      // Hovering makes the heading restless: every character takes a
+      // small random offset and tilt, re-rolled on each hover, and
+      // settles back when the pointer leaves.
       //
-      // Done per character rather than with a gradient clipped to the
-      // text: `background-clip: text` paints one background in the
-      // heading's own box, and every character here sits in its own
-      // transformed layer for the entrance, so the clip and the
-      // transforms fight. Colouring the characters directly is immune to
-      // that, and it is the same set of nodes the entrance already uses.
+      // Random per character rather than a single shared wobble, because
+      // a whole heading moving as one body reads as the element being
+      // dragged; characters disagreeing with each other reads as the
+      // type itself being alive. The offsets are small — this sits under
+      // the two-tone colour, not instead of it.
       const el = root.current!;
-      const PAINT_RADIUS = 130;
-      let rects: { x: number; y: number }[] = [];
-      let painting = 0;
-
-      const measure = () => {
-        rects = [...chars].map((c) => {
-          const r = (c as HTMLElement).getBoundingClientRect();
-          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-        });
-      };
-
-      const paint = (px: number, py: number) => {
-        chars.forEach((c, i) => {
-          const p = rects[i];
-          if (!p) return;
-          const d = Math.hypot(p.x - px, p.y - py);
-          // A soft edge rather than a hard circle: characters at the rim
-          // of the brush take a partial red, so the paint has a bleed
-          // instead of a cut-out.
-          const t = gsap.utils.clamp(0, 1, 1 - d / PAINT_RADIUS);
-          (c as HTMLElement).style.color =
-            t <= 0.01
-              ? ''
-              : `color-mix(in srgb, var(--color-fire) ${(t * 100).toFixed(0)}%, currentColor)`;
-        });
-      };
-
-      const onMove = (e: PointerEvent) => {
+      const onEnter = (e: PointerEvent) => {
         if (e.pointerType !== 'mouse') return;
-        // Rects are measured on the frame the pointer arrives, not on
-        // every move: the heading does not reflow while it is hovered,
-        // and reading 40 bounding boxes per mousemove would.
-        if (!painting) measure();
-        painting = 1;
-        paint(e.clientX, e.clientY);
+        gsap.to(chars, {
+          y: () => gsap.utils.random(-7, 7),
+          x: () => gsap.utils.random(-3, 3),
+          rotate: () => gsap.utils.random(-5, 5),
+          duration: 0.5,
+          ease: 'elastic.out(1, 0.45)',
+          stagger: { amount: 0.22, from: 'random' },
+          overwrite: 'auto',
+        });
       };
-      const onLeave = () => {
-        painting = 0;
-        chars.forEach((c) => ((c as HTMLElement).style.color = ''));
+      const onLeaveHover = () => {
+        gsap.to(chars, {
+          y: 0,
+          x: 0,
+          rotate: 0,
+          duration: 0.7,
+          ease: 'elastic.out(1, 0.5)',
+          stagger: { amount: 0.2, from: 'random' },
+          overwrite: 'auto',
+        });
       };
 
-      el.addEventListener('pointermove', onMove);
-      el.addEventListener('pointerleave', onLeave);
+      el.addEventListener('pointerenter', onEnter);
+      el.addEventListener('pointerleave', onLeaveHover);
       cleanups.push(() => {
-        el.removeEventListener('pointermove', onMove);
-        el.removeEventListener('pointerleave', onLeave);
+        el.removeEventListener('pointerenter', onEnter);
+        el.removeEventListener('pointerleave', onLeaveHover);
       });
 
       const spring = { skew: 0 };
@@ -288,12 +272,21 @@ export function RevealText({
     };
   }, [reduced, delay, held, variant]);
 
+  // h1 and h2 are the display headings; h3 and p keep their own
+  // typography, because the negative tracking and sub-1 leading of the
+  // display style only work on short uppercase runs.
+  const display = Tag === 'h1' || Tag === 'h2';
+
   return (
     // The visible text is now one span per character, which a screen
     // reader can announce letter by letter. `aria-label` restores the
     // heading as a single string and the split-up copy is hidden from
     // the accessibility tree.
-    <Tag ref={root as never} className={className} aria-label={children}>
+    <Tag
+      ref={root as never}
+      className={`${display ? 'heading-display ' : ''}${className}`}
+      aria-label={children}
+    >
       <span aria-hidden="true">
       {children.split(' ').flatMap((word, i, words) => {
         const wrapped = (
@@ -315,13 +308,7 @@ export function RevealText({
                   className="inline-block"
                   style={{ perspective: '520px' }}
                 >
-                  {/* The colour transition is what turns a per-frame
-                      colour assignment into paint that bleeds through
-                      the letters rather than switching them on. */}
-                  <span
-                    data-char
-                    className="inline-block transition-colors duration-300 ease-out"
-                  >
+                  <span data-char className="inline-block">
                     {ch}
                   </span>
                 </span>

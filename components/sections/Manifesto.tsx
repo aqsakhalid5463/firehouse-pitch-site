@@ -26,7 +26,7 @@ export function Manifesto() {
         <RevealText
           as="h2"
           variant="wipe"
-          className="mt-6 max-w-3xl text-[clamp(1.75rem,3.6vw,2.75rem)] leading-tight font-semibold tracking-tight"
+          className="mt-6 max-w-3xl text-[clamp(1.75rem,3.6vw,2.75rem)]"
         >
           A moving company built by people who kept needing one
         </RevealText>

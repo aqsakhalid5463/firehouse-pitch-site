@@ -437,33 +437,46 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   for (const y of seen) expect(Math.abs(y - 450)).toBeLessThan(320);
 });
 
-// Hovering a heading paints red through the letters around the cursor,
-// and the paint clears when the pointer leaves.
-test('headings take red paint under the cursor', async ({ page }) => {
+// Headings are two-tone at rest — white above, red below — and hovering
+// floods the red up through them while the characters scatter.
+test('headings flood red and come alive on hover', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
   await page.waitForTimeout(2500);
 
-  const painted = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll('h1 [data-char]')].filter(
-        (c) => getComputedStyle(c).color !== 'rgb(240, 240, 238)',
-      ).length,
-    );
+  const state = () =>
+    page.evaluate(() => {
+      const chars = [...document.querySelectorAll('h1 [data-char]')];
+      const cs = getComputedStyle(chars[0]);
+      // How far each character has been knocked off its resting place.
+      const offset = chars.reduce((max, c) => {
+        const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
+        return Math.max(max, Math.abs(m.e) + Math.abs(m.f));
+      }, 0);
+      return { pos: cs.backgroundPosition, clip: cs.webkitBackgroundClip, offset };
+    });
 
-  expect(await painted()).toBe(0);
+  const rest = await state();
+  // The two-tone is a gradient clipped to each character, parked half
+  // way down so the hand-off lands across the middle of the letter.
+  expect(rest.clip).toBe('text');
+  expect(rest.pos).toMatch(/50%/);
+  expect(rest.offset).toBeLessThan(1);
 
   const box = (await page.locator('h1').first().boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.5, box.y + 30);
-  await page.waitForTimeout(450);
-  // Some letters, not all: the brush has a radius, so a heading that
-  // went entirely red would mean the distance falloff is not working.
-  const n = await painted();
-  expect(n).toBeGreaterThan(2);
-  expect(n).toBeLessThan(30);
+  await page.mouse.move(box.x + box.width * 0.4, box.y + 40);
+  await page.waitForTimeout(700);
+
+  const hovered = await state();
+  // Red has climbed the letters...
+  expect(hovered.pos).not.toBe(rest.pos);
+  // ...and they have actually moved.
+  expect(hovered.offset).toBeGreaterThan(1);
 
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(700);
-  expect(await painted()).toBe(0);
+  await page.waitForTimeout(1400);
+  const settled = await state();
+  expect(settled.pos).toMatch(/50%/);
+  expect(settled.offset).toBeLessThan(1);
 });

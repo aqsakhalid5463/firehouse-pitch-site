@@ -9,7 +9,7 @@ export function Services() {
         <RevealText
           as="h2"
           variant="rise"
-          className="max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
+          className="max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)]"
         >
           Everything a move needs, under one roof
         </RevealText>

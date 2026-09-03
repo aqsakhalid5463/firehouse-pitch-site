@@ -22,7 +22,7 @@ export function ClosingCTA() {
         <RevealText
           as="h2"
           variant="fall"
-          className="text-[clamp(2.5rem,7vw,5.5rem)] leading-[1.02] font-semibold tracking-tight"
+          className="text-[clamp(2.5rem,7vw,5.5rem)] "
         >
           Tell us what you are moving. We will tell you what it takes.
         </RevealText>

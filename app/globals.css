@@ -63,6 +63,64 @@ body {
   }
 }
 
+/* ---- Display headings --------------------------------------------
+   
+   The client supplied the treatment they wanted as a block of CSS:
+   Helvetica Neue at weight 100, -0.06em tracking, 0.83 line height,
+   uppercase, set large. That is a display style, not a body style — the
+   negative tracking and sub-1 leading only work on short uppercase runs,
+   which is why it is scoped to h1/h2 and not applied site-wide.
+   
+   Applied by RevealText to h1 and h2, so every section heading picks it
+   up without each call site restating four utilities that would then
+   drift apart.
+   
+   The vertical two-tone is per character rather than one gradient
+   clipped to the whole heading: each character animates in its own
+   transform for the entrance, and a background painted in the heading's
+   box does not follow them. Painting each character's own background
+   means the split stays put on a letter that is mid-flip. The
+   background box is twice the character's height and slides on hover, so
+   the red rises through the letter instead of switching. */
+.heading-display {
+  font-weight: 100;
+  letter-spacing: -0.06em;
+  line-height: 0.83;
+  text-transform: uppercase;
+}
+
+.heading-display [data-char] {
+  background-image: linear-gradient(
+    180deg,
+    var(--page-ink) 0%,
+    var(--page-ink) 46%,
+    var(--color-fire) 62%,
+    var(--color-fire) 100%
+  );
+  /* The gradient box is twice the character's height and sits half way
+     down at rest, so the ink-to-red hand-off lands across the middle of
+     the letter: white above, red below. Hover slides it up and the red
+     floods the whole character. */
+  background-size: 100% 210%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: background-position 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Hovering slides the gradient the other way, so the red climbs up
+   through the letters and floods them. */
+.heading-display:hover [data-char] {
+  background-position: 0% 96%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heading-display [data-char] {
+    transition: none;
+  }
+}
+
 /* No JS: the custom properties above already hold the final dark
    palette, so there is nothing to override — the page renders in the
    same colours it would with the scroll pipeline running. */

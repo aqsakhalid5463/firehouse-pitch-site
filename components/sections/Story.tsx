@@ -50,7 +50,7 @@ export function Story() {
         <RevealText
           as="h2"
           variant="fall"
-          className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
+          className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)]"
         >
           What Firehouse actually is
         </RevealText>

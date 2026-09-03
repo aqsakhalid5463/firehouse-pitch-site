@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Schibsted_Grotesk, IBM_Plex_Mono } from 'next/font/google';
+import { Inter, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { SceneCanvas } from '@/components/scene/SceneCanvas';
@@ -16,18 +16,25 @@ import { BUSINESS } from '@/lib/constants';
  * lifting the files would be using a font we have not paid for, so it is
  * not an option for a site we intend to hand to a client.
  *
- * Schibsted Grotesk is the closest free equivalent: the same geometric
- * grotesque construction, near-identical proportions, and the slightly
- * warm, low-contrast finish that makes Aeonik read as modern rather than
- * corporate. IBM Plex Mono is the font Lusion actually uses for its mono
- * details and is openly licensed, so that half of their pairing is exact.
+ * Inter is the family here, chosen for one specific reason: the heading
+ * treatment the client asked for is Helvetica Neue at weight 100 —
+ * ultra-thin, uppercase, tightly tracked. Real Helvetica Neue Thin only
+ * exists on Apple platforms; on Windows and Android the stack falls to
+ * Arial, which has no weight below 400, so the entire effect would
+ * silently disappear for a large part of the audience. Inter is a
+ * neutral grotesque in the same lineage as Helvetica, ships a genuine
+ * 100, and renders identically everywhere.
+ *
+ * IBM Plex Mono is the font Lusion actually uses for its mono details
+ * and is openly licensed, so that half of their pairing is exact.
  *
  * Both are self-hosted by next/font at build time — no request to Google
  * at runtime, and no layout shift, because the metrics are known.
  */
-const sans = Schibsted_Grotesk({
+const sans = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  // 100 and 200 exist for the display headings; the rest is UI and body.
+  weight: ['100', '200', '400', '500', '600', '700'],
   variable: '--font-sans-loaded',
   display: 'swap',
 });

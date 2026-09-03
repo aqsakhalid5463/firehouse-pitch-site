@@ -37,7 +37,7 @@ export function HeroCopy() {
         <RevealText
           as="h1"
           variant="flip"
-          className="text-[clamp(2.5rem,6vw,4.25rem)] leading-[0.95] font-semibold tracking-tight"
+          className="text-[clamp(2.5rem,6vw,4.25rem)] "
         >
           {HERO_HEADLINE}
         </RevealText>

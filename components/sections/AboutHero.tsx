@@ -8,7 +8,7 @@ export function AboutHero() {
         <RevealText
           as="h1"
           variant="flip"
-          className="max-w-4xl text-[clamp(2.25rem,6vw,5rem)] leading-[1] font-semibold tracking-tight"
+          className="max-w-4xl text-[clamp(2.25rem,6vw,5rem)] "
         >
           The moving service we needed, so we built it for you
         </RevealText>

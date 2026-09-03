@@ -93,7 +93,7 @@ export function Faq() {
         <RevealText
           as="h2"
           variant="wipe"
-          className="mt-6 max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
+          className="mt-6 max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)]"
         >
           The things people ask before they book
         </RevealText>

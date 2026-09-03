@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { usePreloadStore } from '@/lib/preload-store';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -22,6 +23,12 @@ export function RevealText({
 }: Props) {
   const root = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
+  // A heading that is on screen at load must wait for the curtain. Its
+  // entrance used to run on mount, which is behind the preloader, so by
+  // the time anyone could see the page the animation had already
+  // finished and the hero arrived static. 'idle' means no preloader is
+  // in play, so nothing is held back.
+  const held = usePreloadStore((s) => s.curtain === 'up');
 
   useEffect(() => {
     if (reduced || !root.current) return;
@@ -54,10 +61,18 @@ export function RevealText({
         duration: 0.85,
         ease: 'expo.out',
         transformOrigin: '50% 100%',
-        // Tight enough that a long heading still resolves quickly — the
-        // cascade should read as one gesture travelling along the line,
-        // not as letters arriving one at a time.
-        stagger: { each: 0.016, from: 'start', ease: 'power2.in' },
+        // `amount` rather than `each`, and capped: the cascade should
+        // read as one gesture travelling along the line, and a per-
+        // character interval means a long heading takes proportionally
+        // longer — the 42-character hero headline spent 0.67s on the
+        // stagger alone, so half of it was still missing a beat after
+        // landing. This spreads the same gesture over a fixed window
+        // however long the line is.
+        stagger: {
+          amount: Math.min(0.42, chars.length * 0.016),
+          from: 'start',
+          ease: 'power2.in',
+        },
         delay,
       });
 
@@ -71,6 +86,8 @@ export function RevealText({
         end: 'bottom 8%',
         // Both directions play, so coming back up a page is not a
         // silent stretch of already-resolved headings.
+        // Scrolling is locked while the curtain is up, so an enter
+        // callback can only mean the page is genuinely visible.
         onEnter: () => tl.restart(true),
         onEnterBack: () => tl.restart(true),
         // Reset only once the heading is off screen, so nobody ever
@@ -81,8 +98,10 @@ export function RevealText({
 
       // A heading already in view when this mounts (anything above the
       // fold) gets no enter callback, so set its state explicitly
-      // instead of leaving it at whatever the markup rendered.
-      if (st.isActive) tl.restart(true);
+      // instead of leaving it at whatever the markup rendered. While the
+      // curtain is up it is parked at the start of the animation; this
+      // effect re-runs when the curtain lifts and plays it then.
+      if (st.isActive && !held) tl.restart(true);
       else tl.pause(0);
 
       // Then the heading stays alive for as long as it is on screen.
@@ -157,7 +176,7 @@ export function RevealText({
       });
     }, root);
     return () => ctx.revert();
-  }, [reduced, delay]);
+  }, [reduced, delay, held]);
 
   return (
     // The visible text is now one span per character, which a screen

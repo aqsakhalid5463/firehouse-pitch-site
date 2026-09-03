@@ -50,19 +50,39 @@ type PreloadState = {
    * that window is ever seen.
    */
   lifted: boolean;
+  /**
+   * Where the curtain is: 'idle' before the preloader has mounted, 'up'
+   * while it covers the page, 'gone' once the page is visible.
+   *
+   * Entrance animations above the fold read this. Without it they ran
+   * on mount — behind the curtain — and were finished before anyone
+   * could see them, so the page arrived static. The three states matter:
+   * anything gating on this must animate normally when the preloader is
+   * not in play at all, so 'idle' has to be distinguishable from 'up'.
+   * A plain boolean would leave every heading permanently hidden if the
+   * preloader never ran.
+   */
+  curtain: 'idle' | 'up' | 'gone';
   markReady: (signal: PreloadSignal) => void;
   setLifted: () => void;
+  setCurtain: (state: 'up' | 'gone') => void;
 };
 
 export const usePreloadStore = create<PreloadState>((set) => ({
   done: {},
   lifted: false,
+  curtain: 'idle',
   markReady: (signal) =>
     set((state) =>
       state.done[signal] ? state : { done: { ...state.done, [signal]: true } },
     ),
   setLifted: () => set((state) => (state.lifted ? state : { lifted: true })),
+  setCurtain: (curtain) => set((state) => (state.curtain === curtain ? state : { curtain })),
 }));
+
+export function setCurtain(state: 'up' | 'gone'): void {
+  usePreloadStore.getState().setCurtain(state);
+}
 
 export function setLifted(): void {
   usePreloadStore.getState().setLifted();

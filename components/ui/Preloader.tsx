@@ -7,6 +7,7 @@ import { loadLogo } from '@/lib/textures';
 import {
   markReady,
   preloadProgress,
+  setCurtain,
   setLifted,
   usePreloadStore,
 } from '@/lib/preload-store';
@@ -110,6 +111,10 @@ export function Preloader() {
 
   // Collect the real signals.
   useEffect(() => {
+    // Tells above-the-fold entrance animations to hold: they would
+    // otherwise play out behind the curtain and be over before the page
+    // is visible.
+    setCurtain('up');
     let cancelled = false;
     const ready = (s: Parameters<typeof markReady>[0]) => {
       if (!cancelled) markReady(s);
@@ -198,6 +203,9 @@ export function Preloader() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           setGone(true);
+          // Released in the same frame the page becomes visible, so the
+          // hero's entrance starts exactly as the visitor first sees it.
+          setCurtain('gone');
           // Tells the scene it is visible now, so it can go back to full
           // resolution and switch its postprocessing on — but not in the
           // same breath as the hand-over. Mounting the postprocessing
@@ -272,6 +280,18 @@ export function Preloader() {
               clipPath: 'inset(100% 0 0 0)',
               duration: 0.62,
               ease: 'power4.inOut',
+              // Released as the door starts to rise, not when it
+              // finishes: the hero's headline takes about a second to
+              // flip in, and starting it only once the curtain is fully
+              // gone left the hero visibly empty for the first half of
+              // it. Starting here means the type is already arriving as
+              // the door clears it.
+              // A little way into the lift rather than at its very
+              // start: released at 0 the headline was already ~70% of
+              // the way in by the time the door cleared it, so most of
+              // the animation happened behind the curtain. This lands
+              // the bulk of it in view.
+              onStart: () => gsap.delayedCall(0.26, () => setCurtain('gone')),
             },
             '-=0.16',
           );
@@ -393,6 +413,7 @@ export function Preloader() {
     // finishes long before this, so it never fires.
     const hardStop = setTimeout(() => {
       setGone(true);
+      setCurtain('gone');
       setLifted();
     }, SAFETY_MS + 1200);
 

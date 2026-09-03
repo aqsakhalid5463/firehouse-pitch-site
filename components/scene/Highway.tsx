@@ -65,7 +65,6 @@ const roadFragmentShader = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform vec3 uSheenColor;
-  uniform vec3 uHorizonColor;
   varying vec2 vWorldXZ;
 
   float hash(vec2 p) {
@@ -117,19 +116,17 @@ const roadFragmentShader = /* glsl */ `
     float sheen = pow(clamp(grain, 0.0, 1.0), 12.0);
     base += uSheenColor * sheen * 0.08;
 
-    // Depth fade: darken and fold toward a faint red horizon glow as the
-    // road recedes, then fade fully at the far edge so it dissolves into
-    // fog rather than hard-clipping.
+    // Depth fade: the road dissolves at its far edge rather than
+    // hard-clipping into the background.
     //
-    // The glow used to peak around 0.55-0.9 of the road's depth and fall
-    // away again before the end, which put a red band across the middle
-    // distance with black road beyond it — it read as something lying on
-    // the road rather than as the horizon it is meant to be. It now
-    // climbs to the far edge and is taken out by the fade below, so the
-    // red sits where the road actually ends.
+    // There was a red horizon glow here, folded into the surface as it
+    // receded. Removed at the client's request after two attempts to
+    // place it: wherever it sat it read as a band lying on the road
+    // rather than as a horizon, because it is painted into the road
+    // surface and a surface seen in perspective has no horizon of its
+    // own to sit on. Doing it properly would mean a separate element
+    // behind the road, not a term in this shader.
     float depth = clamp((-vWorldXZ.y) / ${ROAD_VISIBLE_DEPTH.toFixed(1)}, 0.0, 1.0);
-    float horizonBand = smoothstep(0.74, 0.98, depth);
-    base = mix(base, uHorizonColor, horizonBand * 0.4);
     float farFade = 1.0 - smoothstep(0.9, 1.0, depth);
 
     gl_FragColor = vec4(base, uOpacity * farFade);
@@ -323,7 +320,6 @@ export function Highway() {
       // Cool grey, not headlight white: see the sheen term in the
       // road fragment shader for why this was toned down.
       uSheenColor: { value: new THREE.Color(COLORS.roadSheen) },
-      uHorizonColor: { value: new THREE.Color(COLORS.fireRed) },
     }),
     [],
   );

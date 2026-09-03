@@ -225,37 +225,47 @@ test('heading entrances replay on a second visit', async ({ page }) => {
   await page.goto('/');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
 
-  // True while any on-screen character is still mid-flip (i.e. carrying
-  // a transform that is not the identity it settles on).
-  const midFlip = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll('[data-char]')].some((el) => {
-        const r = el.getBoundingClientRect();
-        if (r.bottom < 0 || r.top > window.innerHeight) return false;
-        // Opacity, not transform: a settled character keeps an inline
-        // 3D transform matrix that is visually identity but does not
-        // compare equal to one, so transform would report every
-        // finished heading as still animating.
-        return Number(getComputedStyle(el).opacity) < 0.99;
-      }),
-    );
+  // A named heading rather than a scroll distance. This test used to
+  // wheel a fixed number of times and assume something would be in
+  // frame; the pinned process section changed the page's scroll map and
+  // those positions started landing on empty space, which is a property
+  // of the test, not of the animation.
+  const heading = page.locator('h2', { hasText: 'Everything a move needs' });
 
-  const down = async (n: number, dy = 400) => {
-    for (let i = 0; i < n; i++) {
+  const onScreen = () =>
+    heading.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.bottom > 40 && r.top < window.innerHeight - 40;
+    });
+
+  const wheelUntil = async (want: boolean, dy: number) => {
+    for (let i = 0; i < 60; i++) {
+      if ((await onScreen()) === want) return true;
       await page.mouse.wheel(0, dy);
-      await page.waitForTimeout(20);
+      await page.waitForTimeout(30);
     }
+    return false;
   };
 
-  await down(22);
-  await page.waitForTimeout(200);
+  // True while any of this heading's characters is still mid-entrance.
+  const midFlip = () =>
+    heading.evaluate((el) =>
+      [...el.querySelectorAll('[data-char]')].some(
+        (c) => Number(getComputedStyle(c).opacity) < 0.99,
+      ),
+    );
+
+  expect(await wheelUntil(true, 400)).toBe(true);
+  await page.waitForTimeout(120);
   expect(await midFlip()).toBe(true);
 
-  // Let everything settle, then leave and come back.
-  await page.waitForTimeout(1500);
-  await down(12, -400);
-  await page.waitForTimeout(600);
-  await down(12);
+  // Let it finish, scroll it out of view, then bring it back.
+  await page.waitForTimeout(1600);
+  expect(await midFlip()).toBe(false);
+
+  expect(await wheelUntil(false, -400)).toBe(true);
+  await page.waitForTimeout(400);
+  expect(await wheelUntil(true, 400)).toBe(true);
   await page.waitForTimeout(120);
   expect(await midFlip()).toBe(true);
 });
@@ -513,4 +523,63 @@ test('headings swap as one body on hover', async ({ page }) => {
   const settled = await state();
   expect(settled.primary).toBe(1);
   expect(settled.ghost).toBe(0);
+});
+
+// The process section pins and runs its six steps sideways, with the
+// route rail filling and the truck driving along it.
+test('the process section travels horizontally as you scroll', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(2000);
+
+  const start = await page.evaluate(
+    () =>
+      document.querySelector('#process')!.getBoundingClientRect().top +
+      window.scrollY,
+  );
+  const read = () =>
+    page.evaluate(() => {
+      const track = document.querySelector('#process [data-step]')!
+        .parentElement as HTMLElement;
+      const fill = document.querySelector(
+        '#process [style*="scaleX"]',
+      ) as HTMLElement | null;
+      const heading = [
+        ...document.querySelectorAll('#process h2 [data-char]'),
+      ].map((c) => Number(getComputedStyle(c).opacity));
+      return {
+        x: new DOMMatrixReadOnly(getComputedStyle(track).transform).e,
+        fill: fill
+          ? new DOMMatrixReadOnly(getComputedStyle(fill).transform).a
+          : -1,
+        headingMin: heading.length ? Math.min(...heading) : -1,
+      };
+    });
+
+  // Scroll to the top of the section.
+  while ((await page.evaluate(() => window.scrollY)) < start + 150) {
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(45);
+  }
+  await page.waitForTimeout(1000);
+
+  const early = await read();
+  // The heading lives inside the pinned container; its entrance is
+  // driven by an observer rather than scroll position for exactly this
+  // reason, and it used to sit invisible in full view.
+  expect(early.headingMin).toBeGreaterThan(0.9);
+
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(60);
+  }
+  await page.waitForTimeout(800);
+
+  const later = await read();
+  // The track has travelled left and the rail has filled behind it.
+  expect(later.x).toBeLessThan(early.x - 100);
+  expect(later.fill).toBeGreaterThan(early.fill);
 });

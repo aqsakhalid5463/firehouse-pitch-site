@@ -48,6 +48,15 @@ export function RevealText({
   useEffect(() => {
     if (reduced || !root.current) return;
     const chars = root.current.querySelectorAll('[data-char]');
+    // A heading inside a pinned section needs to tell ScrollTrigger so,
+    // or its start/end are computed in the page's coordinates while the
+    // element itself is being held still by the pin. Measured on the
+    // process section: the heading sat in full view with every character
+    // at opacity 0, because as far as its trigger was concerned it had
+    // already been scrolled past.
+    const pinnedContainer =
+      (root.current.closest('[data-pinned-container]') as HTMLElement | null) ??
+      undefined;
     // Listeners added inside the context below; gsap.context only
     // reverts what it created, so these are torn down by hand.
     const cleanups: (() => void)[] = [];
@@ -126,33 +135,38 @@ export function RevealText({
 
       tl.from(chars, { ...entrances[variant], delay });
 
-      const st = ScrollTrigger.create({
-        trigger: root.current,
-        // Starts earlier and ends later than the visible band: a fast
-        // scroll should have the animation already running by the time
-        // the heading is properly in frame, and should not reset it
-        // until the heading is genuinely gone.
-        start: 'top 92%',
-        end: 'bottom 8%',
-        // Both directions play, so coming back up a page is not a
-        // silent stretch of already-resolved headings.
-        // Scrolling is locked while the curtain is up, so an enter
-        // callback can only mean the page is genuinely visible.
-        onEnter: () => tl.restart(true),
-        onEnterBack: () => tl.restart(true),
-        // Reset only once the heading is off screen, so nobody ever
-        // sees it snap back to its start state.
-        onLeave: () => tl.pause(0),
-        onLeaveBack: () => tl.pause(0),
-      });
+      // Play/reset is driven by an IntersectionObserver rather than a
+      // ScrollTrigger.
+      //
+      // ScrollTrigger computes start/end from the element's position in
+      // the document, which stops being true inside a pinned section:
+      // the process section holds its contents still while the page
+      // scrolls on underneath, so its heading's trigger believed it had
+      // been scrolled past while it sat in full view — measured, every
+      // character stuck at opacity 0. `pinnedContainer` is the
+      // documented fix and did not resolve it here. An observer asks the
+      // browser what is actually on screen, which is the question this
+      // needs answering and is true regardless of what is pinning what.
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting && !held) tl.restart(true);
+            // Reset only once it is genuinely gone, so nobody ever sees
+            // it snap back to its start state.
+            else if (!entry.isIntersecting) tl.pause(0);
+          }
+        },
+        // Trimmed at both ends so a heading starts animating a little
+        // before it is properly in frame and is not reset until it has
+        // fully left.
+        { rootMargin: '-6% 0px -6% 0px', threshold: 0 },
+      );
+      io.observe(root.current!);
+      cleanups.push(() => io.disconnect());
 
-      // A heading already in view when this mounts (anything above the
-      // fold) gets no enter callback, so set its state explicitly
-      // instead of leaving it at whatever the markup rendered. While the
-      // curtain is up it is parked at the start of the animation; this
-      // effect re-runs when the curtain lifts and plays it then.
-      if (st.isActive && !held) tl.restart(true);
-      else tl.pause(0);
+      // A heading already on screen when this mounts gets its state from
+      // the observer's first callback, which fires immediately.
+      tl.pause(0);
 
       // Then the heading stays alive for as long as it is on screen.
       // Each word drifts and tilts as the block crosses the viewport,
@@ -184,6 +198,7 @@ export function RevealText({
           trigger: root.current,
           start: 'top bottom',
           end: 'bottom top',
+          pinnedContainer,
           // A little lag, so the wave keeps travelling for a moment
           // after the wheel stops instead of freezing dead.
           scrub: 0.6,
@@ -266,6 +281,7 @@ export function RevealText({
         trigger: root.current,
         start: 'top bottom',
         end: 'bottom top',
+        pinnedContainer,
         onUpdate: (self) => {
           const target = clampSkew(self.getVelocity() / -420);
           // Only ever take a *bigger* lean than the one already

@@ -159,6 +159,23 @@ export const BOX_LANDING_LOCALS: readonly number[] = BOX_SPECS.map((spec) => {
 const LOAD_SHRINK = 0.4;
 
 /**
+ * Scale a box has reached by the time it is merely *approaching* the
+ * truck, as a fraction of its hero size — most of the way down to
+ * LOAD_SHRINK, so a carton alongside the trailer already reads as cargo
+ * rather than as something taller than the bay it is heading for. The
+ * last step down to LOAD_SHRINK happens as it enters, so there is still
+ * visible settling rather than a box that arrives pre-sized.
+ */
+const APPROACH_SCALE = 0.5;
+
+/**
+ * Fraction of a box's delayed travel over which the APPROACH_SCALE
+ * shrink completes. Deliberately early: the box should be small before
+ * it shares the frame with the truck, not while it is at the door.
+ */
+const APPROACH_SHRINK_END = 0.28;
+
+/**
  * Peak idle yaw sway of a resting hero box, in radians (~4.6°). Small on
  * purpose: these are cartons sitting on a road, not objects in orbit.
  */
@@ -507,7 +524,26 @@ export function BoxStack() {
       // match, so this reads as natural perspective/settling instead of
       // clipping through a wall (see CARGO_FIT above, which verifies
       // every box fits at exactly this shrunk size).
-      g.scale.setScalar(lerp(1, LOAD_SHRINK, enterEase));
+      //
+      // Round 22: scale runs on its own curve rather than sharing
+      // enterEase with position. Riding enterEase meant most of the
+      // shrink happened while the box was already at the truck's door —
+      // exactly when box and truck are in frame together and a carton
+      // dwarfing the bay is most obvious. Moving the *start* earlier
+      // (rounds 19 and 21) couldn't fix that, because enterEase is a
+      // smoothstep whose slow middle is precisely the approach.
+      // The shrink is now front-loaded and mostly finished before the
+      // approach: hero scale to APPROACH_SCALE over the first
+      // APPROACH_SHRINK_END of the box's trip, then the remaining, much
+      // smaller step down to LOAD_SHRINK on enterEase as it enters. The
+      // position lerp still uses enterEase untouched, and at enterEase
+      // = 1 this still lands on exactly LOAD_SHRINK, so CARGO_FIT's
+      // in-bay geometry is unchanged.
+      const shrinkT = clamp01(delayedP / APPROACH_SHRINK_END);
+      const shrinkEase = shrinkT * shrinkT * (3 - 2 * shrinkT);
+      g.scale.setScalar(
+        lerp(lerp(1, APPROACH_SCALE, shrinkEase), LOAD_SHRINK, enterEase),
+      );
     });
   });
 

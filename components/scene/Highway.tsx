@@ -106,9 +106,16 @@ const roadFragmentShader = /* glsl */ `
     // Depth fade: darken and fold toward a faint red horizon glow as the
     // road recedes, then fade fully at the far edge so it dissolves into
     // fog rather than hard-clipping.
+    //
+    // The glow used to peak around 0.55-0.9 of the road's depth and fall
+    // away again before the end, which put a red band across the middle
+    // distance with black road beyond it — it read as something lying on
+    // the road rather than as the horizon it is meant to be. It now
+    // climbs to the far edge and is taken out by the fade below, so the
+    // red sits where the road actually ends.
     float depth = clamp((-vWorldXZ.y) / 34.0, 0.0, 1.0);
-    float horizonBand = smoothstep(0.55, 1.0, depth) * (1.0 - smoothstep(0.9, 1.0, depth));
-    base = mix(base, uHorizonColor, horizonBand * 0.35);
+    float horizonBand = smoothstep(0.74, 0.98, depth);
+    base = mix(base, uHorizonColor, horizonBand * 0.4);
     float farFade = 1.0 - smoothstep(0.9, 1.0, depth);
 
     gl_FragColor = vec4(base, uOpacity * farFade);

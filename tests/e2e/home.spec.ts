@@ -710,3 +710,40 @@ test('the promise cards move through a 3D stack in both directions', async ({
   const back = await stack();
   expect(back.front).toBeLessThan(advanced.front);
 });
+
+test('the cursor leaves a tyre track that fades away', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForTimeout(4000);
+
+  const canvas = page.locator('canvas.cursor-trail');
+  await expect(canvas).toHaveCount(1);
+
+  // Count pixels the trail has actually inked, straight off the canvas —
+  // the marks are drawn, not DOM, so there is nothing else to assert on.
+  const ink = () =>
+    page.evaluate(() => {
+      const el = document.querySelector<HTMLCanvasElement>('canvas.cursor-trail');
+      const ctx = el?.getContext('2d');
+      if (!el || !ctx) return -1;
+      const d = ctx.getImageData(0, 0, el.width, el.height).data;
+      let lit = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 6) lit += 1;
+      return lit;
+    });
+
+  expect(await ink()).toBe(0);
+
+  // Drive the pointer across the page in small steps, which is what a
+  // real mouse produces and what the per-frame drawing needs.
+  for (let i = 0; i <= 40; i += 1) {
+    await page.mouse.move(200 + i * 15, 500 + Math.sin(i / 6) * 90);
+    await page.waitForTimeout(16);
+  }
+
+  const laid = await ink();
+  expect(laid).toBeGreaterThan(200);
+
+  // Left alone, the track fades out completely and the loop stops.
+  await page.waitForTimeout(4000);
+  expect(await ink()).toBe(0);
+});

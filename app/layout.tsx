@@ -4,6 +4,7 @@ import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { SceneCanvas } from '@/components/scene/SceneCanvas';
 import { Cursor } from '@/components/ui/Cursor';
+import { CursorTrail } from '@/components/ui/CursorTrail';
 import { Preloader } from '@/components/ui/Preloader';
 import { BUSINESS } from '@/lib/constants';
 
@@ -65,6 +66,9 @@ export default function RootLayout({
           <div className="relative z-10">{children}</div>
           {/* Above everything, including the nav, so the cursor is never
               occluded by page chrome. */}
+          {/* Beneath the cursor itself: the tracks are what the
+              cursor has driven over, so it must paint on top of them. */}
+          <CursorTrail />
           <Cursor />
           {/* Mounted last and painted above everything, including the
               cursor layer. Client-side navigation between routes does

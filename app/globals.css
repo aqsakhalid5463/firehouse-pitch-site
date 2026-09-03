@@ -157,6 +157,31 @@ body {
   .animate-eq { animation: none; height: 9px; }
 }
 
+/* ---- Cursor tyre tracks (components/ui/CursorTrail) --------------- */
+
+/* Directly beneath the cursor layer, so the headlight and ring always
+   paint over the tracks they are supposed to have made. `screen` is
+   what turns the warm marks into lit dust rather than paint — see the
+   note at the top of the component. */
+.cursor-trail {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-trail { display: none; }
+}
+
+/* Touch: no pointer to leave tracks, so not even a blend layer. */
+@media (pointer: coarse) {
+  .cursor-trail { display: none; }
+}
+
 /* ---- Custom cursor (components/ui/Cursor) ------------------------- */
 
 /* Only applied once the component has confirmed a fine pointer and no

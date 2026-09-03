@@ -478,6 +478,19 @@ test('headings swap as one body on hover', async ({ page }) => {
   const rest = await state();
   expect(rest.primary).toBe(1);
   expect(rest.ghost).toBe(0);
+
+  // The two halves must occupy identical space, or the heading visibly
+  // closes up as it swaps — the ghost set on tighter leading than the
+  // copy it replaces, because it was missing the word masks' padding.
+  const boxes = await page.evaluate(() => {
+    const h1 = document.querySelector('h1')!;
+    const b = (sel: string) => {
+      const r = h1.querySelector(sel)!.getBoundingClientRect();
+      return [Math.round(r.height), Math.round(r.top)];
+    };
+    return { primary: b('[data-roll]'), ghost: b('[data-roll-ghost]') };
+  });
+  expect(boxes.ghost).toEqual(boxes.primary);
   expect(new Set(rest.accent)).toEqual(new Set([FIRE]));
   expect(new Set(rest.plain)).toEqual(new Set([INK]));
 

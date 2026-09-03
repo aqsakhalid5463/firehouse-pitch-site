@@ -369,11 +369,15 @@ export function RevealText({
             return (
               <span
                 key={`ghost-${i}`}
-                className="inline-block"
+                // The padding and baseline alignment mirror the word
+                // masks in the original exactly. Without them the ghost
+                // sets on tighter leading than the copy it replaces, and
+                // the whole heading visibly closes up on hover — the
+                // client's "congested". A swap only reads as a swap if
+                // both halves occupy identical space.
+                className="inline-block pb-[0.12em] align-bottom"
                 style={{
-                  color: accent
-                    ? 'var(--page-ink)'
-                    : 'var(--color-fire)',
+                  color: accent ? 'var(--page-ink)' : 'var(--color-fire)',
                 }}
               >
                 {word}

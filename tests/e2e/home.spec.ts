@@ -52,6 +52,7 @@ test('the preloader lifts and hands the page back', async ({ page }) => {
   expect(html).toContain('class="preloader');
 
   await expect(preloader).toHaveCount(0, { timeout: 15000 });
+
   // The lock is released by an effect keyed on completion, not by an
   // unmount cleanup — the component stays mounted and renders null.
   await expect(page.locator('html')).not.toHaveClass(/is-loading/);
@@ -760,4 +761,42 @@ test('the cursor leaves a tyre track that fades away', async ({ page }) => {
   // Left alone, the track fades out completely and the loop stops.
   await page.waitForTimeout(4000);
   expect(await ink()).toBe(0);
+});
+
+test('the preloader shutter rolls up on a composited transform', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const shutterY = () =>
+    page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('[data-curtain]');
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      // A clip-path opening would leave the transform at rest; only a
+      // real translate can be run by the compositor, which is the whole
+      // reason the exit is shaped this way.
+      if (s.clipPath && s.clipPath !== 'none') return NaN;
+      return Math.round(new DOMMatrixReadOnly(s.transform).m42);
+    });
+
+  const samples: number[] = [];
+  for (let i = 0; i < 80; i += 1) {
+    const v = await shutterY();
+    if (v === null) break;
+    expect(Number.isNaN(v)).toBe(false);
+    samples.push(v);
+    await page.waitForTimeout(50);
+  }
+
+  // It sat still, then travelled a full viewport upward, and never
+  // reversed on the way.
+  const moved = samples.filter((v) => v < -10);
+  expect(moved.length).toBeGreaterThan(2);
+  expect(Math.min(...samples)).toBeLessThan(-300);
+  for (let i = 1; i < samples.length; i += 1) {
+    expect(samples[i]).toBeLessThanOrEqual(samples[i - 1] + 1);
+  }
+
+  await expect(page.locator('.preloader')).toHaveCount(0);
 });

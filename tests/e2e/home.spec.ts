@@ -335,3 +335,64 @@ test('service card titles roll over to red on hover', async ({ page }) => {
   await page.waitForTimeout(900);
   for (const r of await rolled()) expect(r).toBeLessThan(0.02);
 });
+
+// The ribbon's road is routed through the centre of every service
+// photograph, and the truck stays pinned to the middle of the screen
+// however sideways the road is running locally.
+test('the ribbon visits every card and keeps the truck centred', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(1200);
+
+  // Every checkpoint should have road passing close to its centre.
+  const misses = await page.evaluate(() => {
+    const svg = document.querySelector('div[aria-hidden="true"] > svg');
+    const path = svg?.querySelector('path');
+    if (!path) return [-1];
+    const box = svg!.getBoundingClientRect();
+    const len = path.getTotalLength();
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i <= 900; i++) pts.push(path.getPointAtLength((i / 900) * len));
+    return [...document.querySelectorAll('[data-ribbon-checkpoint]')].map((el) => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2 - box.left;
+      const cy = r.top + r.height / 2 - box.top;
+      return Math.min(...pts.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+    });
+  });
+  expect(misses.length).toBeGreaterThan(1);
+  // Within half a card-width of dead centre, i.e. genuinely through the
+  // photograph rather than merely nearby.
+  for (const m of misses) expect(m).toBeLessThan(40);
+
+  // And the truck tracks the middle of the screen while the road is
+  // being driven, rather than racing ahead on the sideways stretches.
+  const truckY = () =>
+    page.evaluate(() => {
+      const g = document.querySelector(
+        'div[aria-hidden="true"] > svg g[style]',
+      ) as SVGGElement | null;
+      if (!g || g.style.opacity === '0') return null;
+      const r = g.getBoundingClientRect();
+      return r.y + r.height / 2;
+    });
+
+  const seen: number[] = [];
+  for (let k = 0; k < 3; k++) {
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(25);
+    }
+    await page.waitForTimeout(500);
+    const y = await truckY();
+    if (y !== null) seen.push(y);
+  }
+  expect(seen.length).toBeGreaterThan(1);
+  // Generous, because the truck deliberately chases its target rather
+  // than snapping to it — but nothing like the thousands of pixels a
+  // stale path mapping produced.
+  for (const y of seen) expect(Math.abs(y - 450)).toBeLessThan(320);
+});

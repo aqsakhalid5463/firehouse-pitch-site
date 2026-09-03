@@ -199,6 +199,11 @@ export function ServiceCard({
           reading as equal offerings. */}
       <div
         ref={frame}
+        // The ribbon threads its road through the centre of every
+        // element carrying this attribute (components/ui/Ribbon), so the
+        // route visibly visits each service photograph instead of
+        // wandering past them.
+        data-ribbon-checkpoint="" 
         // `transform-gpu` and the explicit origin keep the tilt stable:
         // without a fixed origin the rotation pivots about whatever the
         // layout box happens to be after the copy below reflows.

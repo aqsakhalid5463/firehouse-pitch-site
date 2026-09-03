@@ -110,6 +110,126 @@ function buildWaypoints(seed: number): [number, number][] {
 }
 
 /**
+ * Eight points around an ellipse, entered and left at its top.
+ *
+ * Catmull-Rom through these reads as a genuine loop in the road — the
+ * kind a cloverleaf makes — rather than a kink. Eight is the fewest that
+ * stays circular once smoothed; fewer looks like a rounded diamond.
+ */
+function loopPoints(
+  cx: number,
+  cy: number,
+  r: number,
+  aspect: number,
+  dir: 1 | -1,
+): [number, number][] {
+  const out: [number, number][] = [];
+  for (let k = 1; k <= 8; k++) {
+    const a = -Math.PI / 2 + dir * ((k * Math.PI * 2) / 8);
+    out.push([cx + r * Math.cos(a), cy + r * aspect * Math.sin(a)]);
+  }
+  return out;
+}
+
+/**
+ * A route that actually visits things.
+ *
+ * The random walk above produces a plausible road but an indifferent
+ * one: it has no idea the page has content in it, so it wanders past the
+ * photographs as often as through them. Where the page provides
+ * checkpoints — elements marked `data-ribbon-checkpoint`, currently the
+ * service photographs — the road is built to pass through the centre of
+ * each one in turn, approaching from alternating sides so the run
+ * between them reads as a deliberate zig-zag rather than a drift.
+ *
+ * Between some checkpoints it puts in a full loop. Those are seeded, not
+ * random per load, so the road is identical on every visit and between
+ * server and client.
+ */
+function buildCheckpointWaypoints(
+  seed: number,
+  w: number,
+  h: number,
+  checkpoints: readonly (readonly [number, number])[],
+): [number, number][] {
+  const rand = seeded(seed);
+  const pts: [number, number][] = [[-0.22, 0.005]];
+
+  // Sideways reach of the approach, as a fraction of width. Big enough
+  // that the zig-zag is legible at a glance; the checkpoints themselves
+  // are what stop it becoming a uniform weave.
+  const SWING = 0.3;
+  const loopR = 0.075;
+  // Loops are drawn in width fractions and squashed by the container's
+  // aspect so they come out round on screen rather than as tall ovals.
+  const aspect = h > 0 ? w / h : 1;
+
+  checkpoints.forEach(([cx, cy], i) => {
+    const side = i % 2 === 0 ? -1 : 1;
+    const prevY = pts[pts.length - 1][1];
+    const gap = cy - prevY;
+
+    // A loop needs vertical room, or it collides with the checkpoint it
+    // is meant to sit between.
+    if (i > 0 && gap > 0.1 && rand() > 0.45) {
+      const ly = prevY + gap * 0.45;
+      const lx = Math.min(0.86, Math.max(0.14, cx - side * SWING * 0.7));
+      pts.push([lx, ly - loopR * aspect]);
+      pts.push(...loopPoints(lx, ly, loopR, aspect, side > 0 ? 1 : -1));
+    }
+
+    // Swing wide of the checkpoint, then run through its centre. The
+    // pair is what makes the arrival read as a turn into the card
+    // instead of the line happening to cross it.
+    pts.push([
+      Math.min(0.94, Math.max(0.06, cx + side * SWING)),
+      Math.max(prevY + 0.01, cy - Math.min(0.09, Math.max(0.03, gap * 0.45))),
+    ]);
+    pts.push([cx, cy]);
+  });
+
+  // Past the last checkpoint the page still runs on for several
+  // sections, so the road keeps going on the seeded walk rather than
+  // stopping where the photographs do — which left the whole lower half
+  // of the page with no ribbon at all.
+  let [x, y] = pts[pts.length - 1];
+  let heading = 0.2;
+  while (y < 0.9) {
+    heading += (rand() - 0.5) * 1.9;
+    heading -= (x - 0.5) * 0.75;
+    heading = Math.max(-1.2, Math.min(1.2, heading));
+
+    const step = 0.02 + rand() * 0.035;
+    x += Math.sin(heading) * step * 2.1;
+    y += Math.cos(heading) * step;
+
+    // Bounce off the edges rather than running along the margin.
+    if (x < 0.06) {
+      x = 0.06 + (0.06 - x);
+      heading = Math.abs(heading);
+    } else if (x > 0.94) {
+      x = 0.94 - (x - 0.94);
+      heading = -Math.abs(heading);
+    }
+
+    pts.push([x, Math.min(y, 0.92)]);
+
+    // The occasional loop out here too, so the lower half of the page
+    // gets the same treatment as the run between the photographs.
+    if (y < 0.82 && rand() > 0.86) {
+      const dir: 1 | -1 = x > 0.5 ? -1 : 1;
+      const lx = Math.min(0.86, Math.max(0.14, x));
+      pts.push(...loopPoints(lx, y + loopR * aspect, loopR, aspect, dir));
+      y += loopR * aspect * 2;
+    }
+  }
+
+  // Leaves past the right edge, so the tail is not seen to stop.
+  pts.push([1.22, Math.min(0.995, y + 0.06)]);
+  return pts;
+}
+
+/**
  * Builds a smooth cubic path through every waypoint using Catmull-Rom
  * control points converted to beziers. Chaining hand-written curves
  * would not guarantee tangent continuity at the joins, and any kink
@@ -168,7 +288,45 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
     return () => ro.disconnect();
   }, []);
 
-  const waypoints = useMemo(() => buildWaypoints(seed), [seed]);
+  // Checkpoint centres as fractions of the container, measured from the
+  // live DOM. Re-measured whenever the container resizes, which also
+  // covers the reflow that image loading causes.
+  const [checkpoints, setCheckpoints] = useState<[number, number][]>([]);
+  useEffect(() => {
+    const el = host.current;
+    if (!el || size.w === 0) return;
+    const measure = () => {
+      const box = el.getBoundingClientRect();
+      const found: [number, number][] = [];
+      document
+        .querySelectorAll<HTMLElement>('[data-ribbon-checkpoint]')
+        .forEach((node) => {
+          const r = node.getBoundingClientRect();
+          const x = (r.left + r.width / 2 - box.left) / box.width;
+          const y = (r.top + r.height / 2 - box.top) / box.height;
+          // Only checkpoints inside this ribbon's own span: the About
+          // page mounts its own Ribbon, and a stray element from
+          // elsewhere in the document would drag the road off the page.
+          if (y > 0.02 && y < 0.98) found.push([x, y]);
+        });
+      found.sort((a, b) => a[1] - b[1]);
+      setCheckpoints(found);
+    };
+    measure();
+    // Fonts and lazy images land after first paint and move the cards.
+    const id = window.setTimeout(measure, 600);
+    return () => window.clearTimeout(id);
+  }, [size]);
+
+  const waypoints = useMemo(
+    () =>
+      checkpoints.length >= 2
+        ? buildCheckpointWaypoints(seed, size.w, size.h, checkpoints)
+        : // No checkpoints (About has no service photographs): fall back
+          // to the seeded random walk, which needs no page content.
+          buildWaypoints(seed),
+    [seed, size.w, size.h, checkpoints],
+  );
   const d = useMemo(
     () => (size.w > 0 ? buildPath(size.w, size.h, waypoints) : ''),
     [size.w, size.h, waypoints],
@@ -209,38 +367,63 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
     }
 
     let raf = 0;
-    // Arc length whose point sits at a given container-space y.
+
+    // The path is sampled once into a table of points, and each sample
+    // carries the greatest y reached at or before it. That running
+    // maximum is monotonic by construction, which is what makes a
+    // forward-only lookup possible on a road that is no longer monotonic
+    // itself: it now contains full loops, where the same y occurs at
+    // several different arc lengths.
     //
-    // The naive mapping — progress = how far down the container the
-    // viewport centre is — assumes the path advances its y at a constant
-    // rate, which a meandering road does not: wherever it runs sideways
-    // it covers a lot of length for very little height, and the tip
-    // races ahead of the reader there and lags behind on the steep
-    // stretches. Solving for the length whose point is level with the
-    // viewport centre pins the truck to the middle of the screen no
-    // matter what the road is doing locally.
-    //
-    // Bisection is valid because the walk never heads back up the page
-    // (see buildWaypoints), so y increases monotonically along the path.
+    // The previous version bisected the path directly for the arc length
+    // level with the viewport centre. That is only valid while y always
+    // increases along the path — with a loop in the road it has several
+    // answers and the search returns whichever one it stumbles into, so
+    // the truck teleports around the loop.
+    const STEP = 6;
+    const count = Math.max(2, Math.ceil(length / STEP));
+    const xs = new Float32Array(count + 1);
+    const ys = new Float32Array(count + 1);
+    const runMax = new Float32Array(count + 1);
+    for (let i = 0; i <= count; i++) {
+      const pt = path.getPointAtLength((i / count) * length);
+      xs[i] = pt.x;
+      ys[i] = pt.y;
+      runMax[i] = i === 0 ? pt.y : Math.max(runMax[i - 1], pt.y);
+    }
+
+    /** Arc length at which the road has first reached this far down. */
     const lengthAtY = (targetY: number) => {
       let lo = 0;
-      let hi = length;
-      // ~20 iterations resolves a page of any realistic height to well
-      // under a pixel.
-      for (let i = 0; i < 20; i++) {
-        const midL = (lo + hi) / 2;
-        if (path.getPointAtLength(midL).y < targetY) lo = midL;
-        else hi = midL;
+      let hi = count;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (runMax[mid] < targetY) lo = mid + 1;
+        else hi = mid;
       }
-      return (lo + hi) / 2;
+      return (lo / count) * length;
     };
+
+    // Where the truck actually is, chased toward where the scroll says
+    // it should be. Inside a loop the target jumps by the loop's whole
+    // circumference — the loop occupies almost no height, so scrolling a
+    // few pixels asks the truck to cover all of it. Chasing rather than
+    // snapping turns that into the truck driving round the loop.
+    let at = -1;
 
     const tick = () => {
       const r = el.getBoundingClientRect();
       // The viewport's vertical centre, expressed in the container's
-      // own coordinates.
+      // own coordinates. Solving for the arc length that sits level with
+      // it — rather than mapping scroll depth onto path length — is what
+      // keeps the truck at the middle of the screen however sideways the
+      // road happens to be running locally.
       const targetY = window.innerHeight / 2 - r.top;
-      const progress = clamp01(lengthAtY(targetY) / (length || 1));
+      const want = lengthAtY(targetY);
+      // Snap on the first frame so the road does not draw itself in from
+      // zero on a page loaded part-way down.
+      at = at < 0 ? want : at + (want - at) * 0.18;
+      const progress = clamp01(at / (length || 1));
 
       const offset = `${length * (1 - progress)}`;
       revealed.forEach((p) => {
@@ -278,7 +461,12 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [size, reduced]);
+    // `d` matters: the checkpoints are measured after first paint, so
+    // the path is rebuilt on a later render than the one that sized the
+    // container. Without it this effect kept the sample table and total
+    // length of the *previous* path while the DOM drew the new one, and
+    // the truck tracked a road that was no longer there.
+  }, [size, reduced, d]);
 
   return (
     <div

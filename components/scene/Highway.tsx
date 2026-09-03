@@ -21,6 +21,20 @@ const DASH_COUNT = CENTRE_DASH_COUNT + EDGE_SEGMENT_COUNT * 2;
 const TAIL_LIGHT_COUNT = 14;
 
 const DASH_RANGE = 60; // depth span the dashes loop across
+
+/**
+ * How far back the road surface stays visible, in world units.
+ *
+ * This used to be 34 while the lane markings loop across DASH_RANGE
+ * (60), so the asphalt faded out a long way before the markings did and
+ * the last stretch of dashes hung in black space. That mismatch is also
+ * why the horizon glow kept reading as a band across the middle of the
+ * frame: it was sitting at the end of the *road*, which was nowhere near
+ * the end of the road as anyone looking at it would judge it. Matching
+ * the two means the surface, the markings and the glow all run out
+ * together, at the vanishing point.
+ */
+const ROAD_VISIBLE_DEPTH = DASH_RANGE - 4;
 const DASH_NEAR = 11; // z at which dashes fade out (closest to camera)
 const DASH_FAR = -DASH_RANGE + DASH_NEAR; // z at which dashes fade back in
 
@@ -113,7 +127,7 @@ const roadFragmentShader = /* glsl */ `
     // the road rather than as the horizon it is meant to be. It now
     // climbs to the far edge and is taken out by the fade below, so the
     // red sits where the road actually ends.
-    float depth = clamp((-vWorldXZ.y) / 34.0, 0.0, 1.0);
+    float depth = clamp((-vWorldXZ.y) / ${ROAD_VISIBLE_DEPTH.toFixed(1)}, 0.0, 1.0);
     float horizonBand = smoothstep(0.74, 0.98, depth);
     base = mix(base, uHorizonColor, horizonBand * 0.4);
     float farFade = 1.0 - smoothstep(0.9, 1.0, depth);

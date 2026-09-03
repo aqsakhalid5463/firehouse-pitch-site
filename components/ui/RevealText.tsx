@@ -25,25 +25,32 @@ export function RevealText({
 
   useEffect(() => {
     if (reduced || !root.current) return;
-    const words = root.current.querySelectorAll('[data-word]');
+    const chars = root.current.querySelectorAll('[data-char]');
     const ctx = gsap.context(() => {
-      // Words rise out of their own overflow-hidden mask, so the motion
-      // reads as type being set rather than a block sliding in. The
-      // rotation and the slight horizontal offset are what stop it
-      // looking mechanical: each word arrives on a marginally different
-      // path, so a long heading does not resolve as one rigid row.
+      // Characters flip up out of their word's mask, each one hinged on
+      // its own baseline. Per-character rather than per-word, and a
+      // rotation in depth rather than a slide, because the previous
+      // word-level rise was the client's "boring and hard to notice":
+      // at a 45px heading a word travelling its own height is a small
+      // move that resolves in a few frames. A character pivoting up
+      // from flat crosses far more of the frame for the same final
+      // position, and the cascade across the line is what actually
+      // reads as the heading being set rather than appearing.
       //
-      // `stagger.from: 'start'` with an ease means the first few words
-      // land close together and the tail spreads out, which reads much
-      // more like natural phrasing than an even cadence.
-      gsap.from(words, {
-        yPercent: 118,
-        rotate: 4,
-        x: -6,
+      // The hinge is the baseline (`transformOrigin` bottom), so the
+      // letters swing up onto the line they will settle on instead of
+      // pivoting about their middles and needing to correct downward.
+      gsap.from(chars, {
+        yPercent: 120,
+        rotateX: -92,
         opacity: 0,
-        duration: 1.05,
+        duration: 1,
         ease: 'expo.out',
-        stagger: { each: 0.045, from: 'start', ease: 'power2.in' },
+        transformOrigin: '50% 100%',
+        // Tight enough that a long heading still resolves quickly — the
+        // cascade should read as one gesture travelling along the line,
+        // not as letters arriving one at a time.
+        stagger: { each: 0.018, from: 'start', ease: 'power2.in' },
         delay,
         scrollTrigger: { trigger: root.current, start: 'top 85%' },
       });
@@ -123,7 +130,12 @@ export function RevealText({
   }, [reduced, delay]);
 
   return (
-    <Tag ref={root as never} className={className}>
+    // The visible text is now one span per character, which a screen
+    // reader can announce letter by letter. `aria-label` restores the
+    // heading as a single string and the split-up copy is hidden from
+    // the accessibility tree.
+    <Tag ref={root as never} className={className} aria-label={children}>
+      <span aria-hidden="true">
       {children.split(' ').flatMap((word, i, words) => {
         const wrapped = (
           <span
@@ -132,7 +144,23 @@ export function RevealText({
             className="inline-block overflow-hidden pb-[0.12em] align-bottom"
           >
             <span data-word className="inline-block">
-              {word}
+              {/* Each character gets its own perspective container.
+                  Perspective only applies to an element's direct
+                  children, and the word mask above cannot carry it —
+                  `overflow: hidden` forces a flat transform style, so a
+                  perspective set there would be discarded and the flip
+                  would collapse into a plain vertical squash. */}
+              {[...word].map((ch, ci) => (
+                <span
+                  key={`char-${ci}`}
+                  className="inline-block"
+                  style={{ perspective: '520px' }}
+                >
+                  <span data-char className="inline-block">
+                    {ch}
+                  </span>
+                </span>
+              ))}
             </span>
           </span>
         );
@@ -140,6 +168,7 @@ export function RevealText({
         // or the browser collapses it and words run together.
         return i < words.length - 1 ? [wrapped, ' '] : [wrapped];
       })}
+      </span>
     </Tag>
   );
 }

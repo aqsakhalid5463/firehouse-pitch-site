@@ -153,10 +153,15 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             // thing in the row.
             opacity: enter * Math.min(1, emphasis + focus * 0.38),
             y: 26 * (1 - enter) - focus * 6,
-            // Modest on purpose: these sit in a fixed three-column grid,
-            // so a step that grows much beyond this starts colliding
-            // with its neighbour's text rather than reading as emphasis.
-            scale: 1 + focus * 0.12,
+            // These sit in a fixed three-column grid, so growth has to go
+            // somewhere that isn't the neighbour's text. Scaling about
+            // the left edge rather than the centre sends all of it
+            // rightward, into the slack between this column's max-w-xs
+            // content and the column's own width plus the grid gap —
+            // measured at 1440px, a swelled step's right edge still
+            // clears the next step's left edge.
+            scale: 1 + focus * 0.3,
+            transformOrigin: 'left center',
           });
 
           // The label's characters cascade in rather than the whole word

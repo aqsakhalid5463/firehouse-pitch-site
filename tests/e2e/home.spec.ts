@@ -171,6 +171,16 @@ test('the process steps hand the spotlight along in order', async ({ page }) => 
     if (s.length !== 3) continue;
     s.forEach((v, j) => (peaks[j] = Math.max(peaks[j], v)));
     const lead = s.indexOf(Math.max(...s));
+    // A swelled step must never grow into its neighbour's column.
+    const boxes = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-opening-steps] [data-step]')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return [r.left, r.right];
+      }),
+    );
+    for (let k = 0; k < boxes.length - 1; k++) {
+      expect(boxes[k][1]).toBeLessThanOrEqual(boxes[k + 1][0]);
+    }
     // Only record a leader once something is actually enlarged, so the
     // flat stretch before the steps arrive doesn't count as step 0.
     if (Math.max(...s) > 1.02 && leaders.at(-1) !== lead) leaders.push(lead);
@@ -178,6 +188,8 @@ test('the process steps hand the spotlight along in order', async ({ page }) => 
 
   // Every step gets its turn at being enlarged.
   for (const p of peaks) expect(p).toBeGreaterThan(1.05);
+  // The swell is large enough to be worth the name.
+  expect(Math.max(...peaks)).toBeGreaterThan(1.25);
   // And they take those turns in order, never skipping or going back.
   expect(leaders).toEqual([...leaders].sort((a, b) => a - b));
   expect(leaders[0]).toBe(0);

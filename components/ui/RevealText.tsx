@@ -213,25 +213,37 @@ export function RevealText({
       const roll = el.querySelector<HTMLElement>('[data-roll]');
       const ghost = el.querySelector<HTMLElement>('[data-roll-ghost]');
       if (display && roll && ghost) {
+        // The ghost is parked below its resting place once, here, rather
+        // than being positioned at the start of each hover.
+        //
+        // The hover used `fromTo`, which sets the start values in the
+        // same frame it begins: the ghost snapped to its offset and only
+        // then animated, and interrupting a hover mid-way restarted it
+        // from that snap. That instantaneous set is the jump — the
+        // client's "suddenly shifts to a new position". Plain `to`
+        // tweens have no start state to apply, so every hover picks up
+        // from wherever the last one got to, in either direction.
+        const TRAVEL = 16;
+        gsap.set(ghost, { y: TRAVEL });
+
         const swap = (over: boolean) => {
           gsap.to(roll, {
-            y: over ? -10 : 0,
+            y: over ? -TRAVEL : 0,
             opacity: over ? 0 : 1,
-            duration: 0.42,
-            ease: 'power3.inOut',
+            duration: 0.75,
+            // Out rather than inOut: the line should leave immediately
+            // and arrive gently, which is what makes it read as one
+            // continuous move instead of a cut.
+            ease: 'power2.out',
             overwrite: 'auto',
           });
-          gsap.fromTo(
-            ghost,
-            { y: over ? 10 : 0 },
-            {
-              y: over ? 0 : 10,
-              opacity: over ? 1 : 0,
-              duration: 0.42,
-              ease: 'power3.inOut',
-              overwrite: 'auto',
-            },
-          );
+          gsap.to(ghost, {
+            y: over ? 0 : TRAVEL,
+            opacity: over ? 1 : 0,
+            duration: 0.75,
+            ease: 'power2.out',
+            overwrite: 'auto',
+          });
         };
         const onEnter = (e: PointerEvent) => {
           if (e.pointerType !== 'mouse') return;

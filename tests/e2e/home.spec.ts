@@ -482,11 +482,15 @@ test('headings swap as one body on hover', async ({ page }) => {
   // The two halves must occupy identical space, or the heading visibly
   // closes up as it swaps — the ghost set on tighter leading than the
   // copy it replaces, because it was missing the word masks' padding.
+  // Layout box, not the rendered rect: at rest the ghost is parked a
+  // little below its resting place, so its rendered top is offset by
+  // design. `offsetTop`/`offsetHeight` ignore the transform and compare
+  // where the two actually sit in the layout.
   const boxes = await page.evaluate(() => {
     const h1 = document.querySelector('h1')!;
     const b = (sel: string) => {
-      const r = h1.querySelector(sel)!.getBoundingClientRect();
-      return [Math.round(r.height), Math.round(r.top)];
+      const el = h1.querySelector(sel) as HTMLElement;
+      return [el.offsetHeight, el.offsetTop];
     };
     return { primary: b('[data-roll]'), ghost: b('[data-roll-ghost]') };
   });

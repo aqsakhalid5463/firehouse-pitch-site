@@ -1,6 +1,21 @@
 @import "tailwindcss";
 
 @theme {
+  /* Helvetica across the site.
+     
+     Helvetica ships with macOS and iOS, so it renders as itself for most
+     of this client's likely audience. It is not present on Windows or
+     Android, where Arial takes over — metric-compatible and near
+     identical in text, which is why it is the first fallback rather than
+     a generic sans. Nothing is downloaded: this is a system stack, so it
+     costs no bytes and no font-loading flash.
+     
+     Overriding Tailwind's `--font-sans` rather than only setting it on
+     the body means every `font-sans` utility resolves here too, so there
+     is no second definition to keep in sync. */
+  --font-sans:
+    'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif;
+
   --color-dark-bg: #08070A;
   --color-dark-fog: #0D0B12;
   --color-ink: #1A1917;
@@ -30,9 +45,11 @@
 html {
   background-color: var(--page-bg);
   color: var(--page-ink);
+  font-family: var(--font-sans);
 }
 
 body {
+  font-family: var(--font-sans);
   margin: 0;
   min-height: 100vh;
   background-color: var(--page-bg);

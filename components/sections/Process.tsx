@@ -1,11 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { PROCESS } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { PROCESS } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
+import { GlassPanel } from "@/components/ui/GlassPanel";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,7 +27,7 @@ export function Process() {
   useEffect(() => {
     if (reduced || !root.current) return;
     const ctx = gsap.context(() => {
-      const rows = gsap.utils.toArray<HTMLElement>('[data-step]');
+      const rows = gsap.utils.toArray<HTMLElement>("[data-step]");
       rows.forEach((row) => {
         gsap.fromTo(
           row,
@@ -35,14 +36,14 @@ export function Process() {
             opacity: 1,
             x: 0,
             duration: 0.7,
-            ease: 'power3.out',
+            ease: "power3.out",
             scrollTrigger: {
               trigger: row,
               // Fires as the row crosses the lower-middle of the
               // screen, which is roughly where the eye already is when
               // scrolling steadily.
-              start: 'top 78%',
-              toggleActions: 'play none none reverse',
+              start: "top 78%",
+              toggleActions: "play none none reverse",
             },
           },
         );
@@ -72,14 +73,16 @@ export function Process() {
               className="group grid gap-x-8 gap-y-3 border-t border-bone/12 py-10 md:grid-cols-12 md:py-12"
             >
               <span className="font-mono text-sm text-fire md:col-span-2">
-                {String(i + 1).padStart(2, '0')}
+                {String(i + 1).padStart(2, "0")}
               </span>
               <h3 className="text-2xl font-semibold tracking-tight md:col-span-3">
                 {p.step}
               </h3>
-              <p className="max-w-2xl leading-relaxed text-bone/60 md:col-span-7">
-                {p.body}
-              </p>
+              <GlassPanel className="md:col-span-7">
+                <p className="max-w-2xl leading-relaxed text-bone/60">
+                  {p.body}
+                </p>
+              </GlassPanel>
             </li>
           ))}
         </ol>

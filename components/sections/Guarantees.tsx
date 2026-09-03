@@ -1,6 +1,7 @@
-import { GUARANTEES } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { FadeUp } from '@/components/ui/FadeUp';
+import { GUARANTEES } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { FadeUp } from "@/components/ui/FadeUp";
+import { GlassPanel } from "@/components/ui/GlassPanel";
 
 export function Guarantees() {
   return (
@@ -21,14 +22,14 @@ export function Guarantees() {
               className="grid gap-6 border-t border-current/15 py-12 md:grid-cols-12"
             >
               <span className="text-xs font-semibold tracking-[0.2em] opacity-40 md:col-span-2">
-                {String(i + 1).padStart(2, '0')}
+                {String(i + 1).padStart(2, "0")}
               </span>
               <h3 className="text-3xl font-semibold tracking-tight md:col-span-4">
                 {g.title}
               </h3>
-              <p className="text-lg leading-relaxed opacity-70 md:col-span-6">
-                {g.body}
-              </p>
+              <GlassPanel className="md:col-span-6">
+                <p className="text-lg leading-relaxed opacity-70">{g.body}</p>
+              </GlassPanel>
             </div>
           ))}
         </FadeUp>

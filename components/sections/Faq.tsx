@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useRef, useState, useId } from 'react';
-import { FAQ } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { FadeUp } from '@/components/ui/FadeUp';
+import { useRef, useState, useId } from "react";
+import { FAQ } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { FadeUp } from "@/components/ui/FadeUp";
+import { GlassPanel } from "@/components/ui/GlassPanel";
 
 /**
  * The questions people ask before booking a mover.
@@ -40,7 +41,7 @@ function Item({
         >
           <span
             className={`text-xl font-medium tracking-tight transition-colors duration-300 md:text-2xl ${
-              open ? 'text-bone' : 'text-bone/75 group-hover:text-bone'
+              open ? "text-bone" : "text-bone/75 group-hover:text-bone"
             }`}
           >
             {q}
@@ -54,7 +55,7 @@ function Item({
             <span className="absolute top-1/2 left-0 h-[2px] w-full -translate-y-1/2 bg-current" />
             <span
               className={`absolute top-0 left-1/2 h-full w-[2px] -translate-x-1/2 bg-current transition-transform duration-300 ease-out ${
-                open ? 'rotate-90' : 'rotate-0'
+                open ? "rotate-90" : "rotate-0"
               }`}
             />
           </span>
@@ -64,13 +65,15 @@ function Item({
       <div
         id={id}
         className={`grid transition-[grid-template-rows,opacity] duration-400 ease-out ${
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
       >
         {/* The overflow-hidden child is required: a 0fr grid row still
             lets its content paint unless something clips it. */}
         <div className="overflow-hidden">
-          <p className="max-w-3xl pb-8 leading-relaxed text-bone/60">{a}</p>
+          <GlassPanel className="mb-8">
+            <p className="max-w-3xl leading-relaxed text-bone/60">{a}</p>
+          </GlassPanel>
         </div>
       </div>
     </div>

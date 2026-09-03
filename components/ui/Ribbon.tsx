@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
-import { clamp01 } from '@/lib/scroll-math';
-import { TruckGlyph } from './TruckGlyph';
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
+import { clamp01 } from "@/lib/scroll-math";
+import { TruckGlyph } from "./TruckGlyph";
 
 /**
  * The red ribbon: one continuous line running from the end of the 3D
@@ -196,7 +196,8 @@ function buildCheckpointWaypoints(
   const rows: [number, number][][] = [];
   checkpoints.forEach((cp) => {
     const row = rows[rows.length - 1];
-    if (row && Math.abs(cp[1] - row[0][1]) < ROW_TOLERANCE) row.push([...cp] as [number, number]);
+    if (row && Math.abs(cp[1] - row[0][1]) < ROW_TOLERANCE)
+      row.push([...cp] as [number, number]);
     else rows.push([[...cp] as [number, number]]);
   });
   const visited = rows.map((row, i) => {
@@ -354,12 +355,15 @@ function buildPath(
   // the corners twice. Only after that is the spline asked to draw
   // anything — smoothing the route is a property of the route, not
   // something the spline can be tuned into rescuing.
-  const scaled = waypoints.map(([fx, fy]) => [fx * w, fy * h] as [number, number]);
+  const scaled = waypoints.map(
+    ([fx, fy]) => [fx * w, fy * h] as [number, number],
+  );
   const pruned: [number, number][] = [scaled[0]];
   for (let i = 1; i < scaled.length; i++) {
     const last = pruned[pruned.length - 1];
     const far =
-      Math.hypot(scaled[i][0] - last[0], scaled[i][1] - last[1]) >= MIN_KNOT_GAP;
+      Math.hypot(scaled[i][0] - last[0], scaled[i][1] - last[1]) >=
+      MIN_KNOT_GAP;
     // The final knot is off-screen and defines where the road leaves, so
     // it is kept whether or not it clears the gap.
     if (far || i === scaled.length - 1) pruned.push(scaled[i]);
@@ -424,7 +428,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
   const edgePathRef = useRef<SVGPathElement>(null);
   const truckRef = useRef<SVGGElement>(null);
   // useId keeps the mask reference unique when both pages mount a Ribbon.
-  const maskId = `ribbon-reveal-${useId().replace(/:/g, '')}`;
+  const maskId = `ribbon-reveal-${useId().replace(/:/g, "")}`;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reduced = useReducedMotion();
 
@@ -456,7 +460,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
       const box = el.getBoundingClientRect();
       const found: [number, number][] = [];
       document
-        .querySelectorAll<HTMLElement>('[data-ribbon-checkpoint]')
+        .querySelectorAll<HTMLElement>("[data-ribbon-checkpoint]")
         .forEach((node) => {
           const r = node.getBoundingClientRect();
           const x = (r.left + r.width / 2 - box.left) / box.width;
@@ -485,7 +489,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
     [seed, size.w, size.h, checkpoints],
   );
   const d = useMemo(
-    () => (size.w > 0 ? buildPath(size.w, size.h, waypoints) : ''),
+    () => (size.w > 0 ? buildPath(size.w, size.h, waypoints) : ""),
     [size.w, size.h, waypoints],
   );
 
@@ -513,11 +517,11 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
       // Show the finished line with no animation and park the truck at
       // its end, so the composition still reads.
       revealed.forEach((p) => {
-        p.style.strokeDashoffset = '0';
+        p.style.strokeDashoffset = "0";
       });
       const end = path.getPointAtLength(length);
       truckRef.current?.setAttribute(
-        'transform',
+        "transform",
         `translate(${end.x} ${end.y})`,
       );
       return;
@@ -621,7 +625,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
         const angle =
           (Math.atan2(fwd.y - back.y, fwd.x - back.x) * 180) / Math.PI;
         g.setAttribute(
-          'transform',
+          "transform",
           `translate(${at.x} ${at.y}) rotate(${angle})`,
         );
         // Hide the truck until the line has actually started, otherwise
@@ -633,7 +637,7 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
         // run, and any stray shadow of it showed at the margin.
         const onScreen = at.x > -20 && at.x < size.w + 20;
         g.style.opacity =
-          progress > 0.005 && progress < 0.999 && onScreen ? '1' : '0';
+          progress > 0.005 && progress < 0.999 && onScreen ? "1" : "0";
       }
 
       raf = requestAnimationFrame(tick);
@@ -685,52 +689,63 @@ export function Ribbon({ seed = 918273 }: { seed?: number }) {
             </mask>
           </defs>
 
-          {/* Soft glow under the road, so it sits in the page rather
+          {/* Every layer of the road sits in one group at reduced
+              opacity, and the truck is deliberately outside it. The road
+              crosses body copy at some point on nearly every section, and
+              at full strength the asphalt and its lane markings competed
+              with the text on top of them. Dimming the group rather than
+              each stroke keeps their relationship — surface, kerb, glow,
+              markings — exactly as tuned, and dimming the road rather
+              than everything leaves the truck, which is the thing worth
+              looking at, at full strength. */}
+          <g opacity={0.5}>
+            {/* Soft glow under the road, so it sits in the page rather
               than on top of it. */}
-          <path
-            d={d}
-            stroke="var(--color-ribbon-asphalt)"
-            strokeWidth={ROAD_WIDTH + 16}
-            strokeLinecap="round"
-            fill="none"
-            opacity={0.18}
-            style={{ filter: 'blur(18px)' }}
-            ref={glowPathRef}
-          />
+            <path
+              d={d}
+              stroke="var(--color-ribbon-asphalt)"
+              strokeWidth={ROAD_WIDTH + 16}
+              strokeLinecap="round"
+              fill="none"
+              opacity={0.18}
+              style={{ filter: "blur(18px)" }}
+              ref={glowPathRef}
+            />
 
-          {/* The road surface. */}
-          <path
-            ref={pathRef}
-            d={d}
-            stroke="var(--color-ribbon-asphalt)"
-            strokeWidth={ROAD_WIDTH}
-            strokeLinecap="round"
-            fill="none"
-          />
+            {/* The road surface. */}
+            <path
+              ref={pathRef}
+              d={d}
+              stroke="var(--color-ribbon-asphalt)"
+              strokeWidth={ROAD_WIDTH}
+              strokeLinecap="round"
+              fill="none"
+            />
 
-          {/* Kerb lines down both edges, drawn as one stroke sitting
+            {/* Kerb lines down both edges, drawn as one stroke sitting
               just inside the road's own width. */}
-          <path
-            d={d}
-            stroke="var(--color-ribbon-edge)"
-            strokeWidth={ROAD_WIDTH - 3}
-            strokeLinecap="round"
-            fill="none"
-            opacity={0.55}
-            ref={edgePathRef}
-          />
+            <path
+              d={d}
+              stroke="var(--color-ribbon-edge)"
+              strokeWidth={ROAD_WIDTH - 3}
+              strokeLinecap="round"
+              fill="none"
+              opacity={0.55}
+              ref={edgePathRef}
+            />
 
-          {/* Dashed centre line. */}
-          <path
-            d={d}
-            stroke="#E8EAEE"
-            strokeWidth={2.5}
-            strokeDasharray="14 20"
-            strokeLinecap="butt"
-            fill="none"
-            opacity={0.75}
-            mask={`url(#${maskId})`}
-          />
+            {/* Dashed centre line. */}
+            <path
+              d={d}
+              stroke="#E8EAEE"
+              strokeWidth={2.5}
+              strokeDasharray="14 20"
+              strokeLinecap="butt"
+              fill="none"
+              opacity={0.75}
+              mask={`url(#${maskId})`}
+            />
+          </g>
 
           {/* Top-down truck at the drawing tip. Drawn pointing along +X
               so the tangent angle can be applied directly. */}

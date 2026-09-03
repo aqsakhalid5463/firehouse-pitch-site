@@ -1,7 +1,8 @@
-import { BUSINESS } from '@/lib/constants';
-import { RevealText } from '@/components/ui/RevealText';
-import { MagneticButton } from '@/components/ui/MagneticButton';
-import { FadeUp } from '@/components/ui/FadeUp';
+import { BUSINESS } from "@/lib/constants";
+import { RevealText } from "@/components/ui/RevealText";
+import { MagneticButton } from "@/components/ui/MagneticButton";
+import { FadeUp } from "@/components/ui/FadeUp";
+import { GlassPanel } from "@/components/ui/GlassPanel";
 
 /**
  * The closing call to action.
@@ -26,13 +27,18 @@ export function ClosingCTA() {
         </RevealText>
 
         <FadeUp delay={0.15}>
-        <p className="mx-auto mt-8 max-w-xl text-lg leading-relaxed text-bone/60">
-          A written quote, a crew sized to the job, and a delivery window
-          we commit to. Local or long-distance, out of {BUSINESS.city}.
-        </p>
+          <GlassPanel className="mx-auto mt-8">
+            <p className="max-w-xl text-lg leading-relaxed text-bone/60">
+              A written quote, a crew sized to the job, and a delivery window we
+              commit to. Local or long-distance, out of {BUSINESS.city}.
+            </p>
+          </GlassPanel>
         </FadeUp>
 
-        <FadeUp delay={0.25} className="mt-12 flex flex-wrap justify-center gap-4">
+        <FadeUp
+          delay={0.25}
+          className="mt-12 flex flex-wrap justify-center gap-4"
+        >
           <MagneticButton href={BUSINESS.phoneHref}>
             Call {BUSINESS.phone}
           </MagneticButton>

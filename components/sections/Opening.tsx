@@ -72,6 +72,19 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         [0.75, 0.93],
         [0.93, 1.0],
       ];
+      // The spotlight (the swell that hands along from step to step) runs
+      // on its own evenly-spaced windows rather than sharing the ones
+      // above. Those are pinned to the truck's real beats, which are very
+      // unevenly sized — Pack owns 45% of the pin, Move 18%, Settle 7% —
+      // and measuring it showed Move's swell lasting about two frames of
+      // scroll before Settle took over, i.e. effectively never happening.
+      // The fill still tracks the truck; only the emphasis is evened out,
+      // so each step gets a turn long enough to see.
+      const focusWindows: [number, number][] = [
+        [0.3, 0.55],
+        [0.55, 0.78],
+        [0.78, 0.97],
+      ];
 
       gsap.set(steps, { opacity: 0, y: 30 });
 
@@ -102,6 +115,20 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
           if (scrim) gsap.set(scrim, { opacity: heroT });
         }
 
+        // Every step's `active` up front, because a step's emphasis is
+        // defined by its *successor*: step i swells as its own window
+        // fills and shrinks back as step i+1's window fills, so the
+        // three hand the spotlight along instead of each independently
+        // popping. The windows are contiguous (0.3-0.75, 0.75-0.93,
+        // 0.93-1.0), so a step is at full size at exactly the moment the
+        // next one starts to grow.
+        const actives = activeWindows.map(([aStart, aEnd]) =>
+          gsap.utils.clamp(0, 1, (progress - aStart) / (aEnd - aStart)),
+        );
+        const focuses = focusWindows.map(([fStart, fEnd]) =>
+          gsap.utils.clamp(0, 1, (progress - fStart) / (fEnd - fStart)),
+        );
+
         steps.forEach((step, i) => {
           const [eStart, eEnd] = enterWindows[i];
           const enter = gsap.utils.clamp(
@@ -109,17 +136,28 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             1,
             (progress - eStart) / (eEnd - eStart),
           );
-          const [aStart, aEnd] = activeWindows[i];
-          const active = gsap.utils.clamp(
-            0,
-            1,
-            (progress - aStart) / (aEnd - aStart),
-          );
+          const active = actives[i];
+          // Spotlight: this step's own focus ramp minus the next step's,
+          // so it rises to 1 while it is the live beat and falls back to
+          // 0 as the next one takes over. The last step has no
+          // successor, so it holds its emphasis through the end of the
+          // set-piece rather than deflating with nothing to hand off to.
+          const focus = focuses[i] - (focuses[i + 1] ?? 0);
           // Dim until this step's turn, full while it is happening, and
           // held slightly up afterwards — a completed step should read
           // as done, not as switched off.
           const emphasis = active >= 1 ? 0.62 : 0.42 + active * 0.58;
-          gsap.set(step, { opacity: enter * emphasis, y: 26 * (1 - enter) });
+          gsap.set(step, {
+            // Lifted by the spotlight on top of the base emphasis, so
+            // the live step is not just larger but also the brightest
+            // thing in the row.
+            opacity: enter * Math.min(1, emphasis + focus * 0.38),
+            y: 26 * (1 - enter) - focus * 6,
+            // Modest on purpose: these sit in a fixed three-column grid,
+            // so a step that grows much beyond this starts colliding
+            // with its neighbour's text rather than reading as emphasis.
+            scale: 1 + focus * 0.12,
+          });
 
           // The label's characters cascade in rather than the whole word
           // arriving at once. Each one gets its own slice of the entry
@@ -134,7 +172,18 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
 
           // A rule that fills across the step while it is the live one.
           const fill = step.querySelector<HTMLElement>('[data-step-fill]');
-          if (fill) gsap.set(fill, { scaleX: active });
+          if (fill) {
+            gsap.set(fill, {
+              scaleX: active,
+              // The rule was a 1px hairline that the client could barely
+              // see filling. It thickens and lights up while its step is
+              // the live one, then settles back to a thin, still-red
+              // "done" line — so the row reads as a progress track being
+              // driven, not three static underscores.
+              scaleY: 1 + focus * 2,
+              boxShadow: `0 0 ${8 * focus}px rgba(226,61,40,${0.75 * focus})`,
+            });
+          }
 
           const num = step.querySelector<HTMLElement>('[data-step-num]');
           if (num) gsap.set(num, { opacity: 0.3 + active * 0.7 });
@@ -174,7 +223,15 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       const steps = gsap.utils.toArray<HTMLElement>('[data-step]', root.current ?? undefined);
       const hero = root.current?.querySelector<HTMLElement>('[data-hero-copy]');
       const scrim = root.current?.querySelector<HTMLElement>('[data-scrim]');
-      gsap.set(steps, { clearProps: 'opacity,y' });
+      gsap.set(steps, { clearProps: 'opacity,y,scale' });
+      // Same reasoning as the steps themselves: these were set from
+      // onUpdate, outside gsap.context's collection window, so they
+      // survive ctx.revert() and would strand a thickened, glowing rule.
+      const fills = gsap.utils.toArray<HTMLElement>(
+        '[data-step-fill]',
+        root.current ?? undefined,
+      );
+      gsap.set(fills, { clearProps: 'scaleX,scaleY,boxShadow' });
       if (hero) gsap.set(hero, { clearProps: 'opacity' });
       if (scrim) gsap.set(scrim, { clearProps: 'opacity' });
       ctx.revert();
@@ -275,7 +332,12 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             {heroCopy}
           </div>
 
-          <div id="process" className="mx-auto w-full max-w-7xl">
+          {/* `id="process"` used to live here as well as on the
+              standalone Process section — a duplicate id, and nothing
+              on the site links to either. The attribute here is a
+              scoping hook (both blocks use `data-step`), not an anchor
+              target; the anchor name is left to Process.tsx alone. */}
+          <div data-opening-steps className="mx-auto w-full max-w-7xl">
             {/* Hidden on short windows. The hero copy above is taller
                 than its row there and its overflow falls through this
                 row (see the safe-centring note above); the steps below
@@ -293,7 +355,12 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
                       right while that step is the live one, so the three
                       of them read as a progress track across the whole
                       set-piece. */}
-                  <div className="mb-5 h-px w-full origin-left bg-bone/15">
+                  <div className="mb-5 h-px w-full bg-bone/15">
+                    {/* `origin-left` fills the rule left-to-right;
+                        scaleY in the same transform thickens it about
+                        its own centre line, so a live rule grows into
+                        the space above and below rather than pushing
+                        the text below it down. */}
                     <div
                       data-step-fill
                       className="h-px w-full origin-left scale-x-0 bg-fire"

@@ -141,3 +141,45 @@ test('headings lean into a scroll and settle back straight', async ({ page }) =>
   await page.waitForTimeout(2500);
   for (const s of await skews()) expect(Math.abs(s)).toBeLessThan(0.01);
 });
+
+// The three process steps hand a spotlight along as the truck works:
+// each swells while it is the live beat and settles back as the next one
+// takes over. Asserting the *ordering* of the peaks rather than exact
+// values keeps this robust to retuning the windows.
+test('the process steps hand the spotlight along in order', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const scales = () =>
+    page.evaluate(() =>
+      // Scoped to the pinned set-piece: `data-step` is also used by the
+      // standalone Process section further down the page.
+      [...document.querySelectorAll('[data-opening-steps] [data-step]')].map((el) => {
+        const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+        return m.a;
+      }),
+    );
+
+  // Peak scale reached by each step across the whole pinned set-piece.
+  const peaks = [0, 0, 0];
+  const leaders: number[] = [];
+  for (let i = 0; i < 90; i++) {
+    await page.mouse.wheel(0, 220);
+    await page.waitForTimeout(30);
+    const s = await scales();
+    if (s.length !== 3) continue;
+    s.forEach((v, j) => (peaks[j] = Math.max(peaks[j], v)));
+    const lead = s.indexOf(Math.max(...s));
+    // Only record a leader once something is actually enlarged, so the
+    // flat stretch before the steps arrive doesn't count as step 0.
+    if (Math.max(...s) > 1.02 && leaders.at(-1) !== lead) leaders.push(lead);
+  }
+
+  // Every step gets its turn at being enlarged.
+  for (const p of peaks) expect(p).toBeGreaterThan(1.05);
+  // And they take those turns in order, never skipping or going back.
+  expect(leaders).toEqual([...leaders].sort((a, b) => a - b));
+  expect(leaders[0]).toBe(0);
+  expect(leaders.at(-1)).toBe(2);
+});

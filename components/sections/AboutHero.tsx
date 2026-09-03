@@ -5,12 +5,6 @@ export function AboutHero() {
   return (
     <section className="relative flex min-h-[80vh] items-center px-6 pt-32">
       <div className="mx-auto w-full max-w-7xl">
-        {/* Matches the home hero's eyebrow — same role, same page
-          position, so the two must not drift apart. See HeroCopy for
-          why this is a colour and not an opacity utility. */}
-        <p className="mb-8 text-xs font-semibold tracking-[0.3em] text-bone/80 uppercase">
-          About us
-        </p>
         <RevealText
           as="h1"
           className="max-w-4xl text-[clamp(2.25rem,6vw,5rem)] leading-[1] font-semibold tracking-tight"

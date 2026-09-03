@@ -194,4 +194,14 @@ test('the process steps hand the spotlight along in order', async ({ page }) => 
   expect(leaders).toEqual([...leaders].sort((a, b) => a - b));
   expect(leaders[0]).toBe(0);
   expect(leaders.at(-1)).toBe(2);
+
+  // Once the set-piece is over, every step is back at rest — including
+  // the last one, which has no successor to hand the spotlight to and so
+  // is released by a trailing window instead.
+  for (let i = 0; i < 30; i++) {
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(20);
+  }
+  await page.waitForTimeout(400);
+  for (const v of await scales()) expect(v).toBeLessThan(1.01);
 });

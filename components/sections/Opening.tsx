@@ -80,10 +80,17 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       // scroll before Settle took over, i.e. effectively never happening.
       // The fill still tracks the truck; only the emphasis is evened out,
       // so each step gets a turn long enough to see.
+      // The fourth entry is not a step. A step is released by its
+      // successor's ramp, so without a trailing window Settle had
+      // nothing to hand off to and stayed swelled and glowing for the
+      // rest of the page — visibly odd next to two neighbours that had
+      // returned to normal. This window releases it back to rest before
+      // the pin ends, exactly the way the other two are released.
       const focusWindows: [number, number][] = [
         [0.3, 0.55],
-        [0.55, 0.78],
-        [0.78, 0.97],
+        [0.55, 0.76],
+        [0.76, 0.9],
+        [0.9, 1.0],
       ];
 
       gsap.set(steps, { opacity: 0, y: 30 });
@@ -137,11 +144,10 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             (progress - eStart) / (eEnd - eStart),
           );
           const active = actives[i];
-          // Spotlight: this step's own focus ramp minus the next step's,
+          // Spotlight: this step's own focus ramp minus the next one's,
           // so it rises to 1 while it is the live beat and falls back to
-          // 0 as the next one takes over. The last step has no
-          // successor, so it holds its emphasis through the end of the
-          // set-piece rather than deflating with nothing to hand off to.
+          // 0 as the next takes over. The last step is released by the
+          // trailing window above rather than by a real successor.
           const focus = focuses[i] - (focuses[i + 1] ?? 0);
           // Dim until this step's turn, full while it is happening, and
           // held slightly up afterwards — a completed step should read

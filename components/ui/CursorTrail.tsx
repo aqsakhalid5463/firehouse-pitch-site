@@ -36,18 +36,28 @@ import { useReducedMotion } from '@/lib/use-reduced-motion';
  * at all under reduced motion.
  */
 
-/** Backing-store scale. Soft marks survive this; it quarters fill cost. */
-const RES = 0.5;
+/** Backing-store scale. The tread rungs are thin, so they need the pixels. */
+const RES = 1;
 /** Half the distance between the two tracks, in CSS pixels. */
 const GAUGE = 11;
 /** Movement below this in a frame is jitter, not travel. */
 const MIN_STEP = 0.7;
 /** Speed, in px/frame, at which tread width and darkness top out. */
 const FULL_SPEED = 22;
-/** Alpha removed from the whole canvas each frame. */
-const FADE = 0.045;
+/**
+ * The fade is two terms, and the second one is the important one.
+ *
+ * A fixed amount of alpha per frame bounds the trail in *time*, which
+ * means its length on screen scales with how fast the pointer is moving
+ * — so continuous movement outruns the fade and the page fills up with
+ * overlapping track. Adding a term proportional to distance travelled
+ * bounds it in *space* instead: roughly a fixed number of pixels of
+ * track behind the cursor, whatever speed it is going.
+ */
+const FADE_BASE = 0.05;
+const FADE_PER_PX = 0.004;
 /** Frames the loop keeps running after the last mark, to fade it out. */
-const FADE_FRAMES = 90;
+const FADE_FRAMES = 40;
 
 type Puff = { x: number; y: number; vx: number; vy: number; r: number; life: number };
 
@@ -142,7 +152,9 @@ export function CursorTrail() {
       ctx!.lineWidth = width;
       if (dashed) {
         // Rungs anchored to distance travelled — see the note above.
-        ctx!.setLineDash([4.5, 3.5]);
+        // Thin along travel, wide across it — a tread rung. Equal-ish
+        // numbers here produce square blobs, which read as dots.
+        ctx!.setLineDash([2, 5.5]);
         ctx!.lineDashOffset = -travelled;
       } else {
         ctx!.setLineDash([]);
@@ -151,20 +163,20 @@ export function CursorTrail() {
     }
 
     function tick() {
+      const dx = px - lx;
+      const dy = py - ly;
+      const step = Math.hypot(dx, dy);
+
       // Fade the whole surface by removing alpha, rather than painting
       // black over it: the canvas is transparent and sits above the
       // page, so painting would leave a grey film across everything.
       ctx!.save();
       ctx!.setTransform(1, 0, 0, 1, 0, 0);
       ctx!.globalCompositeOperation = 'destination-out';
-      ctx!.fillStyle = `rgba(0, 0, 0, ${FADE})`;
+      ctx!.fillStyle = `rgba(0, 0, 0, ${Math.min(FADE_BASE + step * FADE_PER_PX, 0.4)})`;
       ctx!.fillRect(0, 0, el!.width, el!.height);
       ctx!.restore();
       ctx!.globalCompositeOperation = 'source-over';
-
-      const dx = px - lx;
-      const dy = py - ly;
-      const step = Math.hypot(dx, dy);
 
       if (seeded && step > MIN_STEP) {
         const nx = dx / step;
@@ -187,8 +199,8 @@ export function CursorTrail() {
         ctx!.lineTo(px - ox, py - oy);
 
         // Tread, then the skid smear over it as a wider solid pass.
-        stroke(0.14 + speed * 0.2, 4 + speed * 3.5, true);
-        if (skid > 0.05) stroke(0.2 * skid, 6 + skid * 5, false);
+        stroke(0.16 + speed * 0.18, 5 + speed * 3, true);
+        if (skid > 0.05) stroke(0.18 * skid, 6 + skid * 6, false);
 
         lx = px;
         ly = py;

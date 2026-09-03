@@ -743,6 +743,20 @@ test('the cursor leaves a tyre track that fades away', async ({ page }) => {
   const laid = await ink();
   expect(laid).toBeGreaterThan(200);
 
+  // The track is bounded in length, not in time: scribbling continuously
+  // must not fill the page up with overlapping tread. This is the whole
+  // reason the fade has a distance term — see the component.
+  const canvasArea = await page.evaluate(() => {
+    const el = document.querySelector<HTMLCanvasElement>('canvas.cursor-trail')!;
+    return el.width * el.height;
+  });
+  for (let i = 0; i < 200; i += 1) {
+    const t = i / 4;
+    await page.mouse.move(500 + Math.sin(t) * 280, 400 + Math.cos(t * 0.7) * 240);
+    await page.waitForTimeout(16);
+  }
+  expect(await ink()).toBeLessThan(canvasArea * 0.02);
+
   // Left alone, the track fades out completely and the loop stops.
   await page.waitForTimeout(4000);
   expect(await ink()).toBe(0);

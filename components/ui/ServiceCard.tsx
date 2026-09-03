@@ -277,7 +277,29 @@ export function ServiceCard({
               className="inline-block overflow-hidden pb-[0.08em] align-bottom"
             >
               <span data-card-word className="inline-block">
-                {word}
+                {/* Each word is a two-line roller inside its mask: the
+                    word as it sits, and a red copy parked directly
+                    below it. Hovering slides the roller up by exactly
+                    one line, so the word appears to be replaced by
+                    itself in brand red rather than just recolouring.
+                    Staggered by index, so the swap travels along the
+                    title instead of every word flipping at once.
+
+                    The second copy is positioned rather than stacked in
+                    flow: in flow it would double the mask's height and
+                    both copies would be visible at rest. */}
+                <span
+                  className="relative block transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-full"
+                  style={{ transitionDelay: `${i * 45}ms` }}
+                >
+                  <span className="block">{word}</span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-full left-0 block text-fire"
+                  >
+                    {word}
+                  </span>
+                </span>
               </span>
             </span>
           );

@@ -298,3 +298,40 @@ test('service cards tilt toward the cursor and settle back flat', async ({
   await page.waitForTimeout(1200);
   expect(await tilt()).toBeLessThan(0.01);
 });
+
+// Hovering a service card rolls each title word up and replaces it with
+// a red copy of itself, staggered along the line.
+test('service card titles roll over to red on hover', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const card = page.locator('article.group').first();
+  await card.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+
+  // How far each word's roller has travelled, as a fraction of a line.
+  const rolled = () =>
+    card.evaluate((el) =>
+      // Tailwind v4's translate utilities set the standalone `translate`
+      // property, not `transform` — reading `transform` here reports
+      // "none" on a fully rolled word.
+      [...el.querySelectorAll('h3 [data-card-word] > span')].map((s) => {
+        const t = getComputedStyle(s).translate;
+        const y = t === 'none' ? 0 : parseFloat(t.split(' ')[1] ?? '0');
+        return Math.abs(y) / (s as HTMLElement).offsetHeight;
+      }),
+    );
+
+  for (const r of await rolled()) expect(r).toBeLessThan(0.02);
+
+  const b = (await card.locator('div').first().boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.waitForTimeout(900);
+  // Fully swapped: every word has travelled a whole line.
+  for (const r of await rolled()) expect(r).toBeGreaterThan(0.9);
+
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(900);
+  for (const r of await rolled()) expect(r).toBeLessThan(0.02);
+});

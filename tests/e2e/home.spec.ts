@@ -60,9 +60,11 @@ test('the preloader lifts and hands the page back', async ({ page }) => {
 
 // The nav is a fixed 94px-tall scrim. On a short window the hero copy is
 // taller than its grid row, and ordinary centring split that overflow
-// evenly — sliding the eyebrow up behind the scrim's gradient and
-// backdrop-blur, where it read as "hidden". Guard every band that
-// regressed, not just the one that was reported.
+// evenly — sliding the top line up behind the scrim's gradient and
+// backdrop-blur, where it read as "hidden". The eyebrow that used to be
+// that top line was removed in round 21, so the headline is now what has
+// to clear the nav. Guard every band that regressed, not just the one
+// that was reported.
 for (const [w, h] of [
   [1512, 700],
   [1280, 800],
@@ -80,12 +82,10 @@ for (const [w, h] of [
       return b;
     };
     const nav = await box(page.locator('header').first());
-    const eyebrow = await box(
-      page.locator('p', { hasText: 'Licensed & Insured' }).first(),
-    );
+    const headline = await box(page.getByRole('heading', { level: 1 }));
     const cta = await box(page.getByRole('link', { name: 'Get a Quote' }));
 
-    expect(eyebrow.y).toBeGreaterThan(nav.y + nav.height);
+    expect(headline.y).toBeGreaterThan(nav.y + nav.height);
     expect(cta.y + cta.height).toBeLessThan(h);
 
     // The section marker is dropped on short windows rather than being

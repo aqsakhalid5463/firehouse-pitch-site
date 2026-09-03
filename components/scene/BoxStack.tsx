@@ -414,7 +414,12 @@ export function BoxStack() {
       // together the box visibly dwarfed the whole vehicle. Shrinking
       // earlier means the box is already close to its believable in-bay
       // size by the time it's alongside the truck.
-      const enterT = clamp01((delayedP - 0.32) / 0.68);
+      // Round 21: brought forward again, 0.32 -> 0.08. At 0.32 a box was
+      // still near hero scale while it queued alongside the trailer, so a
+      // single carton read as taller than the truck's own bay. The end
+      // point is still delayedP = 1, so CARGO_FIT's in-bay geometry is
+      // untouched; only how early the shrink starts changed.
+      const enterT = clamp01((delayedP - 0.08) / 0.92);
       const enterEase = enterT * enterT * (3 - 2 * enterT);
 
       // Boxes that rest on each other must bob as one body. This used

@@ -328,7 +328,7 @@ export function Preloader() {
             takes, which is why the truck glyph is shared with it. */}
         <div
           data-preload-copy
-          className="relative h-11 w-[min(440px,84vw)] overflow-hidden rounded-[3px] border-y border-ribbon-edge/25 bg-[#16161A]"
+          className="relative h-14 w-[min(440px,84vw)] overflow-hidden rounded-[3px] border-y border-ribbon-edge/25 bg-[#16161A]"
         >
           {/* Ground already covered, as a wash rather than a bar. */}
           <div
@@ -349,10 +349,14 @@ export function Preloader() {
           <div
             data-truck
             ref={truckRef}
-            // Sitting in the right-hand lane rather than straddling the
-            // centre line: travelling left-to-right in a top-down view,
-            // that is the lower half of the road.
-            className="absolute top-[72%] h-[22px] w-[32px] -translate-x-1/2 -translate-y-1/2"
+            // Round 21: centred on the road and enlarged. It used to sit
+            // in the right-hand lane at 22x32, which is lane-accurate but
+            // reads as a detail at this size — the truck is the one thing
+            // in the curtain that says "movers", so it takes the middle of
+            // the road and most of its height. The road grew to h-14 to
+            // keep a margin above and below rather than the glyph running
+            // edge to edge.
+            className="absolute top-1/2 h-[34px] w-[50px] -translate-x-1/2 -translate-y-1/2"
             style={{ left: '6%' }}
           >
             <svg viewBox="0 0 32 22" className="h-full w-full overflow-visible">

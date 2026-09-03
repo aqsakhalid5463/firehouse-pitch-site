@@ -257,3 +257,44 @@ test('heading entrances replay on a second visit', async ({ page }) => {
   await page.waitForTimeout(120);
   expect(await midFlip()).toBe(true);
 });
+
+// Service cards tilt toward the cursor, lift, and push the photograph
+// the opposite way inside the frame. The pair matters: tilt alone reads
+// as a rotating rectangle, the counter-push is what sells it as depth.
+test('service cards tilt toward the cursor and settle back flat', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const card = page.locator('article.group').first();
+  await card.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(700);
+  const frame = card.locator('div').first();
+  const image = card.locator('img');
+
+  // A 3D rotation shows up as the off-diagonal terms of the matrix; at
+  // rest they are zero.
+  const tilt = async () =>
+    frame.evaluate((el) => {
+      const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+      return Math.abs(m.m13) + Math.abs(m.m23);
+    });
+
+  expect(await tilt()).toBeLessThan(0.005);
+
+  const b = (await frame.boundingBox())!;
+  await page.mouse.move(b.x + b.width * 0.85, b.y + b.height * 0.2);
+  await page.waitForTimeout(500);
+  expect(await tilt()).toBeGreaterThan(0.03);
+  // The photograph moves against the tilt rather than with it.
+  const pushed = await image.evaluate((el) => (el as HTMLElement).style.transform);
+  expect(pushed).toMatch(/translate3d\(-\d/);
+
+  // And it returns to flat when the pointer leaves, so a card is never
+  // left stuck at an angle.
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(1200);
+  expect(await tilt()).toBeLessThan(0.01);
+});

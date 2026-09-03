@@ -25,6 +25,19 @@ gsap.registerPlugin(ScrollTrigger);
 /** Peak vertical travel, in px, at the extremes of the viewport. */
 const PARALLAX_PX = 26;
 
+/** Peak tilt, in degrees, at the corners of a hovered card. */
+const TILT_DEG = 7;
+/** How far the photograph counter-shifts against the tilt, in px. */
+const PUSH_PX = 18;
+/** How much the card rises off the page while hovered, in px. */
+const LIFT_PX = 10;
+/**
+ * Per-frame approach factor for every hover value. Low enough that the
+ * card feels weighted rather than glued to the cursor — these are big
+ * photographic panels, and an instant response reads as cheap.
+ */
+const EASE = 0.11;
+
 export function ServiceCard({
   index,
   title,
@@ -99,22 +112,79 @@ export function ServiceCard({
     if (reduced) return;
     const el = frame.current;
     const target = img.current;
-    if (!el || !target) return;
+    const card = root.current;
+    if (!el || !target || !card) return;
+
+    // Pointer position over the card, -1..1 on each axis, and how much
+    // of the hover state is currently applied. Every hover value is
+    // smoothed toward its target in the same rAF that already drives the
+    // parallax, rather than each getting its own tween: the photograph's
+    // transform has to be written by exactly one place, or the scroll
+    // parallax and the hover push overwrite each other every frame.
+    const to = { x: 0, y: 0, on: 0 };
+    const at = { x: 0, y: 0, on: 0 };
+
+    const onMove = (e: PointerEvent) => {
+      // Coarse pointers (touch) send a single synthetic move on tap,
+      // which would stick the card in a tilted state with no way to
+      // leave it.
+      if (e.pointerType !== 'mouse') return;
+      const r = el.getBoundingClientRect();
+      to.x = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      to.y = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      to.on = 1;
+      // The glare tracks the raw pointer, not the smoothed value: a
+      // highlight that lags the cursor reads as a smear.
+      el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      el.style.setProperty('--my', `${e.clientY - r.top}px`);
+    };
+    const onLeave = () => {
+      to.on = 0;
+      to.x = 0;
+      to.y = 0;
+    };
+
+    card.addEventListener('pointermove', onMove);
+    card.addEventListener('pointerleave', onLeave);
 
     let raf = 0;
     const tick = () => {
       const r = el.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < window.innerHeight) {
+      const onScreen = r.bottom > 0 && r.top < window.innerHeight;
+
+      at.x += (to.x - at.x) * EASE;
+      at.y += (to.y - at.y) * EASE;
+      at.on += (to.on - at.on) * EASE;
+
+      if (onScreen) {
         // -1 when the card sits at the bottom of the viewport, +1 at the
         // top, 0 when centred.
         const centre = (r.top + r.height / 2) / window.innerHeight;
-        const offset = (0.5 - centre) * 2 * PARALLAX_PX;
-        target.style.transform = `translate3d(0, ${offset.toFixed(2)}px, 0)`;
+        const drift = (0.5 - centre) * 2 * PARALLAX_PX;
+
+        // The frame tilts toward the cursor and lifts.
+        el.style.transform =
+          `perspective(1100px) rotateX(${(-at.y * TILT_DEG).toFixed(3)}deg) ` +
+          `rotateY(${(at.x * TILT_DEG).toFixed(3)}deg) ` +
+          `translate3d(0, ${(-at.on * LIFT_PX).toFixed(2)}px, 0)`;
+
+        // The photograph pushes the *opposite* way inside the frame.
+        // Moving it with the tilt would look painted on; moving it
+        // against gives the frame a sense of glass with something
+        // behind it, and it is the single cue that sells the whole
+        // effect as depth rather than as a rotating rectangle.
+        target.style.transform =
+          `translate3d(${(-at.x * PUSH_PX).toFixed(2)}px, ` +
+          `${(drift - at.y * PUSH_PX).toFixed(2)}px, 0)`;
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      card.removeEventListener('pointermove', onMove);
+      card.removeEventListener('pointerleave', onLeave);
+    };
   }, [reduced]);
 
   return (
@@ -129,7 +199,11 @@ export function ServiceCard({
           reading as equal offerings. */}
       <div
         ref={frame}
-        className="relative aspect-4/3 overflow-hidden rounded-3xl ring-1 ring-bone/10"
+        // `transform-gpu` and the explicit origin keep the tilt stable:
+        // without a fixed origin the rotation pivots about whatever the
+        // layout box happens to be after the copy below reflows.
+        className="relative aspect-4/3 origin-center overflow-hidden rounded-3xl ring-1 ring-bone/10 transition-shadow duration-500 ease-out group-hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9)]"
+        style={{ '--mx': '50%', '--my': '50%' } as React.CSSProperties}
       >
         <Image
           ref={img}
@@ -152,6 +226,19 @@ export function ServiceCard({
         <div
           aria-hidden="true"
           className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-dark-bg/85 to-transparent"
+        />
+
+        {/* A soft brand-red glare that follows the cursor across the
+            photograph. Sits above the image but below the number and the
+            edge marker, and is pointer-events-none so it can never be
+            hovered itself. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+          style={{
+            background:
+              'radial-gradient(420px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-fire) 18%, transparent), transparent 62%)',
+          }}
         />
 
         {/* The ribbon runs down the page in brand red; this edge marker
@@ -178,7 +265,11 @@ export function ServiceCard({
         className="mt-6 h-px w-full origin-left bg-bone/15 transition-colors duration-500 group-hover:bg-fire/60"
       />
 
-      <h3 className="mt-5 text-[clamp(1.5rem,2.4vw,2rem)] font-semibold tracking-tight">
+      {/* The copy slides a little way toward the rule on hover, so the
+          whole card responds rather than just the photograph. Small: this
+          is a caption acknowledging the pointer, not a second animation
+          competing with the tilt. */}
+      <h3 className="mt-5 text-[clamp(1.5rem,2.4vw,2rem)] font-semibold tracking-tight transition-transform duration-500 ease-out group-hover:translate-x-1.5">
         {title.split(' ').flatMap((word, i, all) => {
           const wrapped = (
             <span
@@ -195,7 +286,10 @@ export function ServiceCard({
           return i < all.length - 1 ? [wrapped, ' '] : [wrapped];
         })}
       </h3>
-      <p data-card-body className="mt-3 max-w-md leading-relaxed text-bone/60">
+      <p
+        data-card-body
+        className="mt-3 max-w-md leading-relaxed text-bone/60 transition-[transform,color] duration-500 ease-out group-hover:translate-x-1.5 group-hover:text-bone/75"
+      >
         {body}
       </p>
     </article>

@@ -70,21 +70,13 @@ body {
    uppercase, set large. The weight is the one departure: at 100 the
    headings read as hairlines against a near-black page — legible in the
    reference, which sets them on white — so this runs at 600 while
-   keeping the tracking, leading and case that give the style its shape. That is a display style, not a body style — the
-   negative tracking and sub-1 leading only work on short uppercase runs,
-   which is why it is scoped to h1/h2 and not applied site-wide.
+   keeping the tracking, leading and case that give the style its shape.
    
-   Applied by RevealText to h1 and h2, so every section heading picks it
-   up without each call site restating four utilities that would then
-   drift apart.
-   
-   The vertical two-tone is per character rather than one gradient
-   clipped to the whole heading: each character animates in its own
-   transform for the entrance, and a background painted in the heading's
-   box does not follow them. Painting each character's own background
-   means the split stays put on a letter that is mid-flip. The
-   background box is twice the character's height and slides on hover, so
-   the red rises through the letter instead of switching. */
+   This is a display style, not a body style — the negative tracking and
+   sub-1 leading only work on short uppercase runs, which is why it is
+   scoped to h1/h2 and not applied site-wide. Applied by RevealText, so
+   every section heading picks it up without each call site restating
+   four utilities that would then drift apart. */
 .heading-display {
   font-weight: 600;
   letter-spacing: -0.06em;
@@ -92,36 +84,14 @@ body {
   text-transform: uppercase;
 }
 
-.heading-display [data-char] {
-  background-image: linear-gradient(
-    180deg,
-    var(--page-ink) 0%,
-    var(--page-ink) 46%,
-    var(--color-fire) 62%,
-    var(--color-fire) 100%
-  );
-  /* The gradient box is twice the character's height and sits half way
-     down at rest, so the ink-to-red hand-off lands across the middle of
-     the letter: white above, red below. Hover slides it up and the red
-     floods the whole character. */
-  background-size: 100% 210%;
-  background-position: 0% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  transition: background-position 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Hovering slides the gradient the other way, so the red climbs up
-   through the letters and floods them. */
-.heading-display:hover [data-char] {
-  background-position: 0% 96%;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .heading-display [data-char] {
-    transition: none;
-  }
+/* The accent word. Headings are white with their last word in red —
+   emphasis on the word the line lands on, which is a typographic choice
+   rather than an effect. The earlier vertical two-tone (white above, red
+   below, per character) was the client's "does not look good": a
+   gradient running through every letter reads as a graphic treatment
+   applied to type, not as type. */
+.heading-display [data-accent='1'] {
+  color: var(--color-fire);
 }
 
 /* No JS: the custom properties above already hold the final dark

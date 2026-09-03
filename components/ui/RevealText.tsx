@@ -201,46 +201,37 @@ export function RevealText({
       // amplitude you can actually see, where the fixed per-word
       // rotation it replaced was not — a permanent tilt reads as a
       // typesetting bug, a transient lean reads as weight.
-      // Hovering makes the heading restless: every character takes a
-      // small random offset and tilt, re-rolled on each hover, and
-      // settles back when the pointer leaves.
+      // Hovering runs a colour sweep along the line and lifts the
+      // characters a little as it passes.
       //
-      // Random per character rather than a single shared wobble, because
-      // a whole heading moving as one body reads as the element being
-      // dragged; characters disagreeing with each other reads as the
-      // type itself being alive. The offsets are small — this sits under
-      // the two-tone colour, not instead of it.
+      // This replaces a random per-character scatter — offsets, tilts,
+      // an elastic settle — which the client called childish, and they
+      // were right: type that rotates to arbitrary angles stops being
+      // typography and starts being a toy. Everything here keeps the
+      // letters on their baseline and upright; only the colour and a few
+      // pixels of lift move. The accent word inverts as the wave passes,
+      // so the sweep reads as the emphasis changing hands rather than as
+      // a highlight being dragged over the top.
       const el = root.current!;
       const onEnter = (e: PointerEvent) => {
         if (e.pointerType !== 'mouse') return;
         gsap.to(chars, {
-          y: () => gsap.utils.random(-7, 7),
-          x: () => gsap.utils.random(-3, 3),
-          rotate: () => gsap.utils.random(-5, 5),
-          duration: 0.5,
-          ease: 'elastic.out(1, 0.45)',
-          stagger: { amount: 0.22, from: 'random' },
-          overwrite: 'auto',
-        });
-      };
-      const onLeaveHover = () => {
-        gsap.to(chars, {
-          y: 0,
-          x: 0,
-          rotate: 0,
-          duration: 0.7,
-          ease: 'elastic.out(1, 0.5)',
-          stagger: { amount: 0.2, from: 'random' },
+          color: (_i: number, target: HTMLElement) =>
+            target.dataset.accent === '1'
+              ? 'var(--page-ink)'
+              : 'var(--color-fire)',
+          y: -5,
+          duration: 0.26,
+          ease: 'power2.out',
+          stagger: { amount: 0.34, from: 'start' },
+          yoyo: true,
+          repeat: 1,
           overwrite: 'auto',
         });
       };
 
       el.addEventListener('pointerenter', onEnter);
-      el.addEventListener('pointerleave', onLeaveHover);
-      cleanups.push(() => {
-        el.removeEventListener('pointerenter', onEnter);
-        el.removeEventListener('pointerleave', onLeaveHover);
-      });
+      cleanups.push(() => el.removeEventListener('pointerenter', onEnter));
 
       const spring = { skew: 0 };
       const setSkew = gsap.quickSetter(root.current!, 'skewY', 'deg');
@@ -289,6 +280,10 @@ export function RevealText({
     >
       <span aria-hidden="true">
       {children.split(' ').flatMap((word, i, words) => {
+        // The last word carries the accent colour. It is the word the
+        // line lands on, so emphasis there reads as intent; picking one
+        // at random would read as a bug.
+        const accent = words.length > 2 && i === words.length - 1;
         const wrapped = (
           <span
             key={`word-${i}`}
@@ -308,7 +303,11 @@ export function RevealText({
                   className="inline-block"
                   style={{ perspective: '520px' }}
                 >
-                  <span data-char className="inline-block">
+                  <span
+                    data-char
+                    data-accent={accent ? '1' : undefined}
+                    className="inline-block"
+                  >
                     {ch}
                   </span>
                 </span>

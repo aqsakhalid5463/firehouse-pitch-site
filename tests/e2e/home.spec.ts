@@ -437,46 +437,55 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   for (const y of seen) expect(Math.abs(y - 450)).toBeLessThan(320);
 });
 
-// Headings are two-tone at rest — white above, red below — and hovering
-// floods the red up through them while the characters scatter.
-test('headings flood red and come alive on hover', async ({ page }) => {
+// Headings are white with their last word in red. Hovering runs a red
+// sweep along the line, and the accent word inverts as it passes.
+test('headings carry a red accent word and sweep on hover', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
   await page.waitForTimeout(2500);
 
+  const FIRE = 'rgb(226, 61, 40)';
+  const INK = 'rgb(240, 240, 238)';
+
   const state = () =>
     page.evaluate(() => {
       const chars = [...document.querySelectorAll('h1 [data-char]')];
-      const cs = getComputedStyle(chars[0]);
-      // How far each character has been knocked off its resting place.
-      const offset = chars.reduce((max, c) => {
-        const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
-        return Math.max(max, Math.abs(m.e) + Math.abs(m.f));
-      }, 0);
-      return { pos: cs.backgroundPosition, clip: cs.webkitBackgroundClip, offset };
+      return {
+        accent: chars
+          .filter((c) => (c as HTMLElement).dataset.accent === '1')
+          .map((c) => getComputedStyle(c).color),
+        plain: chars
+          .filter((c) => (c as HTMLElement).dataset.accent !== '1')
+          .map((c) => getComputedStyle(c).color),
+        // Letters must stay upright: the scatter this replaced rotated
+        // them to arbitrary angles, which is what read as childish.
+        maxRotation: chars.reduce((max, c) => {
+          const m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
+          return Math.max(max, Math.abs((Math.atan2(m.b, m.a) * 180) / Math.PI));
+        }, 0),
+      };
     });
 
   const rest = await state();
-  // The two-tone is a gradient clipped to each character, parked half
-  // way down so the hand-off lands across the middle of the letter.
-  expect(rest.clip).toBe('text');
-  expect(rest.pos).toMatch(/50%/);
-  expect(rest.offset).toBeLessThan(1);
+  expect(new Set(rest.accent)).toEqual(new Set([FIRE]));
+  expect(new Set(rest.plain)).toEqual(new Set([INK]));
 
   const box = (await page.locator('h1').first().boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.4, box.y + 40);
-  await page.waitForTimeout(700);
+  await page.mouse.move(box.x + box.width * 0.35, box.y + 40);
+  await page.waitForTimeout(200);
 
   const hovered = await state();
-  // Red has climbed the letters...
-  expect(hovered.pos).not.toBe(rest.pos);
-  // ...and they have actually moved.
-  expect(hovered.offset).toBeGreaterThan(1);
+  // Somewhere mid-sweep the plain letters are no longer all plain.
+  expect(new Set(hovered.plain).size).toBeGreaterThan(1);
+  expect(hovered.maxRotation).toBeLessThan(0.5);
 
   await page.mouse.move(5, 5);
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(1500);
   const settled = await state();
-  expect(settled.pos).toMatch(/50%/);
-  expect(settled.offset).toBeLessThan(1);
+  expect(new Set(settled.accent)).toEqual(new Set([FIRE]));
+  expect(new Set(settled.plain)).toEqual(new Set([INK]));
+  expect(settled.maxRotation).toBeLessThan(0.5);
 });

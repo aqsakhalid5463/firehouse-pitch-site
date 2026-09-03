@@ -201,37 +201,51 @@ export function RevealText({
       // amplitude you can actually see, where the fixed per-word
       // rotation it replaced was not — a permanent tilt reads as a
       // typesetting bug, a transient lean reads as weight.
-      // Hovering runs a colour sweep along the line and lifts the
-      // characters a little as it passes.
+      // Hover swaps the whole heading for its ghost.
       //
-      // This replaces a random per-character scatter — offsets, tilts,
-      // an elastic settle — which the client called childish, and they
-      // were right: type that rotates to arbitrary angles stops being
-      // typography and starts being a toy. Everything here keeps the
-      // letters on their baseline and upright; only the colour and a few
-      // pixels of lift move. The accent word inverts as the wave passes,
-      // so the sweep reads as the emphasis changing hands rather than as
-      // a highlight being dragged over the top.
+      // Two tweens on two elements: the line moves as a body, the way a
+      // printed word does, instead of forty characters each doing
+      // something of their own. `power3.inOut` rather than a bounce or
+      // an elastic — the gesture should feel weighted and deliberate,
+      // which is most of what separates this from the version the client
+      // called childish.
       const el = root.current!;
-      const onEnter = (e: PointerEvent) => {
-        if (e.pointerType !== 'mouse') return;
-        gsap.to(chars, {
-          color: (_i: number, target: HTMLElement) =>
-            target.dataset.accent === '1'
-              ? 'var(--page-ink)'
-              : 'var(--color-fire)',
-          y: -5,
-          duration: 0.26,
-          ease: 'power2.out',
-          stagger: { amount: 0.34, from: 'start' },
-          yoyo: true,
-          repeat: 1,
-          overwrite: 'auto',
-        });
-      };
+      const roll = el.querySelector<HTMLElement>('[data-roll]');
+      const ghost = el.querySelector<HTMLElement>('[data-roll-ghost]');
+      if (display && roll && ghost) {
+        const swap = (over: boolean) => {
+          gsap.to(roll, {
+            y: over ? -10 : 0,
+            opacity: over ? 0 : 1,
+            duration: 0.42,
+            ease: 'power3.inOut',
+            overwrite: 'auto',
+          });
+          gsap.fromTo(
+            ghost,
+            { y: over ? 10 : 0 },
+            {
+              y: over ? 0 : 10,
+              opacity: over ? 1 : 0,
+              duration: 0.42,
+              ease: 'power3.inOut',
+              overwrite: 'auto',
+            },
+          );
+        };
+        const onEnter = (e: PointerEvent) => {
+          if (e.pointerType !== 'mouse') return;
+          swap(true);
+        };
+        const onLeaveHover = () => swap(false);
 
-      el.addEventListener('pointerenter', onEnter);
-      cleanups.push(() => el.removeEventListener('pointerenter', onEnter));
+        el.addEventListener('pointerenter', onEnter);
+        el.addEventListener('pointerleave', onLeaveHover);
+        cleanups.push(() => {
+          el.removeEventListener('pointerenter', onEnter);
+          el.removeEventListener('pointerleave', onLeaveHover);
+        });
+      }
 
       const spring = { skew: 0 };
       const setSkew = gsap.quickSetter(root.current!, 'skewY', 'deg');
@@ -275,9 +289,22 @@ export function RevealText({
     // the accessibility tree.
     <Tag
       ref={root as never}
-      className={`${display ? 'heading-display ' : ''}${className}`}
+      className={`${display ? 'heading-display relative block ' : ''}${className}`}
       aria-label={children}
     >
+      {/* On hover the heading swaps as one body: this copy lifts and
+          fades while the ghost rises into its place. Moving the whole
+          line rather than the characters individually is the difference
+          between a piece of typography moving and a row of letters doing
+          tricks.
+          
+          A cross-fade rather than a roll inside a mask, which is the
+          more obvious way to do this: the mask needs `overflow: hidden`
+          on the heading, and that clips the entrance — characters
+          pivoting up from flat, and the scroll wave that lifts each word
+          16px, both travel outside the text box by design. Measured, it
+          cut the bottom off any heading that was still animating in. */}
+      <span data-roll className="block will-change-transform">
       <span aria-hidden="true">
       {children.split(' ').flatMap((word, i, words) => {
         // The last word carries the accent colour. It is the word the
@@ -320,6 +347,42 @@ export function RevealText({
         return i < words.length - 1 ? [wrapped, ' '] : [wrapped];
       })}
       </span>
+      </span>
+
+      {/* The ghost. Same text, same metrics, colours swapped — so what
+          arrives is recognisably the same heading rather than a second
+          one. Positioned exactly one height below, so a -100% roll lands
+          it precisely where the original sat. It is inert: no data
+          attributes, so neither the entrance nor the scroll effects
+          touch it. */}
+      {display && (
+        <span
+          data-roll-ghost
+          aria-hidden="true"
+          // Sitting exactly on top of the original rather than below it,
+          // so the two are interchangeable and the swap has no travel to
+          // resolve.
+          className="pointer-events-none absolute inset-x-0 top-0 block opacity-0"
+        >
+          {children.split(' ').map((word, i, words) => {
+            const accent = words.length > 2 && i === words.length - 1;
+            return (
+              <span
+                key={`ghost-${i}`}
+                className="inline-block"
+                style={{
+                  color: accent
+                    ? 'var(--page-ink)'
+                    : 'var(--color-fire)',
+                }}
+              >
+                {word}
+                {i < words.length - 1 ? '\u00A0' : ''}
+              </span>
+            );
+          })}
+        </span>
+      )}
     </Tag>
   );
 }

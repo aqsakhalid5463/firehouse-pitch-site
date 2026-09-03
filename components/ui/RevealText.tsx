@@ -40,20 +40,50 @@ export function RevealText({
       // The hinge is the baseline (`transformOrigin` bottom), so the
       // letters swing up onto the line they will settle on instead of
       // pivoting about their middles and needing to correct downward.
-      gsap.from(chars, {
+      // Built as a paused timeline driven by explicit ScrollTrigger
+      // callbacks rather than a one-shot `scrollTrigger` on the tween,
+      // so it replays every time the heading comes back into view. A
+      // once-per-load entrance meant scrolling up and back down showed
+      // nothing, and a heading scrolled past quickly was simply missed
+      // for the rest of the session.
+      const tl = gsap.timeline({ paused: true });
+      tl.from(chars, {
         yPercent: 120,
         rotateX: -92,
         opacity: 0,
-        duration: 1,
+        duration: 0.85,
         ease: 'expo.out',
         transformOrigin: '50% 100%',
         // Tight enough that a long heading still resolves quickly — the
         // cascade should read as one gesture travelling along the line,
         // not as letters arriving one at a time.
-        stagger: { each: 0.018, from: 'start', ease: 'power2.in' },
+        stagger: { each: 0.016, from: 'start', ease: 'power2.in' },
         delay,
-        scrollTrigger: { trigger: root.current, start: 'top 85%' },
       });
+
+      const st = ScrollTrigger.create({
+        trigger: root.current,
+        // Starts earlier and ends later than the visible band: a fast
+        // scroll should have the animation already running by the time
+        // the heading is properly in frame, and should not reset it
+        // until the heading is genuinely gone.
+        start: 'top 92%',
+        end: 'bottom 8%',
+        // Both directions play, so coming back up a page is not a
+        // silent stretch of already-resolved headings.
+        onEnter: () => tl.restart(true),
+        onEnterBack: () => tl.restart(true),
+        // Reset only once the heading is off screen, so nobody ever
+        // sees it snap back to its start state.
+        onLeave: () => tl.pause(0),
+        onLeaveBack: () => tl.pause(0),
+      });
+
+      // A heading already in view when this mounts (anything above the
+      // fold) gets no enter callback, so set its state explicitly
+      // instead of leaving it at whatever the markup rendered.
+      if (st.isActive) tl.restart(true);
+      else tl.pause(0);
 
       // Then the heading stays alive for as long as it is on screen.
       // Each word drifts and tilts as the block crosses the viewport,

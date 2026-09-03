@@ -213,3 +213,44 @@ test('the process steps hand the spotlight along in order', async ({ page }) => 
   await page.waitForTimeout(400);
   for (const v of await scales()) expect(v).toBeLessThan(1.01);
 });
+
+// The heading entrance replays every time a heading comes back into
+// view. It used to be a one-shot: scrolling up and back down showed
+// nothing, and a heading passed quickly was missed for the rest of the
+// session.
+test('heading entrances replay on a second visit', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  // True while any on-screen character is still mid-flip (i.e. carrying
+  // a transform that is not the identity it settles on).
+  const midFlip = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('[data-char]')].some((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) return false;
+        const t = getComputedStyle(el).transform;
+        return t !== 'none' && t !== 'matrix(1, 0, 0, 1, 0, 0)';
+      }),
+    );
+
+  const down = async (n: number, dy = 400) => {
+    for (let i = 0; i < n; i++) {
+      await page.mouse.wheel(0, dy);
+      await page.waitForTimeout(20);
+    }
+  };
+
+  await down(22);
+  await page.waitForTimeout(200);
+  expect(await midFlip()).toBe(true);
+
+  // Let everything settle, then leave and come back.
+  await page.waitForTimeout(1500);
+  await down(12, -400);
+  await page.waitForTimeout(600);
+  await down(12);
+  await page.waitForTimeout(120);
+  expect(await midFlip()).toBe(true);
+});

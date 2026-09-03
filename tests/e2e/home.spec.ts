@@ -583,3 +583,63 @@ test('the process section travels horizontally as you scroll', async ({
   expect(later.x).toBeLessThan(early.x - 100);
   expect(later.fill).toBeGreaterThan(early.fill);
 });
+
+// Process cards lift toward the reader and tilt to the cursor, with
+// their contents sitting at different depths inside the card.
+test('process cards come forward on hover', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(2000);
+
+  const start = await page.evaluate(
+    () =>
+      document.querySelector('#process')!.getBoundingClientRect().top +
+      window.scrollY,
+  );
+  while ((await page.evaluate(() => window.scrollY)) < start + 200) {
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(45);
+  }
+  await page.waitForTimeout(900);
+
+  // Whichever card is under the cursor: the track has travelled by now,
+  // so a card's index says nothing about where it is on screen.
+  const hovered = () =>
+    page.evaluate(() => {
+      const card = [...document.querySelectorAll('#process [data-step]')].find(
+        (c) => c.matches(':hover'),
+      );
+      if (!card) return null;
+      const m = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+      const layer = card.querySelector('[data-depth="-0.6"]') as HTMLElement;
+      return {
+        // Translation in Z: the card is genuinely closer, not just bigger.
+        z: m.m43,
+        tilt: Math.abs(m.m13) + Math.abs(m.m23),
+        layerMoved: layer.style.transform !== '',
+      };
+    });
+
+  await page.mouse.move(700, 480);
+  await page.waitForTimeout(150);
+  await page.mouse.move(880, 420);
+  await page.waitForTimeout(800);
+
+  const on = await hovered();
+  expect(on).not.toBeNull();
+  expect(on!.z).toBeGreaterThan(40);
+  expect(on!.tilt).toBeGreaterThan(0.02);
+  expect(on!.layerMoved).toBe(true);
+
+  // And it settles back flat when the pointer leaves.
+  await page.mouse.move(700, 120);
+  await page.waitForTimeout(900);
+  const flat = await page.evaluate(() => {
+    const card = document.querySelectorAll('#process [data-step]')[3];
+    const m = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+    return { z: Math.abs(m.m43), tilt: Math.abs(m.m13) + Math.abs(m.m23) };
+  });
+  expect(flat.z).toBeLessThan(1);
+  expect(flat.tilt).toBeLessThan(0.005);
+});

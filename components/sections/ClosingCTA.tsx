@@ -17,7 +17,7 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
  */
 export function ClosingCTA() {
   return (
-    <section id="quote" className="relative px-6 py-40">
+    <section id="quote" data-ribbon-zone="drift" className="relative px-6 py-40">
       <div className="mx-auto max-w-4xl text-center">
         <RevealText
           as="h2"

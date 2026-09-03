@@ -5,7 +5,7 @@ import { FadeUp } from "@/components/ui/FadeUp";
 
 export function Values() {
   return (
-    <section className="relative px-6 py-32">
+    <section data-ribbon-zone="drift" className="relative px-6 py-32">
       <div className="mx-auto max-w-7xl">
         <RevealText
           as="h2"

@@ -45,7 +45,11 @@ export function Story() {
   }, [reduced]);
 
   return (
-    <section ref={root} className="relative px-6 py-32">
+    <section
+      ref={root}
+      data-ribbon-zone="circles"
+      className="relative px-6 py-32"
+    >
       <div className="mx-auto max-w-4xl">
         <RevealText
           as="h2"

@@ -4,7 +4,7 @@ import { ServiceCard } from "@/components/ui/ServiceCard";
 
 export function Services() {
   return (
-    <section id="services" className="relative px-6 py-32">
+    <section id="services" data-ribbon-zone="zigzag" className="relative px-6 py-32">
       <div className="mx-auto max-w-7xl">
         <RevealText
           as="h2"

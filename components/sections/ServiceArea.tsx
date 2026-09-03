@@ -63,7 +63,7 @@ export function ServiceArea() {
   const bottom = SERVICE_AREA.slice(half);
 
   return (
-    <section className="relative overflow-hidden py-32">
+    <section data-ribbon-zone="circles" className="relative overflow-hidden py-32">
       <div className="mx-auto mb-16 max-w-7xl px-6">
         <p className="text-xs font-semibold tracking-[0.3em] text-fire uppercase">
           Service area

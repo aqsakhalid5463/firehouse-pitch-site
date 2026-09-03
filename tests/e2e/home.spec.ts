@@ -358,11 +358,17 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  // The roads mount only after the ribbon has measured its zones,
+  // checkpoints and obstacles, and re-measures once more when fonts and
+  // images have settled.
+  await page.locator('[data-ribbon-road="zigzag"] svg').waitFor({ timeout: 10000 });
   await page.waitForTimeout(1200);
 
   // Every checkpoint should have road passing close to its centre.
   const misses = await page.evaluate(() => {
-    const svg = document.querySelector('div[aria-hidden="true"] > svg');
+    // The checkpoints all live in the zig-zag stretch, which is now one
+    // of several separate roads rather than the single page-long path.
+    const svg = document.querySelector('[data-ribbon-road="zigzag"] svg');
     const path = svg?.querySelector('path');
     if (!path) return [-1];
     const box = svg!.getBoundingClientRect();
@@ -394,7 +400,7 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   // ~55 degrees here, which is a 4px turning radius.
   const worstTurn = await page.evaluate(() => {
     const path = document.querySelector(
-      'div[aria-hidden="true"] > svg path',
+      '[data-ribbon-road="zigzag"] svg path',
     ) as SVGPathElement | null;
     if (!path) return 999;
     const len = path.getTotalLength();
@@ -419,22 +425,35 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   // being driven, rather than racing ahead on the sideways stretches.
   const truckY = () =>
     page.evaluate(() => {
-      const g = document.querySelector(
-        'div[aria-hidden="true"] > svg g[style]',
-      ) as SVGGElement | null;
-      if (!g || g.style.opacity === '0') return null;
+      // Whichever stretch is currently being driven: only one truck can
+      // be visible at a time, because the zones do not overlap.
+      const g = [
+        ...document.querySelectorAll<SVGGElement>('[data-ribbon-road] svg g[style]'),
+      ].find((n) => n.style.opacity !== '0' && n.style.opacity !== '');
+      if (!g) return null;
       const r = g.getBoundingClientRect();
       return r.y + r.height / 2;
     });
+
+  // Into the zig-zag stretch first. The road no longer runs the whole
+  // page — it exists only inside its zones — so sampling from the top
+  // spends most of its scroll in sections that deliberately have none.
+  await page.evaluate(() => {
+    const z = document.querySelector('[data-ribbon-zone="zigzag"]')!;
+    window.scrollTo(0, z.getBoundingClientRect().top + window.scrollY - 200);
+  });
+  await page.waitForTimeout(1500);
 
   // Scrolled at a reading pace and given time to settle: the truck is
   // deliberately speed-capped (it drives rather than teleports), so a
   // burst of fast wheel events legitimately leaves it behind for a
   // second or two while it catches up.
   const seen: number[] = [];
+  // Short bursts: the whole stretch is 2800px, so the old 1500px-per-
+  // batch pace drove straight out the far end of it after one sample.
   for (let k = 0; k < 3; k++) {
     for (let i = 0; i < 5; i++) {
-      await page.mouse.wheel(0, 300);
+      await page.mouse.wheel(0, 150);
       await page.waitForTimeout(60);
     }
     await page.waitForTimeout(2000);
@@ -799,4 +818,71 @@ test('the preloader shutter rolls up on a composited transform', async ({
   }
 
   await expect(page.locator('.preloader')).toHaveCount(0);
+});
+
+test('the road exists only in its zones and routes around copy', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('[data-ribbon-road]').first().waitFor({ timeout: 10000 });
+  await page.waitForTimeout(1500);
+
+  const zones = await page
+    .locator('[data-ribbon-zone]')
+    .evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLElement).dataset.ribbonZone),
+    );
+  // Three stretches of road, and the two pinned sections between them
+  // deliberately have none — the truck leaves and turns up again later.
+  expect(zones).toEqual(['zigzag', 'circles', 'drift']);
+  await expect(page.locator('#process[data-ribbon-zone]')).toHaveCount(0);
+
+  const road = await page.evaluate(() => {
+    const scope = document.querySelector('main .relative.z-10')!;
+    const hosts = [...scope.querySelectorAll('[data-ribbon-road]')];
+    const boxes = [
+      ...scope.querySelectorAll<HTMLElement>('h1,h2,h3,p,blockquote'),
+    ]
+      .filter((n) => !n.closest('[data-ribbon-checkpoint]'))
+      .map((n) => n.getBoundingClientRect())
+      .filter((r) => r.width >= 80 && r.height >= 12);
+
+    let total = 0;
+    let hit = 0;
+
+    for (const host of hosts) {
+      const path = host.querySelector('svg path') as SVGPathElement;
+      const hb = host.getBoundingClientRect();
+      const len = path.getTotalLength();
+      for (let i = 0; i <= 300; i += 1) {
+        const p = path.getPointAtLength((i / 300) * len);
+        const x = hb.left + p.x;
+        const y = hb.top + p.y;
+        // Each stretch clips to its own band, so path points outside it
+        // are never painted and must not be counted as crossings.
+        if (p.x < 0 || p.x > hb.width || p.y < 0 || p.y > hb.height) continue;
+        total += 1;
+        if (
+          boxes.some(
+            (r) => x > r.left && x < r.right && y > r.top && y < r.bottom,
+          )
+        )
+          hit += 1;
+      }
+    }
+    return { roads: hosts.length, total, hit };
+  });
+
+  expect(road.roads).toBe(3);
+  // The road gives way to copy rather than crossing it. Not zero: it
+  // passes through the service photographs by design, and their titles
+  // sit directly beneath them; a headline spanning the full width also
+  // leaves nowhere to go, and crossing one square-on is the intended
+  // fallback. Measured at 7.3%, most of it the service-card titles that
+  // sit directly under the photographs the road is routed through by
+  // design. This guards the mechanism, not the exact route, which is
+  // free to change with the copy.
+  expect(road.hit / road.total).toBeLessThan(0.09);
 });

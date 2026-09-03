@@ -643,3 +643,70 @@ test('process cards come forward on hover', async ({ page }) => {
   expect(flat.z).toBeLessThan(1);
   expect(flat.tilt).toBeLessThan(0.005);
 });
+
+// The promises are dealt as a 3D stack: one card at the front, the rest
+// at other depths, moving through the stack as you scroll — and back
+// again when you scroll up.
+test('the promise cards move through a 3D stack in both directions', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(2000);
+
+  const start = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('h2')].find((x) =>
+      x.textContent?.includes('promises'),
+    )!;
+    return h.getBoundingClientRect().top + window.scrollY;
+  });
+
+  // Which card is at the front, and how much depth the stack is using.
+  const stack = () =>
+    page.evaluate(() => {
+      const cards = [...document.querySelectorAll('[data-stack-card]')];
+      const z = cards.map(
+        (c) => new DOMMatrixReadOnly(getComputedStyle(c).transform).m43,
+      );
+      const opacity = cards.map((c) => Number(getComputedStyle(c).opacity));
+      // The front card is the visible one closest to z = 0.
+      let front = -1;
+      let best = Infinity;
+      cards.forEach((_, i) => {
+        if (opacity[i] < 0.5) return;
+        if (Math.abs(z[i]) < best) {
+          best = Math.abs(z[i]);
+          front = i;
+        }
+      });
+      return { front, spread: Math.max(...z) - Math.min(...z) };
+    });
+
+  while ((await page.evaluate(() => window.scrollY)) < start + 200) {
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(40);
+  }
+  await page.waitForTimeout(900);
+
+  const first = await stack();
+  // The cards occupy genuinely different depths, not one plane.
+  expect(first.spread).toBeGreaterThan(200);
+
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, 320);
+    await page.waitForTimeout(50);
+  }
+  await page.waitForTimeout(900);
+  const advanced = await stack();
+  expect(advanced.front).toBeGreaterThan(first.front);
+
+  // And back up: the stack is not one-way.
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, -320);
+    await page.waitForTimeout(50);
+  }
+  await page.waitForTimeout(1000);
+  const back = await stack();
+  expect(back.front).toBeLessThan(advanced.front);
+});

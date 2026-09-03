@@ -310,7 +310,7 @@ function buildWaypoints(
 ): [number, number][] {
   const rand = seeded(seed);
   const pts: [number, number][] = [];
-  const loopR = 0.06;
+  const loopR = 0.085;
 
   let x = -0.22;
   let y = 0.005;
@@ -441,7 +441,16 @@ function loopFrom(
   // is, at the circle's side.
   const cx = x - dir * r;
   const out: [number, number][] = [];
-  const STEPS = 14;
+  // Enough samples to describe a circle, few enough that consecutive
+  // knots are comfortably further apart than MIN_KNOT_GAP.
+  //
+  // At 14 samples an 86px-radius loop puts its knots 38px apart, against
+  // a 34px pruning threshold — so some survived and some did not, and
+  // the circle came out visibly lumpy with a lopsided crossing. The
+  // radius below was raised at the same time: a bigger loop is both
+  // rounder for the same sample count and better looking than a small
+  // one squeezed between two lines of text.
+  const STEPS = 11;
   for (let k = 1; k <= STEPS; k++) {
     const t = k / STEPS;
     const a = t * Math.PI * 2;
@@ -506,7 +515,7 @@ function buildCheckpointWaypoints(
   // that the zig-zag is legible at a glance; the checkpoints themselves
   // are what stop it becoming a uniform weave.
   const SWING = 0.22;
-  const loopR = 0.06;
+  const loopR = 0.085;
   // Loops are drawn in width fractions and squashed by the container's
   // aspect so they come out round on screen rather than as tall ovals.
   const aspect = h > 0 ? w / h : 1;
@@ -818,19 +827,6 @@ function buildPath(
   return d;
 }
 
-/**
- * Fastest the truck may travel, in path pixels per frame (~1.4k px/s at
- * 60fps). Fast enough that it still keeps up with an ordinary scroll on
- * the straight sections, slow enough that a loop is visibly driven.
- */
-const MAX_STEP = 26;
-
-/**
- * How far behind (in path pixels) the truck has to fall before it is
- * allowed to travel faster than driving speed to catch up.
- */
-const CATCH_UP_AFTER = 900;
-
 /** Stroke width of the road surface itself, in CSS pixels. */
 const ROAD_WIDTH = 22;
 
@@ -982,82 +978,49 @@ function RoadSegment({
 
     let raf = 0;
 
-    // The path is sampled once into a table of points, and each sample
-    // carries the greatest y reached at or before it. That running
-    // maximum is monotonic by construction, which is what makes a
-    // forward-only lookup possible on a road that is no longer monotonic
-    // itself: it now contains full loops, where the same y occurs at
-    // several different arc lengths.
-    //
-    // The previous version bisected the path directly for the arc length
-    // level with the viewport centre. That is only valid while y always
-    // increases along the path — with a loop in the road it has several
-    // answers and the search returns whichever one it stumbles into, so
-    // the truck teleports around the loop.
-    const STEP = 6;
-    const count = Math.max(2, Math.ceil(length / STEP));
-    const xs = new Float32Array(count + 1);
-    const ys = new Float32Array(count + 1);
-    const runMax = new Float32Array(count + 1);
-    for (let i = 0; i <= count; i++) {
-      const pt = path.getPointAtLength((i / count) * length);
-      xs[i] = pt.x;
-      ys[i] = pt.y;
-      runMax[i] = i === 0 ? pt.y : Math.max(runMax[i - 1], pt.y);
-    }
-
-    /** Arc length at which the road has first reached this far down. */
-    const lengthAtY = (targetY: number) => {
-      let lo = 0;
-      let hi = count;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (runMax[mid] < targetY) lo = mid + 1;
-        else hi = mid;
-      }
-      return (lo / count) * length;
-    };
-
     // Where the truck actually is, chased toward where the scroll says
-    // it should be. Inside a loop the target jumps by the loop's whole
-    // circumference — the loop occupies almost no height, so scrolling a
-    // few pixels asks the truck to cover all of it. Chasing rather than
-    // snapping turns that into the truck driving round the loop.
+    // it should be.
     let at = -1;
 
     const tick = () => {
       const r = el.getBoundingClientRect();
-      // The viewport's vertical centre, expressed in the container's
-      // own coordinates. Solving for the arc length that sits level with
-      // it — rather than mapping scroll depth onto path length — is what
-      // keeps the truck at the middle of the screen however sideways the
-      // road happens to be running locally.
-      const targetY = window.innerHeight / 2 - r.top;
-      const want = lengthAtY(targetY);
+
+      // Scroll mapped straight onto arc length.
+      //
+      // This used to solve for the arc length sitting level with the
+      // middle of the screen, which kept the truck pinned there however
+      // sideways the road ran. That pinning is exactly what made the
+      // speed wrong: the truck's position along the road is then set by
+      // how much road there is per pixel of *page*, and through a bend
+      // or a loop that is enormous — hundreds of pixels of road for a
+      // few pixels of scroll — so the truck bolted through every turn
+      // and crawled down every straight. Capping the speed only clamped
+      // the bolt; it could not make it even, because the underlying
+      // mapping was uneven.
+      //
+      // Proportional mapping makes the truck's speed along the road
+      // depend only on how fast the page is being scrolled, which is
+      // what driving at a consistent speed means. It costs the exact
+      // centring — on a sideways stretch the truck sits a little above
+      // or below the middle — and that is a good trade: nobody notices
+      // the truck being 80px high, everybody notices it teleporting
+      // through a corner.
+      //
+      // The span is the zone's height plus a viewport, which is the
+      // distance scrolled between the stretch first appearing at the
+      // bottom of the screen and its end leaving the top.
+      const span = r.height + window.innerHeight;
+      const want = length * clamp01((window.innerHeight - r.top) / (span || 1));
+
       // Snap on the first frame so the road does not draw itself in from
       // zero on a page loaded part-way down.
       if (at < 0) {
         at = want;
       } else {
-        // Chase the target, but never faster than MAX_STEP px of road
-        // per frame. Pinning the truck to the middle of the screen means
-        // its speed along the road is set by how much road there is per
-        // pixel of page — and through a loop or a sideways stretch that
-        // is enormous, so it covered the whole loop in a couple of
-        // frames and read as a blur rather than as driving. The cap
-        // trades a little of that pinning for a believable speed: the
-        // truck falls behind the centre through a loop and catches up on
-        // the straight after it.
-        const behind = Math.abs(want - at);
-        // Two speeds. Driving speed is capped hard, which is what stops
-        // a loop being covered in two frames. But after a fast scroll
-        // the truck can be thousands of pixels of road behind, and
-        // crawling all of that back at driving speed leaves the screen
-        // empty for seconds — so once it is a long way out it is allowed
-        // to close the gap quickly, then settles back to driving.
-        const cap = behind > CATCH_UP_AFTER ? MAX_STEP * 4 : MAX_STEP;
-        const move = (want - at) * 0.18;
-        at += Math.max(-cap, Math.min(cap, move));
+        // A light chase, only to take the jitter out of the wheel — not
+        // a speed limit. The target now moves at a rate proportional to
+        // the scroll, so there is nothing left to limit.
+        at += (want - at) * 0.2;
       }
       const progress = clamp01(at / (length || 1));
 
@@ -1088,7 +1051,18 @@ function RoadSegment({
         // is not the same as being on screen: without the second test
         // the truck sat off-frame at full opacity for the whole entry
         // run, and any stray shadow of it showed at the margin.
-        const onScreen = at.x > -20 && at.x < w + 20;
+        // Horizontally, because the road enters and leaves past the
+        // left and right edges — being on the path is not the same as
+        // being on screen. Vertically too, now that the truck is driven
+        // by arc length rather than pinned to the viewport centre: it
+        // can sit well above or below the middle on a sideways stretch,
+        // and on a short zone that is enough to put it past an edge.
+        const top = r.top + at.y;
+        const onScreen =
+          at.x > -20 &&
+          at.x < w + 20 &&
+          top > -40 &&
+          top < window.innerHeight + 40;
         g.style.opacity =
           progress > 0.005 && progress < 0.999 && onScreen ? "1" : "0";
       }

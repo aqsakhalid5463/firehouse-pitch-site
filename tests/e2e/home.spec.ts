@@ -352,7 +352,7 @@ test('service card titles roll over to red on hover', async ({ page }) => {
 // The ribbon's road is routed through the centre of every service
 // photograph, and the truck stays pinned to the middle of the screen
 // however sideways the road is running locally.
-test('the ribbon visits every card and keeps the truck centred', async ({
+test('the ribbon visits every card and keeps the truck on screen', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -421,8 +421,15 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   });
   expect(worstTurn).toBeLessThan(20);
 
-  // And the truck tracks the middle of the screen while the road is
-  // being driven, rather than racing ahead on the sideways stretches.
+  // And the truck stays on screen while the road is being driven.
+  //
+  // This used to assert it stayed near the middle, because it was
+  // positioned by solving for the arc length level with the viewport
+  // centre. That is what made its speed wrong — through a bend, a few
+  // pixels of scroll are hundreds of pixels of road, so it bolted
+  // through every turn. It is now driven by arc length proportional to
+  // scroll, which is even by construction and drifts off centre instead;
+  // on screen is the property that still matters.
   const truckY = () =>
     page.evaluate(() => {
       // Whichever stretch is currently being driven: only one truck can
@@ -461,10 +468,10 @@ test('the ribbon visits every card and keeps the truck centred', async ({
     if (y !== null) seen.push(y);
   }
   expect(seen.length).toBeGreaterThan(1);
-  // Generous, because the truck deliberately chases its target rather
-  // than snapping to it — but nothing like the thousands of pixels a
-  // stale path mapping produced.
-  for (const y of seen) expect(Math.abs(y - 450)).toBeLessThan(320);
+  for (const y of seen) {
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(900);
+  }
 });
 
 // Headings are white with their last word in red, and hovering swaps
@@ -885,4 +892,70 @@ test('the road exists only in its zones and routes around copy', async ({
   // design. This guards the mechanism, not the exact route, which is
   // free to change with the copy.
   expect(road.hit / road.total).toBeLessThan(0.09);
+});
+
+test('the truck drives at a consistent speed through bends and loops', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('[data-ribbon-road="circles"]').waitFor({ timeout: 10000 });
+
+  // The circling stretch, because it is the hard case: a loop covers
+  // hundreds of pixels of road in almost no page height.
+  const top = await page.evaluate(
+    () =>
+      document.querySelector('[data-ribbon-zone="circles"]')!.getBoundingClientRect()
+        .top + window.scrollY,
+  );
+
+  // How far along the road the truck is, in path pixels, found by
+  // matching its drawn position back to the path.
+  const arc = () =>
+    page.evaluate(() => {
+      const host = document.querySelector('[data-ribbon-road="circles"]')!;
+      const path = host.querySelector('svg path') as SVGPathElement;
+      const g = host.querySelector('svg g[style]') as SVGGElement;
+      const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(
+        g.getAttribute('transform') || '',
+      );
+      if (!m) return null;
+      const tx = +m[1];
+      const ty = +m[2];
+      const len = path.getTotalLength();
+      let best = 0;
+      let bd = Infinity;
+      for (let i = 0; i <= 800; i += 1) {
+        const p = path.getPointAtLength((i / 800) * len);
+        const d = Math.hypot(p.x - tx, p.y - ty);
+        if (d < bd) {
+          bd = d;
+          best = (i / 800) * len;
+        }
+      }
+      return best;
+    });
+
+  const seen: number[] = [];
+  for (let i = 0; i < 12; i += 1) {
+    await page.evaluate((y) => window.scrollTo(0, y), top - 700 + i * 110);
+    await page.waitForTimeout(900);
+    const a = await arc();
+    if (a !== null) seen.push(a);
+  }
+
+  // Road covered per equal step of scroll. Even steps mean even speed —
+  // which is the whole point: this used to range from 4 to 1136 path
+  // pixels for the same 110px of scroll, because the truck was pinned to
+  // the viewport centre and the road's length per pixel of page varies
+  // wildly through a bend.
+  const steps = seen
+    .slice(1)
+    .map((v, i) => v - seen[i])
+    .filter((d) => d > 5);
+  expect(steps.length).toBeGreaterThan(5);
+  // Drop the last, which is the tail where the road runs out.
+  const even = steps.slice(0, -1);
+  expect(Math.max(...even) / Math.min(...even)).toBeLessThan(1.3);
 });

@@ -8,11 +8,25 @@ import { usePreloadStore } from '@/lib/preload-store';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/**
+ * Entrance styles. Every heading on the site used the same one, which
+ * made a long page feel like one effect repeating rather than a sequence
+ * of moments — the thing lusion.co gets right is that each section
+ * arrives its own way.
+ *
+ * All of them are per-character and all of them resolve to the same
+ * resting state, so they can be swapped per section without touching
+ * layout, and the scroll-driven wave and velocity lean below apply
+ * regardless of which one played.
+ */
+export type RevealVariant = 'flip' | 'rise' | 'fall' | 'wipe';
+
 type Props = {
   children: string;
   as?: 'h1' | 'h2' | 'h3' | 'p';
   className?: string;
   delay?: number;
+  variant?: RevealVariant;
 };
 
 export function RevealText({
@@ -20,6 +34,7 @@ export function RevealText({
   as: Tag = 'h2',
   className = '',
   delay = 0,
+  variant = 'flip',
 }: Props) {
   const root = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
@@ -33,6 +48,9 @@ export function RevealText({
   useEffect(() => {
     if (reduced || !root.current) return;
     const chars = root.current.querySelectorAll('[data-char]');
+    // Listeners added inside the context below; gsap.context only
+    // reverts what it created, so these are torn down by hand.
+    const cleanups: (() => void)[] = [];
     const ctx = gsap.context(() => {
       // Characters flip up out of their word's mask, each one hinged on
       // its own baseline. Per-character rather than per-word, and a
@@ -54,27 +72,59 @@ export function RevealText({
       // nothing, and a heading scrolled past quickly was simply missed
       // for the rest of the session.
       const tl = gsap.timeline({ paused: true });
-      tl.from(chars, {
-        yPercent: 120,
-        rotateX: -92,
-        opacity: 0,
-        duration: 0.85,
-        ease: 'expo.out',
-        transformOrigin: '50% 100%',
-        // `amount` rather than `each`, and capped: the cascade should
-        // read as one gesture travelling along the line, and a per-
-        // character interval means a long heading takes proportionally
-        // longer — the 42-character hero headline spent 0.67s on the
-        // stagger alone, so half of it was still missing a beat after
-        // landing. This spreads the same gesture over a fixed window
-        // however long the line is.
-        stagger: {
-          amount: Math.min(0.42, chars.length * 0.016),
-          from: 'start',
-          ease: 'power2.in',
+
+      // `amount` rather than `each`, and capped: the cascade should read
+      // as one gesture travelling along the line, and a per-character
+      // interval means a long heading takes proportionally longer — the
+      // 42-character hero headline spent 0.67s on the stagger alone, so
+      // half of it was still missing a beat after landing. This spreads
+      // the same gesture over a fixed window however long the line is.
+      const spread = Math.min(0.42, chars.length * 0.016);
+
+      const entrances: Record<RevealVariant, gsap.TweenVars> = {
+        // Letters hinged on their baseline, swinging up from flat.
+        flip: {
+          yPercent: 120,
+          rotateX: -92,
+          opacity: 0,
+          duration: 0.85,
+          ease: 'expo.out',
+          transformOrigin: '50% 100%',
+          stagger: { amount: spread, from: 'start', ease: 'power2.in' },
         },
-        delay,
-      });
+        // Straight up out of the mask, overlapping and quick — the
+        // quietest of the four, for sections whose heading is not the
+        // moment.
+        rise: {
+          yPercent: 110,
+          opacity: 0,
+          duration: 0.7,
+          ease: 'power4.out',
+          stagger: { amount: spread * 0.8, from: 'start' },
+        },
+        // Dropped in from above with a little scale, ordered from the
+        // middle outward so the line assembles around its centre.
+        fall: {
+          yPercent: -110,
+          scale: 1.3,
+          opacity: 0,
+          duration: 0.8,
+          ease: 'back.out(1.4)',
+          transformOrigin: '50% 50%',
+          stagger: { amount: spread * 1.1, from: 'center' },
+        },
+        // A sideways wipe: letters slide in from the left, close
+        // together, so the line reads as being swept on.
+        wipe: {
+          xPercent: -60,
+          opacity: 0,
+          duration: 0.62,
+          ease: 'power3.out',
+          stagger: { amount: spread * 0.9, from: 'start' },
+        },
+      };
+
+      tl.from(chars, { ...entrances[variant], delay });
 
       const st = ScrollTrigger.create({
         trigger: root.current,
@@ -151,6 +201,63 @@ export function RevealText({
       // amplitude you can actually see, where the fixed per-word
       // rotation it replaced was not — a permanent tilt reads as a
       // typesetting bug, a transient lean reads as weight.
+      // Paint that follows the pointer through the letters.
+      //
+      // Done per character rather than with a gradient clipped to the
+      // text: `background-clip: text` paints one background in the
+      // heading's own box, and every character here sits in its own
+      // transformed layer for the entrance, so the clip and the
+      // transforms fight. Colouring the characters directly is immune to
+      // that, and it is the same set of nodes the entrance already uses.
+      const el = root.current!;
+      const PAINT_RADIUS = 130;
+      let rects: { x: number; y: number }[] = [];
+      let painting = 0;
+
+      const measure = () => {
+        rects = [...chars].map((c) => {
+          const r = (c as HTMLElement).getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        });
+      };
+
+      const paint = (px: number, py: number) => {
+        chars.forEach((c, i) => {
+          const p = rects[i];
+          if (!p) return;
+          const d = Math.hypot(p.x - px, p.y - py);
+          // A soft edge rather than a hard circle: characters at the rim
+          // of the brush take a partial red, so the paint has a bleed
+          // instead of a cut-out.
+          const t = gsap.utils.clamp(0, 1, 1 - d / PAINT_RADIUS);
+          (c as HTMLElement).style.color =
+            t <= 0.01
+              ? ''
+              : `color-mix(in srgb, var(--color-fire) ${(t * 100).toFixed(0)}%, currentColor)`;
+        });
+      };
+
+      const onMove = (e: PointerEvent) => {
+        if (e.pointerType !== 'mouse') return;
+        // Rects are measured on the frame the pointer arrives, not on
+        // every move: the heading does not reflow while it is hovered,
+        // and reading 40 bounding boxes per mousemove would.
+        if (!painting) measure();
+        painting = 1;
+        paint(e.clientX, e.clientY);
+      };
+      const onLeave = () => {
+        painting = 0;
+        chars.forEach((c) => ((c as HTMLElement).style.color = ''));
+      };
+
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerleave', onLeave);
+      cleanups.push(() => {
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerleave', onLeave);
+      });
+
       const spring = { skew: 0 };
       const setSkew = gsap.quickSetter(root.current!, 'skewY', 'deg');
       const clampSkew = gsap.utils.clamp(-5, 5);
@@ -175,8 +282,11 @@ export function RevealText({
         },
       });
     }, root);
-    return () => ctx.revert();
-  }, [reduced, delay, held]);
+    return () => {
+      cleanups.forEach((fn) => fn());
+      ctx.revert();
+    };
+  }, [reduced, delay, held, variant]);
 
   return (
     // The visible text is now one span per character, which a screen
@@ -205,7 +315,13 @@ export function RevealText({
                   className="inline-block"
                   style={{ perspective: '520px' }}
                 >
-                  <span data-char className="inline-block">
+                  {/* The colour transition is what turns a per-frame
+                      colour assignment into paint that bleeds through
+                      the letters rather than switching them on. */}
+                  <span
+                    data-char
+                    className="inline-block transition-colors duration-300 ease-out"
+                  >
                     {ch}
                   </span>
                 </span>

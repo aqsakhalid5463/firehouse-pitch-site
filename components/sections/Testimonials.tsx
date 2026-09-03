@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import { TESTIMONIALS } from '@/lib/content';
-import { getScrollVelocity } from '@/lib/scroll-store';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { useEffect, useRef } from "react";
+import { TESTIMONIALS } from "@/lib/content";
+import { getScrollVelocity } from "@/lib/scroll-store";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 export function Testimonials() {
   const track = useRef<HTMLDivElement>(null);
@@ -51,10 +51,7 @@ export function Testimonials() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-dark-bg to-transparent"
       />
-      <div
-        ref={track}
-        className="flex w-max gap-6 px-6 will-change-transform"
-      >
+      <div ref={track} className="flex w-max gap-6 px-6 will-change-transform">
         {items.map((t, i) => {
           const isDuplicate = i >= TESTIMONIALS.length;
           return (
@@ -85,7 +82,9 @@ export function Testimonials() {
                   {t.name.charAt(0)}
                 </span>
                 <span className="text-sm leading-snug">
-                  <span className="block font-medium text-bone/90">{t.name}</span>
+                  <span className="block font-medium text-bone/90">
+                    {t.name}
+                  </span>
                   <span className="block text-bone/50">Verified review</span>
                 </span>
               </figcaption>

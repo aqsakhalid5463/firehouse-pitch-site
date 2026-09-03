@@ -1,6 +1,6 @@
-import { SERVICES } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { ServiceCard } from '@/components/ui/ServiceCard';
+import { SERVICES } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { ServiceCard } from "@/components/ui/ServiceCard";
 
 export function Services() {
   return (
@@ -8,6 +8,7 @@ export function Services() {
       <div className="mx-auto max-w-7xl">
         <RevealText
           as="h2"
+          variant="rise"
           className="max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
         >
           Everything a move needs, under one roof
@@ -20,7 +21,7 @@ export function Services() {
             page in a zigzag instead of scanning flat rows. */}
         <div className="mt-24 grid gap-x-12 gap-y-20 md:grid-cols-2">
           {SERVICES.map((service, i) => (
-            <div key={service.title} className={i % 2 === 1 ? 'md:mt-28' : ''}>
+            <div key={service.title} className={i % 2 === 1 ? "md:mt-28" : ""}>
               <ServiceCard
                 index={i}
                 title={service.title}

@@ -1,6 +1,5 @@
-import { SERVICE_AREA } from '@/lib/content';
-import { BUSINESS } from '@/lib/constants';
-import { RevealText } from '@/components/ui/RevealText';
+import { SERVICE_AREA } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
 
 /**
  * Where they actually go, plus the registrations that let a visitor
@@ -27,7 +26,7 @@ function Row({
     <div className="flex w-max">
       <ul
         className={`flex shrink-0 items-center gap-4 pr-4 ${
-          reverse ? 'animate-marquee-reverse' : 'animate-marquee'
+          reverse ? "animate-marquee-reverse" : "animate-marquee"
         }`}
       >
         {cities.map((c) => (
@@ -42,7 +41,7 @@ function Row({
       <ul
         aria-hidden="true"
         className={`flex shrink-0 items-center gap-4 pr-4 ${
-          reverse ? 'animate-marquee-reverse' : 'animate-marquee'
+          reverse ? "animate-marquee-reverse" : "animate-marquee"
         }`}
       >
         {cities.map((c) => (
@@ -71,6 +70,7 @@ export function ServiceArea() {
         </p>
         <RevealText
           as="h2"
+          variant="rise"
           className="mt-6 max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
         >
           All across Dallas-Fort Worth, and out of state when you are
@@ -90,15 +90,6 @@ export function ServiceArea() {
         />
         <Row cities={top} />
         <Row cities={bottom} reverse />
-      </div>
-
-      <div className="mx-auto mt-20 max-w-7xl px-6">
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-4 border-t border-bone/12 pt-8 text-sm text-bone/55">
-          <span className="font-mono tracking-wide">{BUSINESS.usdot}</span>
-          <span className="font-mono tracking-wide">{BUSINESS.txdmv}</span>
-          <span>Licensed &amp; insured</span>
-          <span>Climate-controlled storage</span>
-        </div>
       </div>
     </section>
   );

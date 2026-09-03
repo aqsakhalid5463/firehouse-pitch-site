@@ -436,3 +436,34 @@ test('the ribbon visits every card and keeps the truck centred', async ({
   // stale path mapping produced.
   for (const y of seen) expect(Math.abs(y - 450)).toBeLessThan(320);
 });
+
+// Hovering a heading paints red through the letters around the cursor,
+// and the paint clears when the pointer leaves.
+test('headings take red paint under the cursor', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(2500);
+
+  const painted = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('h1 [data-char]')].filter(
+        (c) => getComputedStyle(c).color !== 'rgb(240, 240, 238)',
+      ).length,
+    );
+
+  expect(await painted()).toBe(0);
+
+  const box = (await page.locator('h1').first().boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + 30);
+  await page.waitForTimeout(450);
+  // Some letters, not all: the brush has a radius, so a heading that
+  // went entirely red would mean the distance falloff is not working.
+  const n = await painted();
+  expect(n).toBeGreaterThan(2);
+  expect(n).toBeLessThan(30);
+
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(700);
+  expect(await painted()).toBe(0);
+});

@@ -9,6 +9,7 @@ export function Guarantees() {
       <div className="mx-auto max-w-7xl">
         <RevealText
           as="h2"
+          variant="fall"
           className="max-w-4xl text-[clamp(2rem,5vw,4rem)] leading-[1.05] font-semibold tracking-tight"
         >
           Three promises we put in writing

@@ -1,17 +1,26 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
-import { setMoveAsOneProgress } from '@/lib/move-as-one-progress';
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
+import { setMoveAsOneProgress } from "@/lib/move-as-one-progress";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
-  { label: 'Pack', body: 'Every item wrapped, boxed, and logged before it moves an inch.' },
-  { label: 'Move', body: 'Loaded tight, driven careful, tracked the whole way.' },
-  { label: 'Settle', body: 'Unloaded and placed where you want it, not just inside the door.' },
+  {
+    label: "Pack",
+    body: "Every item wrapped, boxed, and logged before it moves an inch.",
+  },
+  {
+    label: "Move",
+    body: "Loaded tight, driven careful, tracked the whole way.",
+  },
+  {
+    label: "Settle",
+    body: "Unloaded and placed where you want it, not just inside the door.",
+  },
 ];
 
 /**
@@ -47,9 +56,9 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
     // (visible, static) markup opacity.
     if (reduced) return;
     const ctx = gsap.context(() => {
-      const steps = gsap.utils.toArray<HTMLElement>('[data-step]');
-      const hero = root.current!.querySelector<HTMLElement>('[data-hero-copy]');
-      const scrim = root.current!.querySelector<HTMLElement>('[data-scrim]');
+      const steps = gsap.utils.toArray<HTMLElement>("[data-step]");
+      const hero = root.current!.querySelector<HTMLElement>("[data-hero-copy]");
+      const scrim = root.current!.querySelector<HTMLElement>("[data-scrim]");
 
       // Two windows per step, both as a fraction of the pin's own 0..1
       // progress (not the section's raw height — see note below).
@@ -113,7 +122,8 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         // "clean handoff": copy fades out completely, only then do the
         // boxes begin moving.
         if (hero) {
-          const heroT = 1 - gsap.utils.clamp(0, 1, (progress - 0.10) / (0.26 - 0.10));
+          const heroT =
+            1 - gsap.utils.clamp(0, 1, (progress - 0.1) / (0.26 - 0.1));
           gsap.set(hero, { opacity: heroT });
           // The scrim exists only to help the hero copy read against the
           // road; once that copy is gone (loading/departure beats) there
@@ -170,22 +180,26 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             // place reads as emphasis where growing rightward reads as
             // the step sliding.
             scale: 1 + focus * 0.5,
-            transformOrigin: 'center center',
+            transformOrigin: "center center",
           });
 
           // The label's characters cascade in rather than the whole word
           // arriving at once. Each one gets its own slice of the entry
           // window, so the cascade is driven by scroll position and
           // scrubs backwards cleanly.
-          const chars = step.querySelectorAll<HTMLElement>('[data-step-char]');
+          const chars = step.querySelectorAll<HTMLElement>("[data-step-char]");
           chars.forEach((ch, ci) => {
             const span = 1 / (chars.length + 3);
-            const cT = gsap.utils.clamp(0, 1, (enter - ci * span) / (1 - ci * span));
+            const cT = gsap.utils.clamp(
+              0,
+              1,
+              (enter - ci * span) / (1 - ci * span),
+            );
             gsap.set(ch, { yPercent: 100 * (1 - cT), opacity: cT });
           });
 
           // A rule that fills across the step while it is the live one.
-          const fill = step.querySelector<HTMLElement>('[data-step-fill]');
+          const fill = step.querySelector<HTMLElement>("[data-step-fill]");
           if (fill) {
             gsap.set(fill, {
               scaleX: active,
@@ -199,16 +213,16 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
             });
           }
 
-          const num = step.querySelector<HTMLElement>('[data-step-num]');
+          const num = step.querySelector<HTMLElement>("[data-step-num]");
           if (num) gsap.set(num, { opacity: 0.3 + active * 0.7 });
         });
       };
 
       const trigger = ScrollTrigger.create({
         trigger: root.current,
-        start: 'top top',
-        end: '+=250%',
-        pin: '[data-pin]',
+        start: "top top",
+        end: "+=250%",
+        pin: "[data-pin]",
         scrub: true,
         // Feeds the truck assembly (and the box stack's load-in) the
         // section's own real pin-relative progress instead of them
@@ -234,20 +248,23 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       // Clear the inline styles it left behind explicitly, or toggling
       // reduced motion mid-scroll (or unmounting mid-scroll) can strand
       // the copy/steps at opacity 0 / offset.
-      const steps = gsap.utils.toArray<HTMLElement>('[data-step]', root.current ?? undefined);
-      const hero = root.current?.querySelector<HTMLElement>('[data-hero-copy]');
-      const scrim = root.current?.querySelector<HTMLElement>('[data-scrim]');
-      gsap.set(steps, { clearProps: 'opacity,y,scale' });
+      const steps = gsap.utils.toArray<HTMLElement>(
+        "[data-step]",
+        root.current ?? undefined,
+      );
+      const hero = root.current?.querySelector<HTMLElement>("[data-hero-copy]");
+      const scrim = root.current?.querySelector<HTMLElement>("[data-scrim]");
+      gsap.set(steps, { clearProps: "opacity,y,scale" });
       // Same reasoning as the steps themselves: these were set from
       // onUpdate, outside gsap.context's collection window, so they
       // survive ctx.revert() and would strand a thickened, glowing rule.
       const fills = gsap.utils.toArray<HTMLElement>(
-        '[data-step-fill]',
+        "[data-step-fill]",
         root.current ?? undefined,
       );
-      gsap.set(fills, { clearProps: 'scaleX,scaleY,boxShadow' });
-      if (hero) gsap.set(hero, { clearProps: 'opacity' });
-      if (scrim) gsap.set(scrim, { clearProps: 'opacity' });
+      gsap.set(fills, { clearProps: "scaleX,scaleY,boxShadow" });
+      if (hero) gsap.set(hero, { clearProps: "opacity" });
+      if (scrim) gsap.set(scrim, { clearProps: "opacity" });
       ctx.revert();
       // The truck must not render fully assembled (and the box stack must
       // not sit mid-load) after this section unmounts (e.g. reduced
@@ -262,8 +279,8 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
       ref={root}
       className={
         collapsed
-          ? 'relative min-h-screen px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32'
-          : 'relative h-[350vh] px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32'
+          ? "relative min-h-screen px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32"
+          : "relative h-[350vh] px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32"
       }
     >
       {/* A soft dark falloff from the left edge, sitting strictly behind
@@ -298,8 +315,8 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
         data-pin
         className={
           collapsed
-            ? 'relative flex flex-col gap-16 py-24'
-            : 'relative flex h-screen flex-col overflow-hidden pt-[clamp(6.5rem,10vh,7rem)] pb-[clamp(2rem,6vh,4rem)]'
+            ? "relative flex flex-col gap-16 py-24"
+            : "relative flex h-screen flex-col overflow-hidden pt-[clamp(6.5rem,10vh,7rem)] pb-[clamp(2rem,6vh,4rem)]"
         }
       >
         {/* The hero copy gets its own flexible region so it can stay
@@ -326,8 +343,8 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
                 // needs none — content just flows normally, so this is
                 // a plain stack with its own gap rather than the
                 // 1fr/auto row split below.
-                'grid gap-16'
-              : 'grid h-full grid-rows-[1fr_auto] gap-[clamp(1rem,4vh,3.5rem)]'
+                "grid gap-16"
+              : "grid h-full grid-rows-[1fr_auto] gap-[clamp(1rem,4vh,3.5rem)]"
           }
         >
           {/* `safe center` rather than plain centring. On a short
@@ -385,14 +402,14 @@ export function Opening({ heroCopy }: { heroCopy: ReactNode }) {
                       data-step-num
                       className="font-mono text-xs text-fire opacity-30"
                     >
-                      {String(i + 1).padStart(2, '0')}
+                      {String(i + 1).padStart(2, "0")}
                     </span>
                     <h3 className="text-4xl font-semibold tracking-tight">
                       {/* Per-character spans so the label can cascade.
                           Each sits in its own overflow-hidden mask, so
                           characters rise out of the line rather than
                           fading in place. */}
-                      {step.label.split('').map((ch, ci) => (
+                      {step.label.split("").map((ch, ci) => (
                         <span
                           key={`${step.label}-${ci}`}
                           className="inline-block overflow-hidden align-bottom"

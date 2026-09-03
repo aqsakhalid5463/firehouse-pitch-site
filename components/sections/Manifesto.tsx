@@ -1,7 +1,7 @@
-import { MANIFESTO, TRUST_MARKS } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { ScrubText } from '@/components/ui/ScrubText';
-import { FadeUp } from '@/components/ui/FadeUp';
+import { MANIFESTO, TRUST_MARKS } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { ScrubText } from "@/components/ui/ScrubText";
+import { FadeUp } from "@/components/ui/FadeUp";
 
 /**
  * The company in its own words. This is the one place on the site using
@@ -25,6 +25,7 @@ export function Manifesto() {
         </p>
         <RevealText
           as="h2"
+          variant="wipe"
           className="mt-6 max-w-3xl text-[clamp(1.75rem,3.6vw,2.75rem)] leading-tight font-semibold tracking-tight"
         >
           A moving company built by people who kept needing one

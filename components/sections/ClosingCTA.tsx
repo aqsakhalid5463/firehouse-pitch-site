@@ -21,16 +21,18 @@ export function ClosingCTA() {
       <div className="mx-auto max-w-4xl text-center">
         <RevealText
           as="h2"
+          variant="fall"
           className="text-[clamp(2.5rem,7vw,5.5rem)] leading-[1.02] font-semibold tracking-tight"
         >
-          Tell us what is moving. We will tell you what it costs.
+          Tell us what you are moving. We will tell you what it takes.
         </RevealText>
 
         <FadeUp delay={0.15}>
           <GlassPanel className="mx-auto mt-8">
             <p className="max-w-xl text-lg leading-relaxed text-bone/60">
-              A written quote, a crew sized to the job, and a delivery window we
-              commit to. Local or long-distance, out of {BUSINESS.city}.
+              A written number, a crew sized to the job, and a delivery window
+              we commit to in writing. Trained movers, uniformed and insured,
+              out of {BUSINESS.city} — across town or across the country.
             </p>
           </GlassPanel>
         </FadeUp>
@@ -43,13 +45,9 @@ export function ClosingCTA() {
             Call {BUSINESS.phone}
           </MagneticButton>
           <MagneticButton href={`mailto:${BUSINESS.email}`} variant="ghost">
-            Email us
+            Send a quote
           </MagneticButton>
         </FadeUp>
-
-        <p className="mt-14 font-mono text-xs tracking-wider text-bone/40">
-          {BUSINESS.usdot} · {BUSINESS.txdmv} · Licensed &amp; insured
-        </p>
       </div>
     </section>
   );

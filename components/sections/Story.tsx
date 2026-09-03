@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { PILLARS } from '@/lib/content';
-import { RevealText } from '@/components/ui/RevealText';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { PILLARS } from "@/lib/content";
+import { RevealText } from "@/components/ui/RevealText";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -17,27 +17,27 @@ export function Story() {
     if (reduced || !root.current) return;
     const ctx = gsap.context(() => {
       gsap.fromTo(
-        '[data-rule]',
+        "[data-rule]",
         { scaleY: 0 },
         {
           scaleY: 1,
-          ease: 'none',
+          ease: "none",
           scrollTrigger: {
             trigger: root.current,
-            start: 'top 70%',
-            end: 'bottom 80%',
+            start: "top 70%",
+            end: "bottom 80%",
             scrub: true,
           },
         },
       );
 
-      gsap.utils.toArray<HTMLElement>('[data-entry]').forEach((entry) => {
+      gsap.utils.toArray<HTMLElement>("[data-entry]").forEach((entry) => {
         gsap.from(entry, {
           opacity: 0,
           y: 40,
           duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: { trigger: entry, start: 'top 82%' },
+          ease: "power3.out",
+          scrollTrigger: { trigger: entry, start: "top 82%" },
         });
       });
     }, root);
@@ -49,6 +49,7 @@ export function Story() {
       <div className="mx-auto max-w-4xl">
         <RevealText
           as="h2"
+          variant="fall"
           className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)] leading-tight font-semibold tracking-tight"
         >
           What Firehouse actually is
@@ -72,6 +73,7 @@ export function Story() {
               </p>
               <RevealText
                 as="h3"
+                variant="rise"
                 className="mt-4 text-3xl font-semibold tracking-tight"
               >
                 {entry.title}

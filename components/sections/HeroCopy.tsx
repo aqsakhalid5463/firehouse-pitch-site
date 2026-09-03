@@ -1,6 +1,6 @@
-import { BUSINESS, HERO_HEADLINE } from '@/lib/constants';
-import { RevealText } from '@/components/ui/RevealText';
-import { Button } from '@/components/ui/Button';
+import { BUSINESS, HERO_HEADLINE } from "@/lib/constants";
+import { RevealText } from "@/components/ui/RevealText";
+import { Button } from "@/components/ui/Button";
 
 /**
  * The hero headline, copy, and CTAs — kept as a plain server component so
@@ -36,6 +36,7 @@ export function HeroCopy() {
             regression). */}
         <RevealText
           as="h1"
+          variant="flip"
           className="text-[clamp(2.5rem,6vw,4.25rem)] leading-[0.95] font-semibold tracking-tight"
         >
           {HERO_HEADLINE}
@@ -61,9 +62,9 @@ export function HeroCopy() {
             before the loading beat and never present in the light half. */}
         <div className="mt-[clamp(1rem,4vh,2rem)] w-fit max-w-[34rem] rounded-2xl bg-silver-glass/10 px-5 py-4 ring-1 ring-silver-glass/20 backdrop-blur-md">
           <p className="text-lg leading-relaxed opacity-90">
-            Local and long-distance movers for homes and offices across the
-            DFW area. Packing, storage, and a crew that shows up when we
-            said we would.
+            Local and long-distance movers for homes and offices across the DFW
+            area. Packing, storage, and a crew that shows up when we said we
+            would.
           </p>
         </div>
         <div className="mt-[clamp(1rem,5vh,3rem)] flex flex-wrap items-center gap-4">

@@ -38,16 +38,35 @@ export function preloadProgress(done: Partial<Record<PreloadSignal, boolean>>): 
 
 type PreloadState = {
   done: Partial<Record<PreloadSignal, boolean>>;
+  /**
+   * True once the curtain is off the screen.
+   *
+   * The scene subscribes to this so it can render cheaply while nobody
+   * can see it. Measured on a production build, the canvas was rendering
+   * full-quality frames — postprocessing at up to 2x device pixel ratio
+   * — behind an opaque curtain, at ~68ms a frame back to back. That is
+   * the main thread saturated at ~14fps for the entire load, which is
+   * what made the loader's own animation stutter. Nothing rendered in
+   * that window is ever seen.
+   */
+  lifted: boolean;
   markReady: (signal: PreloadSignal) => void;
+  setLifted: () => void;
 };
 
 export const usePreloadStore = create<PreloadState>((set) => ({
   done: {},
+  lifted: false,
   markReady: (signal) =>
     set((state) =>
       state.done[signal] ? state : { done: { ...state.done, [signal]: true } },
     ),
+  setLifted: () => set((state) => (state.lifted ? state : { lifted: true })),
 }));
+
+export function setLifted(): void {
+  usePreloadStore.getState().setLifted();
+}
 
 export function markReady(signal: PreloadSignal): void {
   usePreloadStore.getState().markReady(signal);

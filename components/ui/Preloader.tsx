@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { loadLogo } from '@/lib/textures';
-import { markReady, preloadProgress, usePreloadStore } from '@/lib/preload-store';
+import {
+  markReady,
+  preloadProgress,
+  setLifted,
+  usePreloadStore,
+} from '@/lib/preload-store';
 import { TruckGlyph } from './TruckGlyph';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -30,10 +35,48 @@ const MIN_VISIBLE_MS = 900;
  *  a curtain, so the loader always resolves. */
 const SAFETY_MS = 6000;
 
+/**
+ * How long to wait for the scene's first rendered frame before going
+ * without it.
+ *
+ * Measured on a production build: every signal was in by ~2s, but the
+ * curtain did not lift for 6.4s. The scene's own initialisation runs
+ * behind the curtain at ~14fps, and waiting on it for as long as it
+ * likes is what made the loader feel stuck. Past this deadline the page
+ * is handed over anyway — the canvas is a fixed background layer behind
+ * the hero copy, so it arriving a beat late costs far less than seconds
+ * of a frozen counter.
+ */
+const FRAME_DEADLINE_MS = 1600;
+
+/**
+ * Slowest the counter may move, in progress per second, while it still
+ * has ground to cover. An exponential approach alone spends over a
+ * second crawling the last few percent — mathematically still moving,
+ * visually stopped.
+ */
+const MIN_RATE = 0.28;
+
+/**
+ * While a signal is genuinely outstanding the bar is allowed to creep
+ * this far past what has actually completed, at CREEP_RATE per second.
+ * It keeps the counter alive during a real wait without ever letting it
+ * claim to be finished before it is.
+ */
+const CREEP_MAX = 0.14;
+const CREEP_RATE = 0.05;
+
+/**
+ * Gap between handing the page over and letting the scene go back to
+ * full quality. See the note where it is used.
+ */
+const UPGRADE_DELAY_MS = 400;
+
 export function Preloader() {
   const root = useRef<HTMLDivElement>(null);
   const reelsRef = useRef<HTMLDivElement>(null);
   const truckRef = useRef<HTMLDivElement>(null);
+  const roadRef = useRef<HTMLDivElement>(null);
   const tintRef = useRef<HTMLDivElement>(null);
   const [gone, setGone] = useState(false);
 
@@ -53,6 +96,10 @@ export function Preloader() {
       () => ready('logo'),
     );
 
+    // The scene gets a deadline of its own, well short of the blanket
+    // safety net below.
+    const frameDeadline = setTimeout(() => ready('frame'), FRAME_DEADLINE_MS);
+
     const safety = setTimeout(() => {
       ready('fonts');
       ready('logo');
@@ -61,6 +108,7 @@ export function Preloader() {
 
     return () => {
       cancelled = true;
+      clearTimeout(frameDeadline);
       clearTimeout(safety);
     };
   }, []);
@@ -98,6 +146,7 @@ export function Preloader() {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const started = performance.now();
     let shown = 0;
+    let last = performance.now();
     let raf = 0;
     let exiting = false;
 
@@ -116,7 +165,21 @@ export function Preloader() {
           clearProps: 'transform,willChange',
         });
       }
-      requestAnimationFrame(() => requestAnimationFrame(() => setGone(true)));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setGone(true);
+          // Tells the scene it is visible now, so it can go back to full
+          // resolution and switch its postprocessing on — but not in the
+          // same breath as the hand-over. Mounting the postprocessing
+          // pipeline and doubling the render resolution is an ~800ms
+          // task; doing it on the reveal frame simply moved the freeze
+          // from behind the curtain to the moment the page appears. A
+          // beat later, the visitor is looking at a page that is already
+          // there, and the upgrade lands under a scroll rather than
+          // under a curtain.
+          setTimeout(setLifted, UPGRADE_DELAY_MS);
+        }),
+      );
     };
 
     const exit = () => {
@@ -133,9 +196,15 @@ export function Preloader() {
         // The truck finishes its run off the right-hand edge before
         // anything else moves, so the door opens on an empty road
         // rather than closing over a truck still sitting on it.
+        // Timings trimmed (the whole exit ran 1.7s): the counter is
+        // pinned at 100 for the entire sequence, so every frame of it is
+        // a frame the visitor spends looking at a finished loader. The
+        // drive-off is also a transform now rather than `left`, for the
+        // same reason as the run itself.
+        const road = roadRef.current;
         tl.to('[data-truck]', {
-          left: '135%',
-          duration: 0.55,
+          x: road ? road.clientWidth * 1.25 : 600,
+          duration: 0.42,
           ease: 'power2.in',
         })
           .to(
@@ -143,32 +212,51 @@ export function Preloader() {
             {
               y: -18,
               opacity: 0,
-              duration: 0.4,
+              duration: 0.3,
               ease: 'power3.in',
-              stagger: 0.05,
+              stagger: 0.04,
             },
-            '-=0.2',
+            '-=0.22',
           )
           .to(
             '[data-slat]',
             {
               yPercent: -101,
-              duration: 0.75,
+              duration: 0.6,
               ease: 'power4.inOut',
               // Top slat first, so the curtain reads as a door rolling
               // up rather than every panel dropping at once.
-              stagger: 0.05,
+              stagger: 0.04,
             },
-            '-=0.15',
+            '-=0.16',
           );
       }, root);
     };
 
-    const tick = () => {
+    const tick = (now: number) => {
+      // Elapsed time, not frames. The old form advanced by a fixed
+      // fraction per *frame*, so while the scene was initialising — and
+      // frames were 70ms apart, with one gap of 890ms — the counter
+      // barely moved, then lurched. Clamped, so one long stall cannot
+      // turn into a jump either.
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+
       const target = preloadProgress(usePreloadStore.getState().done);
-      // Ease toward the target instead of snapping: three checkpoints
-      // landing at once would otherwise jump 0 → 100 in one frame.
-      shown += (target - shown) * 0.13;
+      // Ease toward the target instead of snapping (three signals
+      // landing at once would jump 0 → 100 in a frame), but never slower
+      // than MIN_RATE: an exponential approach on its own spends more
+      // than a second crawling the last few percent, which reads as
+      // stopped.
+      const gap = target - shown;
+      if (gap > 0) {
+        const eased = gap * (1 - Math.exp(-dt * 6));
+        shown = Math.min(target, shown + Math.max(eased, dt * MIN_RATE));
+      } else if (target < 1) {
+        // Nothing left to move toward, but something is still loading.
+        // Creep, so the counter is alive rather than frozen on a number.
+        shown = Math.min(shown + dt * CREEP_RATE, target + CREEP_MAX, 0.97);
+      }
       if (target >= 1 && shown > 0.995) shown = 1;
 
       const value = shown * 100;
@@ -206,7 +294,16 @@ export function Preloader() {
 
       // Travel is inset from both ends: at a literal 0% / 100% the
       // glyph is half-clipped by the road's own edges.
-      if (truckRef.current) truckRef.current.style.left = `${6 + shown * 88}%`;
+      //
+      // Driven by transform rather than `left`. Animating `left` forces
+      // layout and a repaint of the road on every single frame of the
+      // loader — the one moment in the page's life when the main thread
+      // is already saturated compiling shaders and building textures.
+      // A transform is composited and costs the main thread nothing.
+      if (truckRef.current && roadRef.current) {
+        const travel = roadRef.current.clientWidth * 0.88 * shown;
+        truckRef.current.style.transform = `translate3d(${travel.toFixed(1)}px, -50%, 0)`;
+      }
       if (tintRef.current) tintRef.current.style.transform = `scaleX(${shown})`;
 
       if (shown === 1 && performance.now() - started >= MIN_VISIBLE_MS) {
@@ -225,7 +322,10 @@ export function Preloader() {
     // This one is a plain timer, which does still fire, and removes the
     // curtain outright. In a visible tab the normal path always
     // finishes long before this, so it never fires.
-    const hardStop = setTimeout(() => setGone(true), SAFETY_MS + 1200);
+    const hardStop = setTimeout(() => {
+      setGone(true);
+      setLifted();
+    }, SAFETY_MS + 1200);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -327,6 +427,7 @@ export function Preloader() {
         {/* The road, seen from above — the same view the scroll ribbon
             takes, which is why the truck glyph is shared with it. */}
         <div
+          ref={roadRef}
           data-preload-copy
           className="relative h-14 w-[min(440px,84vw)] overflow-hidden rounded-[3px] border-y border-ribbon-edge/25 bg-[#16161A]"
         >
@@ -356,8 +457,12 @@ export function Preloader() {
             // the road and most of its height. The road grew to h-14 to
             // keep a margin above and below rather than the glyph running
             // edge to edge.
-            className="absolute top-1/2 h-[34px] w-[50px] -translate-x-1/2 -translate-y-1/2"
-            style={{ left: '6%' }}
+            className="absolute top-1/2 h-[34px] w-[50px] -translate-x-1/2"
+            // `left` is the fixed start of the run; the travel along it
+            // is a transform (see the tick above). `will-change` keeps
+            // the glyph on its own compositor layer for the whole load
+            // rather than being promoted and dropped repeatedly.
+            style={{ left: '6%', willChange: 'transform', transform: 'translate3d(0, -50%, 0)' }}
           >
             <svg viewBox="0 0 32 22" className="h-full w-full overflow-visible">
               <TruckGlyph />

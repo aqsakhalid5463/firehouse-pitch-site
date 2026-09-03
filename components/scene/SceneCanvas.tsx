@@ -13,11 +13,18 @@ import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 import { COLORS } from '@/lib/constants';
 import { StaticBackdrop } from './StaticBackdrop';
 import { FirstFrame } from './FirstFrame';
-import { markReady } from '@/lib/preload-store';
+import { markReady, usePreloadStore } from '@/lib/preload-store';
 
 export function SceneCanvas() {
   const enabled = useCanvasEnabled();
   const [degraded, setDegraded] = useState(false);
+  // While the curtain is up the canvas is completely hidden, so it
+  // renders at 1x with no postprocessing. It still renders — the
+  // preloader's heaviest signal is a real first frame, and shaders and
+  // procedural textures still have to be built — but it does it at a
+  // fraction of the cost, which leaves the main thread free for the
+  // loader's own animation.
+  const lifted = usePreloadStore((s) => s.lifted);
 
   // No canvas means FirstFrame never mounts and the preloader would sit
   // at 50% forever. The backdrop is a plain gradient, ready on mount.
@@ -40,7 +47,7 @@ export function SceneCanvas() {
       className="pointer-events-none fixed inset-0 z-0"
     >
       <Canvas
-        dpr={degraded ? 1 : [1, 2]}
+        dpr={degraded || !lifted ? 1 : [1, 2]}
         gl={{ antialias: !degraded, powerPreference: 'high-performance' }}
         camera={{ position: [0, 0.2, 6], fov: 42 }}
         eventSource={typeof document !== 'undefined' ? document.body : undefined}
@@ -60,7 +67,7 @@ export function SceneCanvas() {
         <BoxStack />
         <TruckAssembly />
         <Highway />
-        {!degraded && <Effects />}
+        {!degraded && lifted && <Effects />}
       </Canvas>
     </div>
   );

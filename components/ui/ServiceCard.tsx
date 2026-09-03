@@ -32,11 +32,11 @@ const PUSH_PX = 18;
 /** How much the card rises off the page while hovered, in px. */
 const LIFT_PX = 10;
 /**
- * Per-frame approach factor for every hover value. Low enough that the
+ * Approach rate for every hover value, per second. Low enough that the
  * card feels weighted rather than glued to the cursor — these are big
  * photographic panels, and an instant response reads as cheap.
  */
-const EASE = 0.11;
+const EASE_RATE = 7;
 
 export function ServiceCard({
   index,
@@ -148,13 +148,26 @@ export function ServiceCard({
     card.addEventListener('pointerleave', onLeave);
 
     let raf = 0;
-    const tick = () => {
+    let last = performance.now();
+    const tick = (now: number) => {
+      // Elapsed time rather than a fixed fraction per frame, so the card
+      // settles at the same rate on a 60Hz and a 120Hz display, and a
+      // dropped frame does not stall it.
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const k = 1 - Math.exp(-dt * EASE_RATE);
+
       const r = el.getBoundingClientRect();
       const onScreen = r.bottom > 0 && r.top < window.innerHeight;
 
-      at.x += (to.x - at.x) * EASE;
-      at.y += (to.y - at.y) * EASE;
-      at.on += (to.on - at.on) * EASE;
+      // Snapped once it is close enough to see nothing: an exponential
+      // approach never actually arrives, which left a card resting at a
+      // fraction of a degree off flat for the rest of the session.
+      const settle = (from: number, target: number) =>
+        Math.abs(target - from) < 0.001 ? target : from + (target - from) * k;
+      at.x = settle(at.x, to.x);
+      at.y = settle(at.y, to.y);
+      at.on = settle(at.on, to.on);
 
       if (onScreen) {
         // -1 when the card sits at the bottom of the viewport, +1 at the

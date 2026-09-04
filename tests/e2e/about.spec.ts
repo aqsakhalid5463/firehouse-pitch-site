@@ -71,13 +71,51 @@ test('the integrations band names the partners and keeps moving', async ({
   ).toBe(1);
 
   // It is a band that moves; a static row of logos is the failure.
-  const drift = await page.evaluate(async () => {
+  // Measured in pixels per second rather than as movement at all,
+  // because the first version crawled at about 22px/s and read as
+  // stuck.
+  const speed = await page.evaluate(async () => {
     const t = document.querySelector('[data-integrations-track]') as HTMLElement;
     const from = t.getBoundingClientRect().x;
-    await new Promise((r) => setTimeout(r, 800));
-    return t.getBoundingClientRect().x - from;
+    await new Promise((r) => setTimeout(r, 1000));
+    return Math.abs(t.getBoundingClientRect().x - from);
   });
-  expect(Math.abs(drift)).toBeGreaterThan(4);
+  expect(speed).toBeGreaterThan(40);
+  expect(speed).toBeLessThan(110);
+
+  // One pass must be wider than the screen, or the band runs out
+  // before the next pass arrives and leaves a bare stretch at the
+  // right-hand edge — which is exactly what three partners did on a
+  // desktop.
+  const widths = await page.evaluate(() => ({
+    pass: Math.round(
+      document
+        .querySelector('[data-integrations-track]')!
+        .getBoundingClientRect().width,
+    ),
+    viewport: window.innerWidth,
+  }));
+  expect(widths.pass).toBeGreaterThan(widths.viewport);
+
+  // And nothing is ever missing from the right-hand edge as it loops.
+  const bare = await page.evaluate(async () => {
+    const band = document.querySelector('[data-integrations]')!;
+    let empty = 0;
+    for (let i = 0; i < 25; i += 1) {
+      const box = band.getBoundingClientRect();
+      const items = [
+        ...band.querySelectorAll('[data-integrations-track] > span'),
+      ];
+      const covered = items.some((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left < box.right && r.right > box.right - 240;
+      });
+      if (!covered) empty += 1;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return empty;
+  });
+  expect(bare).toBe(0);
 
   // Opaque, or the 3D road behind it draws through the logos.
   const bg = await band.evaluate((el) => getComputedStyle(el).backgroundColor);

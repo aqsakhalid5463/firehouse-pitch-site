@@ -136,9 +136,23 @@ body {
   animation: marquee 52s linear infinite reverse;
 }
 
+/* The integrations band on About.
+ 
+   Its own duration rather than the service-area band's, because the
+   two carry different amounts of content and the thing that has to
+   match between them is the speed in pixels per second, not the time
+   to complete a cycle. This band repeats its list four times per pass
+   (see components/sections/Integrations.tsx for why), so a pass is
+   roughly 4200px wide; 70s across that is about 60px/s, a little under
+   three times the speed it ran at before. */
+.animate-band {
+  animation: marquee 70s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee,
-  .animate-marquee-reverse {
+  .animate-marquee-reverse,
+  .animate-band {
     animation: none;
   }
 }

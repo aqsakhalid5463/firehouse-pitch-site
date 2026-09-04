@@ -1,5 +1,18 @@
-import Image from 'next/image';
-import { NETWORK_MARQUEE } from '@/lib/content';
+import Image from "next/image";
+import { NETWORK_MARQUEE } from "@/lib/content";
+
+/**
+ * How many times the list repeats inside a single pass.
+ *
+ * The loop works by sliding one pass out while an identical pass takes
+ * its place, which only looks continuous if a pass is at least as wide
+ * as the screen. Three partners come to about 1050px — narrower than
+ * any desktop — so the band ran out and left a bare stretch at the
+ * right-hand edge before the next pass arrived. Four repeats puts a
+ * pass at roughly 4200px, wide enough for an ultrawide display, and
+ * twenty-four small rows cost nothing.
+ */
+const REPEATS = 4;
 
 /**
  * The companies behind a Firehouse move, as a band that keeps moving.
@@ -36,36 +49,41 @@ export function Integrations() {
             // exactly its own width — that is what makes the loop
             // seamless — and hidden from screen readers so the names
             // are not announced twice.
-            aria-hidden={pass === 1 ? 'true' : undefined}
-            className="animate-marquee flex shrink-0 items-center gap-14 pr-14"
+            aria-hidden={pass === 1 ? "true" : undefined}
+            className="animate-band flex shrink-0 items-center gap-14 pr-14"
           >
-            {NETWORK_MARQUEE.map((entry) => (
-              <span key={entry.name} className="flex items-center gap-4">
-                {/* The mark on its own tile. The two partner logos are
+            {Array.from({ length: REPEATS }).flatMap((_, repeat) =>
+              NETWORK_MARQUEE.map((entry) => (
+                <span
+                  key={`${repeat}-${entry.name}`}
+                  className="flex items-center gap-4"
+                >
+                  {/* The mark on its own tile. The two partner logos are
                     photographs of logos with their own backgrounds
                     baked in, so a tile with rounded corners is the
                     honest way to show them — floating them on the page
                     would leave a hard square of someone else's brand
                     colour sitting on ours. */}
-                <span className="relative block size-11 shrink-0 overflow-hidden rounded-xl ring-1 ring-bone/12">
-                  <Image
-                    src={entry.logo}
-                    alt=""
-                    fill
-                    sizes="44px"
-                    className="object-cover"
-                  />
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-sm font-bold tracking-[0.18em] whitespace-nowrap uppercase">
-                    {entry.name}
+                  <span className="relative block size-11 shrink-0 overflow-hidden rounded-xl ring-1 ring-bone/12">
+                    <Image
+                      src={entry.logo}
+                      alt=""
+                      fill
+                      sizes="44px"
+                      className="object-cover"
+                    />
                   </span>
-                  <span className="mt-1 font-mono text-[0.65rem] tracking-[0.16em] whitespace-nowrap uppercase opacity-45">
-                    {entry.role}
+                  <span className="flex flex-col">
+                    <span className="text-sm font-bold tracking-[0.18em] whitespace-nowrap uppercase">
+                      {entry.name}
+                    </span>
+                    <span className="mt-1 font-mono text-[0.65rem] tracking-[0.16em] whitespace-nowrap uppercase opacity-45">
+                      {entry.role}
+                    </span>
                   </span>
                 </span>
-              </span>
-            ))}
+              )),
+            )}
           </div>
         ))}
       </div>

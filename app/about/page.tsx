@@ -4,6 +4,7 @@ import { Footer } from '@/components/ui/Footer';
 import { AboutHero } from '@/components/sections/AboutHero';
 import { Manifesto } from '@/components/sections/Manifesto';
 import { Story } from '@/components/sections/Story';
+import { Integrations } from '@/components/sections/Integrations';
 import { Crew } from '@/components/sections/Crew';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { PageField } from '@/components/ui/PageField';
@@ -29,6 +30,7 @@ export default function About() {
           <RoadTravel />
           <AboutHero />
           <Manifesto />
+          <Integrations />
           <Story />
           <Crew />
           <ClosingCTA />

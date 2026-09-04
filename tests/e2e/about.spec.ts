@@ -38,10 +38,50 @@ test('about page renders its copy and registrations in server HTML', async ({
   expect(text).not.toContain('What you actually get');
   expect(text).not.toContain('Credentials that matter on moving day');
   expect(text).not.toContain('Who stands behind the move');
-  // The partner claims are the ones that most need to stay gone: they
-  // assert a relationship with a named third party.
-  expect(text).not.toContain('Ford Pro');
-  expect(text).not.toContain('4 Alarm Restoration');
+  // The partners come back as the integrations band, but only as
+  // names in a band — not as the paragraphs of claims the removed
+  // section made about them.
+  expect(text).toContain('Ford Pro');
+  expect(text).not.toContain("Every truck in the fleet runs on Ford Pro");
+  expect(text).not.toContain('Our sister company handles what comes after');
+});
+
+test('the integrations band names the partners and keeps moving', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const band = page.locator('[data-integrations]');
+  await band.scrollIntoViewIfNeeded();
+  await expect(band).toBeVisible();
+
+  // The names reach the server HTML, once each for a reader — the
+  // duplicate pass that makes the loop seamless is hidden from
+  // assistive tech rather than read out twice.
+  const spoken = await band
+    .locator('[data-integrations-track]:not([aria-hidden="true"])')
+    .innerText();
+  for (const name of ['FIREHOUSE MOVERS', 'FORD PRO', '4 ALARM RESTORATION']) {
+    expect(spoken).toContain(name);
+  }
+  expect(
+    await band.locator('[data-integrations-track][aria-hidden="true"]').count(),
+  ).toBe(1);
+
+  // It is a band that moves; a static row of logos is the failure.
+  const drift = await page.evaluate(async () => {
+    const t = document.querySelector('[data-integrations-track]') as HTMLElement;
+    const from = t.getBoundingClientRect().x;
+    await new Promise((r) => setTimeout(r, 800));
+    return t.getBoundingClientRect().x - from;
+  });
+  expect(Math.abs(drift)).toBeGreaterThan(4);
+
+  // Opaque, or the 3D road behind it draws through the logos.
+  const bg = await band.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toContain('rgba(0, 0, 0, 0)');
 });
 
 test('about carries no ribbon road', async ({ page }) => {

@@ -421,10 +421,29 @@ export const PARTNERS = [
   },
 ] as const;
 
-/** Names run as a marquee band above the partners, the way the
- *  reference build does. */
+/**
+ * The companies behind a Firehouse move, run as a moving band.
+ *
+ * ⚠️ Same warning as PARTNERS above, and it bites harder here because
+ * these carry the marks themselves: showing Ford's logo asserts a
+ * relationship with Ford, and the logos are reproduced from the
+ * client's own reference build rather than from anything either company
+ * has licensed for this use. Confirm both before this is public.
+ */
 export const NETWORK_MARQUEE = [
-  { name: 'Firehouse Movers', role: 'Full-service relocation' },
-  { name: 'Ford Pro', role: 'Fleet maintenance & telematics' },
-  { name: '4 Alarm Restoration', role: 'Mounting, ducts, restoration' },
+  {
+    name: 'Firehouse Movers',
+    role: 'Full-service relocation',
+    logo: '/fire_house_logo.svg',
+  },
+  {
+    name: 'Ford Pro',
+    role: 'Fleet maintenance & telematics',
+    logo: '/images/partners/ford-pro.jpg',
+  },
+  {
+    name: '4 Alarm Restoration',
+    role: 'Mounting, ducts, restoration',
+    logo: '/images/partners/four-alarm.jpg',
+  },
 ] as const;

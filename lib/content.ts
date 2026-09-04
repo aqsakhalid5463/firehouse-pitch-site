@@ -334,14 +334,13 @@ export const TRUST_MARKS = [
 /**
  * The crew shown on the About page.
  *
- * ⚠️ Placeholder, and deliberately so. These names and roles come from
- * the reference build in the repo root, not from anything verified
- * against the live site, and the silhouettes are generic figures rather
- * than likenesses — nobody here has approved their own figure, role
- * title, or appearing at all. This is fine for a demo and is not fine
- * the moment the site is shown externally: every person needs to sign
- * off their own entry first. Swapping in a confirmed roster is an edit
- * to this array and nothing else.
+ * ⚠️ Every one of these is now a real, identifiable photograph of a
+ * real person, and the names and roles still come from the reference
+ * build in the repo root rather than from anything verified. Nobody
+ * here has approved their photograph, their role title, or appearing
+ * at all. That was a caveat when these were generic figures; with
+ * faces it is a requirement. Each person must sign off their own entry
+ * before this is shown outside the room.
  */
 export const CREW = [
   {
@@ -361,9 +360,12 @@ export const CREW = [
     figure: 'plain',
     photo: '/images/crew/nikki.jpg',
   },
-  { name: 'Julian Hernandez', role: 'Dispatch Manager', figure: 'headset' },
-  { name: 'Peter Taylor', role: 'Operations Supervisor', figure: 'hat' },
-  { name: 'Leon Kaoma', role: 'Operations Manager', figure: 'crew' },
+  {
+    name: 'Leon Kaoma',
+    role: 'Operations Manager',
+    figure: 'crew',
+    photo: '/images/crew/leon.jpg',
+  },
 ] as const;
 
 export type CrewFigure = (typeof CREW)[number]['figure'];

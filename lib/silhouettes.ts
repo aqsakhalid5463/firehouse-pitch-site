@@ -1,4 +1,14 @@
-import type { CrewFigure } from './content';
+/**
+ * The figures this file knows how to draw.
+ *
+ * Declared here rather than derived from the roster. It used to be
+ * `CrewFigure`, which is inferred from whoever happens to be in CREW —
+ * so removing two people from the crew list deleted two shapes from the
+ * drawing vocabulary and broke the type check on functions that still
+ * draw them. What can be drawn is a property of this file; who is on
+ * the page is not.
+ */
+export type FigureKind = 'plain' | 'cap' | 'hat' | 'headset' | 'crew';
 
 /**
  * Procedural crew silhouettes, drawn as flat shapes and then sampled
@@ -16,7 +26,7 @@ import type { CrewFigure } from './content';
  */
 export function drawFigure(
   ctx: CanvasRenderingContext2D,
-  figure: CrewFigure,
+  figure: FigureKind,
   w: number,
   h: number,
 ): void {
@@ -110,7 +120,7 @@ export function drawFigure(
  * once, in the function above, and the particle layout falls out of it.
  */
 export function sampleFigure(
-  figure: CrewFigure,
+  figure: FigureKind,
   w: number,
   h: number,
   step: number,
@@ -195,6 +205,110 @@ export function samplePortrait(
   const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const W = canvas.width;
   const H = canvas.height;
+
+  /**
+   * The backdrop, found by flooding inward from the frame edge.
+   *
+   * The first version defined background as "bright and flat", which is
+   * only true of a white studio wall. The moment a portrait arrived
+   * that was shot against the side of a red truck, that rule matched
+   * nothing and the whole rectangle came back as subject. Brightness
+   * was never the property that mattered.
+   *
+   * What is actually true of a backdrop is that it touches the edge of
+   * the picture and the person does not. So the fill starts from the
+   * border and spreads through pixels close in colour to the border's
+   * own, and stops where the colour changes — at the edge of a head,
+   * whatever colour is behind it. Interior highlights are safe by
+   * construction: a bright patch on a cheek is enclosed by skin, so the
+   * fill never reaches it, which is the failure the brightness rule
+   * had.
+   */
+  const at = (x: number, y: number) => (y * W + x) * 4;
+
+  /*
+   * The backdrop's own colour, as the median of the top edge.
+   *
+   * The comparison has to be against this rather than against each
+   * pixel's neighbour. Comparing neighbours is a gradient-following
+   * fill, and a photograph is locally smooth almost everywhere — every
+   * step from skin to skin, shirt to shirt, passes a
+   * similar-to-my-neighbour test, so the fill walked the entire frame
+   * and classified 100% of all three portraits as backdrop. Measured,
+   * not guessed: that is exactly what it reported.
+   *
+   * Against a fixed reference the fill stops where the colour stops
+   * being the backdrop, which is the edge of the person. Median rather
+   * than mean so a stray dark pixel on the top edge cannot drag the
+   * reference off the wall.
+   */
+  const edgeR: number[] = [];
+  const edgeG: number[] = [];
+  const edgeB: number[] = [];
+  for (let x = 0; x < W; x += 2) {
+    const i = at(x, 0);
+    edgeR.push(data[i]);
+    edgeG.push(data[i + 1]);
+    edgeB.push(data[i + 2]);
+  }
+  const mid = (list: number[]) => {
+    list.sort((a, b) => a - b);
+    return list[Math.floor(list.length / 2)];
+  };
+  const keyR = mid(edgeR);
+  const keyG = mid(edgeG);
+  const keyB = mid(edgeB);
+
+  /** Tolerance around the backdrop colour, as a squared RGB distance.
+   *  Wide enough to absorb a lit wall's shading and a truck panel's
+   *  seams, well inside the distance from any backdrop to skin. */
+  const near = (i: number) => {
+    const dr = data[i] - keyR;
+    const dg = data[i + 1] - keyG;
+    const db = data[i + 2] - keyB;
+    return dr * dr + dg * dg + db * db < 62 * 62;
+  };
+  const backdrop = new Uint8Array(W * H);
+  const queue: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const cell = y * W + x;
+    if (backdrop[cell]) return;
+    // Seeds are checked too: an edge pixel that is already part of the
+    // person — hair running off the side of the frame — must not start
+    // a fill inside them.
+    if (!near(at(x, y))) return;
+    backdrop[cell] = 1;
+    queue.push(x, y);
+  };
+  /*
+   * Seeded from the top edge and the upper sides only — never the
+   * bottom, and never the lower sides.
+   *
+   * Seeding from every border flooded the subject. In a head-and-
+   * shoulders portrait the shoulders run off the bottom of the frame
+   * and usually off both sides as well, so a fill starting there walks
+   * straight into the person: Leon's grey shirt touches three borders,
+   * and filling from them erased all of him but a dozen particles.
+   *
+   * What is reliably backdrop is above and beside the head. Everything
+   * below that is reached only if it is genuinely connected by colour,
+   * which is what the fill is for.
+   */
+  const SEED_DEPTH = Math.floor(H * 0.45);
+  for (let x = 0; x < W; x++) push(x, 0);
+  for (let y = 0; y < SEED_DEPTH; y++) {
+    push(0, y);
+    push(W - 1, y);
+  }
+  while (queue.length) {
+    const y = queue.pop()!;
+    const x = queue.pop()!;
+    if (x > 0 && near(at(x - 1, y))) push(x - 1, y);
+    if (x < W - 1 && near(at(x + 1, y))) push(x + 1, y);
+    if (y > 0 && near(at(x, y - 1))) push(x, y - 1);
+    if (y < H - 1 && near(at(x, y + 1))) push(x, y + 1);
+  }
   const luma = (x: number, y: number) => {
     const i = (y * W + x) * 4;
     return (
@@ -210,17 +324,11 @@ export function samplePortrait(
   const weights: number[] = [];
   for (let y = 2; y < H - 2; y += STEP) {
     for (let x = 2; x < W - 2; x += STEP) {
+      if (backdrop[y * W + x]) continue;
       const l = luma(x, y);
       const gradient =
         Math.abs(luma(x + 2, y) - luma(x - 2, y)) +
         Math.abs(luma(x, y + 2) - luma(x, y - 2));
-      // Flat and bright is the studio backdrop. The thresholds are
-      // measured, not guessed: the backdrop in this photograph reads
-      // 0.96 luma with a gradient of exactly zero, while the lit side
-      // of a face reaches 0.97 with an average gradient of 0.033. A
-      // looser rule — the first version used gradient < 0.05 — deleted
-      // the brightest 80% of the face along with the wall behind it.
-      if (l > 0.9 && gradient < 0.012) continue;
       // Tone is raised to a power so flat mid-tones thin out, and the
       // gradient term is weighted well above it. A stipple portrait is
       // legible because of where the marks *cluster*, and what should

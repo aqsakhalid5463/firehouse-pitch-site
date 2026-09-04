@@ -47,33 +47,67 @@ const FEATHER = 0.18;
 
 const SWELL_SPEED = 0.00022;
 
-/* The physics of being shoved.
+/* The physics.
  *
- * A mark is a mass on a spring back to the cell it belongs in. The
- * cursor does two things to it: pushes it away, and — the part that
- * makes this feel like throwing rather than repelling — hands it a
- * share of the cursor's own velocity. Flicking through the field
- * therefore sprays marks in the direction of the flick, while resting
- * the cursor just parts them. */
+ * These float. There is no home position and no spring back to one —
+ * that is what made the first version feel sticky: every mark was on
+ * elastic, so a shove produced a bulge that snapped flat the moment you
+ * left, and the field read as a rubber sheet rather than as a mass of
+ * loose objects. A mark here is a body drifting in a vacuum. It has a
+ * velocity, it keeps it, and the only things that ever change it are
+ * the cursor and the two soft boundaries.
+ *
+ * The one thing a pure drift cannot do is heal. A flick tears a hole
+ * two hundred pixels wide, and marks moving at a tenth of a pixel a
+ * frame take a minute to wander back into it — measured: one column
+ * still at 15% of its neighbours' density after two and a half
+ * seconds. So each mark keeps a leash to the cell it started in, with
+ * a long slack radius inside which no force acts at all. Inside the
+ * slack it is genuinely free, which is what "floating" has to mean;
+ * outside it, something eventually brings it home. */
+
+/** Speed each mark is born with, in pixels per frame, and the speed it
+ *  never drops below. Slow — the field should look becalmed until
+ *  something disturbs it — but never zero, or the drag below would
+ *  bring the whole field to a stop within a couple of seconds and the
+ *  floating would be a thing that happened once, on load. */
+const FLOAT_SPEED = 0.13;
+
+/** Velocity retained per frame, applied above the floor speed. A thrown
+ *  mark loses its throw over about a second; the drift underneath it is
+ *  untouched. */
+const DRAG = 0.97;
+
+/** How far a mark may wander from where it started before anything
+ *  pulls on it, and how hard the pull is per pixel beyond that. Slack
+ *  enough that ordinary drifting never feels it. */
+const LEASH = 80;
+const LEASH_PULL = 0.004;
+
+/** Ceiling on speed, so no single flick can fire a mark across the
+ *  canvas in a couple of frames and leave a streak. */
+const MAX_SPEED = 5;
+
 const REACH = 110;
 /** Straight shove away from the cursor. */
-const SHOVE = 2.2;
-/** Share of the cursor's velocity handed over. Above about 0.5 a fast
- *  flick launches marks clean off the canvas and the field visibly
- *  empties before they return. */
-const THROW = 0.34;
-/** Spring home, and velocity retained per frame. Loose and floaty —
- *  these drift back over about a second rather than snapping home on
- *  elastic — but not so loose that the hole a flick tears in the field
- *  is still sitting there when the visitor has moved on. */
-const RETURN = 0.02;
-const DRAG = 0.9;
+const SHOVE = 1.6;
+/** Share of the cursor's velocity handed over — the part that makes
+ *  this a throw rather than a repulsion. */
+const THROW = 0.3;
+
+/**
+ * How hard the surface and the floor push a mark back into the field,
+ * per pixel it has strayed past them.
+ *
+ * Soft on purpose. A hard boundary reads as a wall, and these are meant
+ * to be drifting in something, not bouncing off glass — a mark that
+ * wanders up through the surface should slow, hang, and sink back.
+ */
+const CONTAIN = 0.008;
 
 type Mark = {
-  /** The cell this mark belongs to. Membership of the field, and its
-   *  fade, are decided from here rather than from where it currently
-   *  is — a thrown mark must not blink out because it flew above the
-   *  surface. */
+  /** Where this mark started. Not its position and not its identity —
+   *  only the far end of its leash. */
   homeX: number;
   homeY: number;
   x: number;
@@ -137,13 +171,15 @@ export function GlyphField({ className }: { className?: string }) {
         for (let col = 0; col < columns; col++) {
           const x = (col + 0.5 + (Math.random() - 0.5) * JITTER * 2) * cell;
           const y = (row + 0.5 + (Math.random() - 0.5) * JITTER * 2) * cell;
+          const heading = Math.random() * Math.PI * 2;
+          const speed = FLOAT_SPEED * (0.4 + Math.random());
           marks.push({
             homeX: x,
             homeY: y,
             x,
             y,
-            vx: 0,
-            vy: 0,
+            vx: Math.cos(heading) * speed,
+            vy: Math.sin(heading) * speed,
             kind: Math.floor(Math.random() * 5),
             size: cell * (SIZE_MIN + Math.random() * SIZE_VAR),
             alpha: 0.25 + Math.random() * 0.55,
@@ -194,13 +230,6 @@ export function GlyphField({ className }: { className?: string }) {
       const feather = height * FEATHER;
 
       for (const m of marks) {
-        // Membership and fade come from the home cell, so a thrown mark
-        // keeps its identity wherever it happens to be.
-        const surface = surfaceAt(m.homeX, t) * height;
-        if (m.homeY < surface) continue;
-        const depth = (m.homeY - surface) / feather;
-        if (depth < 1 && m.rank > depth * depth) continue;
-
         if (simulate) {
           const dx = m.x - px;
           const dy = m.y - py;
@@ -217,13 +246,53 @@ export function GlyphField({ className }: { className?: string }) {
             m.vy += pvy * THROW * weight;
           }
 
-          m.vx += (m.homeX - m.x) * RETURN;
-          m.vy += (m.homeY - m.y) * RETURN;
+          // The leash. Nothing at all inside the slack radius.
+          const hx = m.homeX - m.x;
+          const hy = m.homeY - m.y;
+          const strayed = Math.hypot(hx, hy);
+          if (strayed > LEASH) {
+            const pull = (strayed - LEASH) * LEASH_PULL;
+            m.vx += (hx / strayed) * pull;
+            m.vy += (hy / strayed) * pull;
+          }
+
+          // The surface is a soft ceiling and the bottom of the canvas
+          // a soft floor.
+          const above = surfaceAt(m.x, t) * height - m.y;
+          if (above > 0) m.vy += Math.min(above, 80) * CONTAIN;
+          const below = m.y - height;
+          if (below > 0) m.vy -= Math.min(below, 80) * CONTAIN;
+
           m.vx *= DRAG;
           m.vy *= DRAG;
+          const speed = Math.hypot(m.vx, m.vy) || 1;
+          if (speed > MAX_SPEED) {
+            m.vx = (m.vx / speed) * MAX_SPEED;
+            m.vy = (m.vy / speed) * MAX_SPEED;
+          } else if (speed < FLOAT_SPEED) {
+            // Held at the floor speed rather than allowed to settle, so
+            // the field keeps moving forever. Direction is whatever it
+            // already had, so this is a floor on the drift and not a
+            // force with an opinion.
+            m.vx = (m.vx / speed) * FLOAT_SPEED;
+            m.vy = (m.vy / speed) * FLOAT_SPEED;
+          }
           m.x += m.vx;
           m.y += m.vy;
+
+          // Sideways the field is unbounded and wraps, so marks blown
+          // off one edge arrive at the other instead of piling up
+          // against an invisible wall and thinning the far side out.
+          if (m.x < -m.size) m.x = width + m.size;
+          else if (m.x > width + m.size) m.x = -m.size;
         }
+
+        // Fade and thinning come from where the mark actually is, so a
+        // mark rising through the surface dims and drops out on its own
+        // way up rather than at a boundary it carries with it.
+        const depth = (m.y - surfaceAt(m.x, t) * height) / feather;
+        if (depth <= 0) continue;
+        if (depth < 1 && m.rank > depth * depth) continue;
 
         ctx.globalAlpha = m.alpha * Math.min(1, depth);
         shape(m);

@@ -20,14 +20,19 @@ import { BUSINESS } from '@/lib/constants';
  */
 export function Footer() {
   return (
-    // Opaque, unlike every other section on the page. The persistent
-    // WebGL scene is a fixed background layer and everything above it
-    // is transparent, so the 3D highway was still drawing its lane
-    // markings straight through the field down here — the same
-    // collision of two patterns that made this unreadable behind the
-    // closing CTA, just moved. The footer is the end of the page and
-    // has nothing to gain from the scene behind it.
-    <footer className="relative overflow-hidden border-t border-current/15 bg-dark-bg px-6 pt-40 pb-16">
+    // Opaque, and lifted above the page's own layer — both unusual
+    // here, and both for the same reason: the field only works if it is
+    // the only pattern in the frame.
+    //
+    // The persistent WebGL scene is a fixed background and everything
+    // above it is transparent, so the 3D highway was drawing its lane
+    // markings straight through the field. And the sections wrapper
+    // carries z-10, which put the ribbon road on top of the footer, so
+    // the last stretch of road came down across the marks. Those are
+    // the two halves of exactly the collision that made this
+    // unreadable behind the closing CTA — moving it down here fixed
+    // neither on its own.
+    <footer className="relative z-20 overflow-hidden border-t border-current/15 bg-dark-bg px-6 pt-40 pb-16">
       <GlyphField className="pointer-events-none absolute inset-0 h-full w-full" />
       <div className="relative mx-auto grid max-w-7xl gap-10 md:grid-cols-3">
         <div>

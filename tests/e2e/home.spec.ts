@@ -1322,49 +1322,63 @@ test('the field pours in under a feathered surface, in the footer', async ({
   expect(bands[5]).toBeGreaterThan(bands[2]);
 });
 
-test('flicking the cursor through the field throws the marks, and they drift back', async ({
+test('the field drifts on its own, and a flick throws the marks', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/about');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
   await page.locator('footer').scrollIntoViewIfNeeded();
+  // Park the cursor well clear, so what is measured below is the field
+  // moving by itself and not the field being pushed.
+  await page.mouse.move(20, 20);
   await page.waitForTimeout(1200);
 
   const field = page.locator('[data-glyph-field]');
   const box = (await field.boundingBox())!;
 
-  // Centre of mass of a band across the middle of the field. A straight
-  // shove moves marks apart symmetrically and barely shifts the centre;
-  // a throw carries them along the flick, which is what this measures.
-  //
-  // Both the flick and the window stay well inside the canvas. Running
-  // the flick out to the right-hand edge measured the opposite of the
-  // truth: marks thrown past the edge are clipped and stop being
-  // drawn, so losing them from the right read as the mass moving left.
-  const centre = () =>
+  /** Lit pixels, and their centre of mass across a band, within a
+   *  window kept well inside the canvas — marks thrown past an edge
+   *  stop being drawn, and losing them from the right would read as
+   *  the mass moving left. */
+  const sample = () =>
     field.evaluate((el: HTMLCanvasElement) => {
       const ctx = el.getContext('2d')!;
       const { data } = ctx.getImageData(0, 0, el.width, el.height);
-      let n = 0;
-      let sx = 0;
       const from = Math.floor(el.height * 0.45);
       const to = Math.floor(el.height * 0.8);
       const left = Math.floor(el.width * 0.06);
       const right = Math.floor(el.width * 0.82);
+      const columns = 12;
+      const per = new Array(columns).fill(0);
+      let n = 0;
+      let sx = 0;
       for (let y = from; y < to; y += 2) {
         for (let x = left; x < right; x += 2) {
           if (data[(y * el.width + x) * 4 + 3] > 20) {
             n += 1;
             sx += x;
+            const c = Math.min(
+              columns - 1,
+              Math.floor(((x - left) / (right - left)) * columns),
+            );
+            per[c] += 1;
           }
         }
       }
-      return n ? sx / n : 0;
+      return { n, centre: n ? sx / n : 0, per };
     });
 
-  const before = await centre();
+  // It floats: the field is never at rest, even untouched.
+  const still1 = await sample();
+  await page.waitForTimeout(700);
+  const still2 = await sample();
+  expect(Math.abs(still2.centre - still1.centre)).toBeGreaterThan(0.05);
 
+  // A flick throws them along it. A straight shove moves marks apart
+  // symmetrically and barely shifts the centre; being carried along the
+  // flick is what this measures.
+  const before = await sample();
   const y = box.y + box.height * 0.62;
   const startX = box.x + box.width * 0.15;
   const step = (box.width * 0.4) / 18;
@@ -1372,17 +1386,18 @@ test('flicking the cursor through the field throws the marks, and they drift bac
   for (let i = 1; i <= 18; i += 1) {
     await page.mouse.move(startX + i * step, y);
   }
-  const during = await centre();
+  const during = await sample();
+  expect(during.centre - before.centre).toBeGreaterThan(2);
 
-  // Thrown along the flick.
-  expect(during - before).toBeGreaterThan(2);
-
-  // And they come home. Loose and floaty by design, so this is given
-  // real time rather than a frame or two.
-  await page.mouse.move(box.x + box.width / 2, box.y - 250);
+  // Nothing holds them anywhere, so they do not return — but the field
+  // must not be left with a permanent hole in it either. Drifting keeps
+  // it evenly spread: no column may end up starved next to a full one.
+  await page.mouse.move(20, 20);
   await page.waitForTimeout(2500);
-  const after = await centre();
-  // Most of the way home. Not exactly home: the swell keeps moving, so
-  // an equality here would be testing the wave, not the spring.
-  expect(Math.abs(after - before)).toBeLessThan(Math.abs(during - before) * 0.4);
+  const after = await sample();
+  const busiest = Math.max(...after.per);
+  const emptiest = Math.min(...after.per);
+  expect(emptiest).toBeGreaterThan(busiest * 0.45);
+  // And the marks are still there — none were lost off an edge.
+  expect(after.n).toBeGreaterThan(before.n * 0.75);
 });

@@ -16,6 +16,22 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  /*
+   * One worker, deliberately.
+   *
+   * Every page in this suite runs a live WebGL scene plus two or three
+   * 2D canvases, and the preloader will not lift until the scene has
+   * rendered a frame. Run several of those at once and they starve each
+   * other: a run with the default worker count failed four tests on a
+   * 20-second wait for the preloader, and the same four passed in 35
+   * seconds sequentially. The failures moved around between runs, which
+   * is the worst kind — the suite looked like it was catching
+   * regressions when it was reporting machine load.
+   *
+   * The wall-clock cost is small because the suite was effectively
+   * serialising on the CPU anyway.
+   */
+  workers: 1,
   use: { baseURL },
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined

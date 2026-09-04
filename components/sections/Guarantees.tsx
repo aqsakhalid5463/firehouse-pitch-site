@@ -18,7 +18,7 @@ import { StackedCards } from '@/components/ui/StackedCards';
 export function Guarantees() {
   return (
     <section className="relative">
-      <div className="mx-auto max-w-7xl px-6 pt-40">
+      <div className="mx-auto max-w-7xl px-6 pt-28">
         <p className="text-xs font-semibold tracking-[0.3em] text-fire uppercase">
           Our promises
         </p>
@@ -31,7 +31,16 @@ export function Guarantees() {
         </RevealText>
       </div>
 
-      <StackedCards className="mt-16 px-6">
+      {/* Pulled up under the heading.
+          
+          The stage is a full viewport with the cards centred in it, so
+          it carries half a screen of air above the first card — which
+          landed directly under this heading and made the promises read
+          as belonging to nothing. A negative margin closes that,
+          and closes only that: the pin begins when this element reaches
+          the top of the screen, so where it sits relative to the
+          heading has no effect at all on the pinned view. */}
+      <StackedCards className="-mt-28 px-6">
         {GUARANTEES.map((g, i) => (
           <article
             key={g.title}

@@ -208,7 +208,14 @@ export function StackedCards({
         style={enabled && !reduced ? { perspective: '1600px' } : undefined}
         className={
           enabled && !reduced
-            ? 'relative flex h-screen items-center justify-center'
+            ? // A full viewport, so that once the stage is pinned the
+              // card sits dead centre. Shortening it does close the gap
+              // under the heading, but it also lifts the pinned card
+              // off centre and leaves a third of the screen empty below
+              // it — trading one imbalance for a worse one. The gap is
+              // closed by the caller pulling the stack up instead,
+              // which changes nothing about the pinned view.
+              'relative flex h-screen items-center justify-center'
             : 'flex flex-col gap-6'
         }
       >

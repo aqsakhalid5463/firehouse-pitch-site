@@ -1325,11 +1325,16 @@ test('the field pours in under a feathered surface, in the footer', async ({
       return per;
     });
 
-  // Empty at the top, dense at the bottom, and the change is gradual
-  // rather than a cut — that gradient is the whole look.
-  expect(bands[0]).toBeLessThan(bands[9] * 0.15);
+  // The field fills the footer: every band carries marks, including
+  // the top one, which used to be empty because the surface sat a
+  // third of the way down.
+  for (const band of bands) expect(band).toBeGreaterThan(0);
   expect(bands[9]).toBeGreaterThan(500);
-  expect(bands[5]).toBeGreaterThan(bands[2]);
+  // Still lighter at the top than the bottom, and the change is
+  // gradual rather than a cut — the feathered surface is what stops
+  // the top edge reading as a crop.
+  expect(bands[0]).toBeLessThan(bands[9] * 0.8);
+  expect(bands[5]).toBeGreaterThan(bands[0]);
 });
 
 test('the field drifts on its own, and a flick throws the marks', async ({

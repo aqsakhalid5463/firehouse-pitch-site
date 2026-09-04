@@ -36,14 +36,27 @@ const SIZE_VAR = 0.16;
  *  patches that read as a mistake. */
 const JITTER = 0.44;
 
-/** Where the surface sits, as a fraction of the height, and how far the
- *  wave travels either side of it. */
-const SURFACE = 0.3;
-const WAVE = 0.08;
+/**
+ * Where the surface sits, as a fraction of the height, and how far the
+ * wave travels either side of it.
+ *
+ * Near the very top: the field fills the footer rather than lapping at
+ * a third of it. The wave stays — it is what keeps the top edge from
+ * looking cropped — but it now runs just under the ceiling instead of
+ * cutting the panel in half.
+ *
+ * Costs almost nothing. Every mark already exists and is already
+ * simulated at every height; the surface only decides which of them get
+ * drawn. Filling the top third adds draw calls, not physics, which is
+ * why this is the cheap way to get a fuller field and raising the
+ * column count is not.
+ */
+const SURFACE = 0.05;
+const WAVE = 0.045;
 
 /** Depth over which marks fade and thin in below the surface, so the
  *  edge is a scatter rather than a cut. */
-const FEATHER = 0.18;
+const FEATHER = 0.1;
 
 const SWELL_SPEED = 0.00022;
 

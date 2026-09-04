@@ -6,6 +6,7 @@ import { SceneCanvas } from '@/components/scene/SceneCanvas';
 import { Cursor } from '@/components/ui/Cursor';
 import { CursorTrail } from '@/components/ui/CursorTrail';
 import { Preloader } from '@/components/ui/Preloader';
+import { RouteTransition } from '@/components/ui/RouteTransition';
 import { BUSINESS } from '@/lib/constants';
 
 /**
@@ -69,6 +70,10 @@ export default function RootLayout({
           {/* Beneath the cursor itself: the tracks are what the
               cursor has driven over, so it must paint on top of them. */}
           <CursorTrail />
+          {/* Beneath the cursor, above the page: the bay door that
+              covers a route change. Renders nothing between
+              navigations. */}
+          <RouteTransition />
           <Cursor />
           {/* Mounted last and painted above everything, including the
               cursor layer. Client-side navigation between routes does

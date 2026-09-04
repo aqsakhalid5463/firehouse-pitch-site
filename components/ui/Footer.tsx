@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { TransitionLink } from '@/components/ui/RouteTransition';
 import { BUSINESS } from '@/lib/constants';
 
 export function Footer() {
@@ -25,12 +25,12 @@ export function Footer() {
           </a>
         </div>
         <div className="text-sm">
-          <Link href="/" className="block hover:opacity-70">
+          <TransitionLink href="/" className="block hover:opacity-70">
             Home
-          </Link>
-          <Link href="/about" className="mt-2 block hover:opacity-70">
+          </TransitionLink>
+          <TransitionLink href="/about" className="mt-2 block hover:opacity-70">
             About
-          </Link>
+          </TransitionLink>
         </div>
       </div>
       <p className="mx-auto mt-12 max-w-7xl text-xs opacity-40">

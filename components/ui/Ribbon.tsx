@@ -442,6 +442,7 @@ function buildWaypoints(
         pts.push(...loopFrom(lx, y, loopR, aspect, dir, drop));
         x = lx;
         y += drop;
+        looped = true;
       }
     }
   }

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { TransitionLink } from '@/components/ui/RouteTransition';
 import { BUSINESS } from '@/lib/constants';
 import { SoundToggle } from '@/components/ui/SoundToggle';
 
@@ -30,12 +31,20 @@ export function Nav() {
           </span>
         </Link>
         <div className="flex items-center gap-8 text-sm">
-          <Link href="/" className="hidden sm:inline hover:opacity-70">
+          {/* These two are the only in-site routes, and the only links
+              that close the bay door on the way out. The logo above is a
+              plain Link on purpose: it is also the home link, but it is
+              hit reflexively and mid-scroll, where a 1.5s cover reads as
+              the site hanging rather than as a transition. */}
+          <TransitionLink href="/" className="hidden sm:inline hover:opacity-70">
             Home
-          </Link>
-          <Link href="/about" className="hidden sm:inline hover:opacity-70">
+          </TransitionLink>
+          <TransitionLink
+            href="/about"
+            className="hidden sm:inline hover:opacity-70"
+          >
             About
-          </Link>
+          </TransitionLink>
           <a href={BUSINESS.phoneHref} className="hover:opacity-70">
             {BUSINESS.phone}
           </a>

@@ -1025,3 +1025,60 @@ test('each road loops at most once and stays inside its own section', async ({
     expect(road.outside).toBe(0);
   }
 });
+
+test('the bay door covers the page before the route swaps, then clears', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  // The door does not exist between navigations.
+  await expect(page.locator('[data-route-door]')).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'About', exact: true }).first().click();
+
+  const door = page.locator('[data-route-door]');
+  await door.waitFor({ timeout: 4000 });
+
+  // It reaches full cover, and it does so *before* the URL changes —
+  // that ordering is the whole point: the new page must never be
+  // visible mid-swap.
+  await expect
+    .poll(
+      async () =>
+        door.evaluate((el) => el.getBoundingClientRect().top).catch(() => null),
+      { timeout: 4000 },
+    )
+    .toBe(0);
+  expect(new URL(page.url()).pathname).toBe('/');
+
+  // Composited: the door moves on a transform, not on `top` or a
+  // clip-path, so a long task during the route change cannot stutter it.
+  const how = await door.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { prop: s.transitionProperty, clip: s.clipPath };
+  });
+  expect(how.prop).toContain('transform');
+  expect(how.clip).toBe('none');
+
+  await page.waitForURL('**/about', { timeout: 6000 });
+  await expect(page.locator('[data-route-door]')).toHaveCount(0, {
+    timeout: 6000,
+  });
+  // The new page arrives at the top, not at the old scroll position.
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(10);
+});
+
+test('reduced motion navigates with no door at all', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  await page.getByRole('link', { name: 'About', exact: true }).first().click();
+  await page.waitForURL('**/about', { timeout: 6000 });
+  await expect(page.locator('[data-route-door]')).toHaveCount(0);
+  await context.close();
+});

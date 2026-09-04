@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useScrollStore } from '@/lib/scroll-store';
 import { normalizeScroll } from '@/lib/scroll-math';
+import { setLenis } from '@/lib/lenis-ref';
 import { THEME } from '@/lib/theme';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -70,6 +71,9 @@ export function SmoothScrollProvider({
     window.addEventListener('resize', onResize);
 
     const lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+    // Published so the route transition can put the page back to the top
+    // instantly while the shutter covers it. See lib/lenis-ref.ts.
+    setLenis(lenis);
 
     lenis.on('scroll', ({ scroll, limit, velocity }) => {
       publish(limit > 0 ? Math.min(1, Math.max(0, scroll / limit)) : 0, velocity);
@@ -91,6 +95,7 @@ export function SmoothScrollProvider({
     return () => {
       gsap.ticker.remove(tick);
       gsap.ticker.lagSmoothing(500, 33);
+      setLenis(null);
       lenis.destroy();
       window.removeEventListener('resize', onResize);
       clearTimeout(resizeTimer);

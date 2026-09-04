@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef } from 'react';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { jumpToTop } from '@/lib/lenis-ref';
+import { jumpToBottom, jumpToTop } from '@/lib/lenis-ref';
 import {
   transitionInFlight,
   useTransitionStore,
@@ -44,6 +44,13 @@ const COVER_AT_MS = SHUTTER_DELAY_MS + CLOSE_MS;
  * land, so the door does not open on a page that then jumps.
  */
 const SETTLE_MS = 140;
+
+/**
+ * How long the door is held shut while a page entered at its bottom
+ * finishes measuring itself. See settleAtBottom below — this is entirely
+ * invisible, so it costs nothing but the wait.
+ */
+const BOTTOM_SETTLE_MS = 420;
 const OPEN_MS = 680;
 
 /**
@@ -60,6 +67,24 @@ const COVER_LIMIT_MS = 2400;
 /** Seams painted across the door, matching the preloader's curtain so
  *  the two read as the same piece of hardware. */
 const SLATS = 5;
+
+/**
+ * The door is painted red, not black.
+ *
+ * The preloader's curtain is black because it is the first thing anyone
+ * sees and it has to hand over to a dark page without a seam. This door
+ * is the opposite situation: it arrives over a page already on screen
+ * and its whole job is to be unmistakably an event. Black over a black
+ * site reads as the page going out; the company's red reads as
+ * something closing over it.
+ *
+ * It is a gradient rather than a flat fill because a single flat red at
+ * this size is a wall of colour with no form — the darker top and
+ * brighter leading edge give it the light a real shutter has, lit from
+ * the opening it is closing over.
+ */
+const DOOR_PAINT =
+  'linear-gradient(180deg, #6E1710 0%, #A82718 38%, #CE3421 72%, #E23D28 100%)';
 
 /**
  * Runs the choreography. Exposed as a hook rather than a context because
@@ -80,7 +105,14 @@ export function useRouteTransition() {
   );
 
   return useCallback(
-    (href: string, label: string) => {
+    (
+      href: string,
+      label: string,
+      /** Where the visitor is put down on the new page. `bottom` is for
+       *  arriving by scrolling *up* out of the page below — dropping
+       *  them at the top would undo the gesture they just made. */
+      landAt: 'top' | 'bottom' = 'top',
+    ) => {
       const { setPhase, begin } = useTransitionStore.getState();
       const after = (ms: number, fn: () => void) => {
         timers.current.push(setTimeout(fn, ms));
@@ -104,6 +136,52 @@ export function useRouteTransition() {
         // new document. Doing any of it a frame earlier would be visible
         // as a jump.
         let opened = false;
+
+        const raise = () => {
+          after(SETTLE_MS, () => {
+            setPhase('opening');
+            after(OPEN_MS, () => setPhase('idle'));
+          });
+        };
+
+        /**
+         * Put the visitor at the far end of the new page and keep them
+         * there while it finishes growing.
+         *
+         * One refresh-and-jump is not enough. The home page's height is
+         * mostly pin spacers that ScrollTrigger creates from the
+         * sections' own effects, which have not all run at the moment
+         * the route commits — jumping once landed 29% down a page that
+         * was still a third of its final height. So the jump is
+         * re-asserted on every frame the height changes, behind the shut
+         * door, until it stops moving or the deadline is up.
+         */
+        const settleAtBottom = () => {
+          ScrollTrigger.refresh();
+          jumpToBottom();
+          let lastHeight = document.documentElement.scrollHeight;
+          const from = performance.now();
+          const step = () => {
+            const height = document.documentElement.scrollHeight;
+            if (height !== lastHeight) {
+              lastHeight = height;
+              jumpToBottom();
+            }
+            if (performance.now() - from < BOTTOM_SETTLE_MS) {
+              requestAnimationFrame(step);
+              return;
+            }
+            // A last refresh once the tree is done, so the new page's
+            // own scroll-driven pieces are measured against the height
+            // it actually ended up with, then one final jump against
+            // that measurement.
+            ScrollTrigger.refresh();
+            jumpToBottom();
+            raise();
+          };
+          requestAnimationFrame(step);
+        };
+
         const open = () => {
           if (opened) return;
           opened = true;
@@ -113,15 +191,16 @@ export function useRouteTransition() {
           // that measures wrong is recoverable, a page sealed behind a
           // black rectangle is not.
           try {
+            if (landAt === 'bottom') {
+              settleAtBottom();
+              return;
+            }
             jumpToTop();
             ScrollTrigger.refresh();
           } catch {
             /* opening regardless */
           }
-          after(SETTLE_MS, () => {
-            setPhase('opening');
-            after(OPEN_MS, () => setPhase('idle'));
-          });
+          raise();
         };
 
         router.push(href);
@@ -304,11 +383,14 @@ export function RouteTransition() {
         ref={door}
         data-route-door
         data-phase={phase}
-        className="absolute inset-0 bg-dark-bg"
+        className="absolute inset-0"
         style={{
           transform: DOOR_AT[phase],
           willChange: 'transform',
-          backgroundImage: `repeating-linear-gradient(180deg, rgba(255,255,255,0.022) 0, rgba(255,255,255,0.022) 1px, transparent 1px, transparent calc(100% / ${SLATS}))`,
+          // Seams first, paint behind it. They are dark here rather than
+          // light: on a black door a seam is a highlight, on a red one
+          // it is a shadow between panels.
+          backgroundImage: `repeating-linear-gradient(180deg, rgba(0,0,0,0.22) 0, rgba(0,0,0,0.22) 1px, transparent 1px, transparent calc(100% / ${SLATS})), ${DOOR_PAINT}`,
         }}
       >
         {/* The destination, stencilled on the panel. */}
@@ -317,7 +399,10 @@ export function RouteTransition() {
             className="text-[clamp(2.5rem,11vw,7rem)] leading-none font-thin tracking-[0.22em] uppercase"
             style={{
               color: 'transparent',
-              WebkitTextStroke: '1px rgba(255,255,255,0.28)',
+              // Heavier than it would need to be on black: the red is
+              // bright enough that a hairline outline at low opacity
+              // simply disappears into it.
+              WebkitTextStroke: '1.5px rgba(255,255,255,0.6)',
             }}
           >
             {label}
@@ -331,10 +416,11 @@ export function RouteTransition() {
         <div
           className="absolute bottom-0 left-0 h-px w-full"
           style={{
+            // White, not fire: the preloader's rail is red because it
+            // travels over black. Red on red is invisible.
             background:
-              'linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-fire) 60%, white) 50%, transparent)',
-            boxShadow:
-              '0 0 18px 2px color-mix(in srgb, var(--color-fire) 30%, transparent)',
+              'linear-gradient(90deg, transparent, rgba(255,240,232,0.95) 50%, transparent)',
+            boxShadow: '0 0 22px 3px rgba(255,180,150,0.45)',
           }}
         />
       </div>

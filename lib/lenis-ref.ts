@@ -27,9 +27,33 @@ export function getLenis(): Lenis | null {
   return current;
 }
 
-/** Jump to the top with no smoothing, whether or not Lenis is running. */
-export function jumpToTop(): void {
+/** Jump to an absolute position with no smoothing, whether or not Lenis
+ *  is running. */
+export function jumpTo(y: number): void {
   const lenis = getLenis();
-  if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
-  else window.scrollTo(0, 0);
+  if (!lenis) {
+    window.scrollTo(0, y);
+    return;
+  }
+  // Re-measure first. Lenis caches the document's dimensions and clamps
+  // every scrollTo against the cached limit, and a client-side route
+  // change never invalidates that cache — so jumping to the bottom of a
+  // 16000px page immediately after arriving from a 5300px one was
+  // silently clamped to 4416, a third of the way down. Nothing about
+  // the call looks wrong; it just quietly lands somewhere else.
+  lenis.resize();
+  lenis.scrollTo(y, { immediate: true, force: true });
+}
+
+export function jumpToTop(): void {
+  jumpTo(0);
+}
+
+/** The far end of the document. Used when a visitor arrives by scrolling
+ *  *up* out of the page below: dropping them at the top of the page they
+ *  were reversing into would undo the gesture they just made. */
+export function jumpToBottom(): void {
+  jumpTo(
+    Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
+  );
 }

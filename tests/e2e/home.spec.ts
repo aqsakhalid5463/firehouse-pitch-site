@@ -1090,7 +1090,7 @@ test('scrolling past the end of the home page carries on into About', async ({
   await page.goto('/');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
 
-  const hint = page.locator('[data-scroll-to-next]');
+  const hint = page.locator('[data-scroll-handoff]');
   // Not offered until there is nothing left to scroll.
   await expect(hint).toHaveAttribute('data-at-end', 'false');
 
@@ -1133,4 +1133,64 @@ test('scrolling past the end of the home page carries on into About', async ({
   }
   await page.locator('[data-route-door]').waitFor({ timeout: 4000 });
   await page.waitForURL('**/about', { timeout: 8000 });
+});
+
+test('scrolling up off the top of About carries back into Home', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const hint = page.locator('[data-scroll-handoff][data-edge="top"]');
+  await expect(hint).toHaveAttribute('data-at-end', 'true', { timeout: 5000 });
+
+  // Sitting at the top does not navigate on its own, and neither does
+  // the grace period straight after arriving.
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, -200);
+  await page.waitForTimeout(300);
+  expect(new URL(page.url()).pathname).toBe('/about');
+
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 8; i += 1) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(40);
+  }
+
+  await page.waitForURL((url) => url.pathname === '/', { timeout: 8000 });
+
+  // Entered at the bottom, not the top: scrolling up must not dump the
+  // visitor at the far end of the page they were reversing into.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            window.scrollY /
+            Math.max(
+              1,
+              document.documentElement.scrollHeight - window.innerHeight,
+            ),
+        ),
+      { timeout: 8000 },
+    )
+    .toBeGreaterThan(0.9);
+});
+
+test('the door between pages is painted in the company red', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.getByRole('link', { name: 'About', exact: true }).first().click();
+
+  const door = page.locator('[data-route-door]');
+  await door.waitFor({ timeout: 4000 });
+  const paint = await door.evaluate(
+    (el) => getComputedStyle(el).backgroundImage,
+  );
+  // The fire red is the last stop of the gradient, at the leading edge.
+  expect(paint).toContain('226, 61, 40');
 });

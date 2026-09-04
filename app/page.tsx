@@ -12,7 +12,7 @@ import { Faq } from '@/components/sections/Faq';
 import { SceneAudio } from '@/components/scene/SceneAudio';
 import { Ribbon } from '@/components/ui/Ribbon';
 import { PageField } from '@/components/ui/PageField';
-import { ScrollToNext } from '@/components/ui/ScrollToNext';
+import { ScrollHandoff } from '@/components/ui/ScrollHandoff';
 
 export default function Home() {
   return (
@@ -42,7 +42,7 @@ export default function Home() {
       <Footer />
       {/* Past the end of the home page, the site keeps going into
           About rather than stopping at the footer. */}
-      <ScrollToNext href="/about" label="About" />
+      <ScrollHandoff href="/about" label="About" />
     </>
   );
 }

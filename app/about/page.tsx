@@ -9,6 +9,7 @@ import { Credentials } from '@/components/sections/Credentials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { Ribbon } from '@/components/ui/Ribbon';
 import { PageField } from '@/components/ui/PageField';
+import { ScrollHandoff } from '@/components/ui/ScrollHandoff';
 
 export const metadata: Metadata = {
   title: 'About — Firehouse Movers Inc.',
@@ -38,6 +39,10 @@ export default function About() {
         </div>
       </main>
       <Footer />
+      {/* The other end of the same chain: scrolling up off the top of
+          About carries back into the home page, entered at its bottom
+          so the visitor keeps going the way they were already going. */}
+      <ScrollHandoff href="/" label="Home" edge="top" />
     </>
   );
 }

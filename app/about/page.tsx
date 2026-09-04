@@ -5,6 +5,7 @@ import { AboutHero } from '@/components/sections/AboutHero';
 import { Manifesto } from '@/components/sections/Manifesto';
 import { Story } from '@/components/sections/Story';
 import { Values } from '@/components/sections/Values';
+import { Crew } from '@/components/sections/Crew';
 import { Credentials } from '@/components/sections/Credentials';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { Ribbon } from '@/components/ui/Ribbon';
@@ -34,6 +35,7 @@ export default function About() {
           <Manifesto />
           <Story />
           <Values />
+          <Crew />
           <Credentials />
           <ClosingCTA />
         </div>

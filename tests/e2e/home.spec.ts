@@ -1194,3 +1194,91 @@ test('the door between pages is painted in the company red', async ({
   // The fire red is the last stop of the gradient, at the leading edge.
   expect(paint).toContain('226, 61, 40');
 });
+
+test('the crew portrait resolves into a figure and changes with scroll', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const section = page.locator('[data-crew]');
+  await section.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+
+  // The particles have to actually form a figure, not a cloud. A
+  // silhouette is dense in the middle and empty at the corners; a blob
+  // is neither. Measured by sampling the painted canvas.
+  const shape = await page
+    .locator('[data-particle-portrait]')
+    .evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext('2d')!;
+      const { data } = ctx.getImageData(0, 0, el.width, el.height);
+      const cols = 12;
+      const rows = 16;
+      const cell = new Array(cols * rows).fill(0);
+      for (let y = 0; y < el.height; y += 2) {
+        for (let x = 0; x < el.width; x += 2) {
+          if (data[(y * el.width + x) * 4 + 3] > 20) {
+            const c = Math.min(cols - 1, Math.floor((x / el.width) * cols));
+            const r = Math.min(rows - 1, Math.floor((y / el.height) * rows));
+            cell[r * cols + c] += 1;
+          }
+        }
+      }
+      const filled = cell.filter((n) => n > 4).length;
+      // Bottom band: the bug that made this read as a blob was the
+      // lower part of every figure having no particles at all.
+      const bottomBand = cell.slice((rows - 3) * cols).filter((n) => n > 4).length;
+      return { filled, bottomBand, cells: cols * rows };
+    });
+
+  // Covers a real area of the box, but nothing like all of it.
+  expect(shape.filled).toBeGreaterThan(20);
+  expect(shape.filled).toBeLessThan(shape.cells * 0.75);
+  // The torso reaches the bottom of the frame.
+  expect(shape.bottomBand).toBeGreaterThan(3);
+
+  // Scrolling through the pinned section advances the roster.
+  const active = () =>
+    page.locator('[data-crew-member][aria-current="true"]').innerText();
+  const first = await active();
+  await page.mouse.move(400, 450);
+  for (let i = 0; i < 14; i += 1) {
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(30);
+  }
+  await expect.poll(active, { timeout: 6000 }).not.toBe(first);
+});
+
+test('the closing field pours in under a feathered surface', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('[data-glyph-field]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+
+  const bands = await page
+    .locator('[data-glyph-field]')
+    .evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext('2d')!;
+      const { data } = ctx.getImageData(0, 0, el.width, el.height);
+      const rows = 10;
+      const per = new Array(rows).fill(0);
+      for (let y = 0; y < el.height; y += 2) {
+        const band = Math.min(rows - 1, Math.floor((y / el.height) * rows));
+        for (let x = 0; x < el.width; x += 2) {
+          if (data[(y * el.width + x) * 4 + 3] > 20) per[band] += 1;
+        }
+      }
+      return per;
+    });
+
+  // Empty at the top, dense at the bottom, and the change is gradual
+  // rather than a cut — that gradient is the whole look.
+  expect(bands[0]).toBeLessThan(bands[9] * 0.15);
+  expect(bands[9]).toBeGreaterThan(500);
+  expect(bands[5]).toBeGreaterThan(bands[2]);
+});

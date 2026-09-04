@@ -321,3 +321,25 @@ export const TRUST_MARKS = [
   'Climate-Controlled Storage',
   'Federally Licensed Interstate',
 ] as const;
+
+/**
+ * The crew shown on the About page.
+ *
+ * ⚠️ Placeholder, and deliberately so. These names and roles come from
+ * the reference build in the repo root, not from anything verified
+ * against the live site, and the silhouettes are generic figures rather
+ * than likenesses — nobody here has approved their own figure, role
+ * title, or appearing at all. This is fine for a demo and is not fine
+ * the moment the site is shown externally: every person needs to sign
+ * off their own entry first. Swapping in a confirmed roster is an edit
+ * to this array and nothing else.
+ */
+export const CREW = [
+  { name: 'Brian Kaoma', role: 'Co-founder', figure: 'cap' },
+  { name: 'Nikki Ingram', role: 'Co-founder', figure: 'plain' },
+  { name: 'Julian Hernandez', role: 'Dispatch Manager', figure: 'headset' },
+  { name: 'Peter Taylor', role: 'Operations Supervisor', figure: 'hat' },
+  { name: 'Leon Kaoma', role: 'Operations Manager', figure: 'crew' },
+] as const;
+
+export type CrewFigure = (typeof CREW)[number]['figure'];

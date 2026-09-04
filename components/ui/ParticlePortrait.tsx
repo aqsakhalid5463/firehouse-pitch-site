@@ -39,6 +39,10 @@ const PUSH_FORCE = 26;
  *  non-retina screen; above 2 it stops reading as particles. */
 const DOT = 1.6;
 
+/** Frames a portrait may wait for its photograph before the drawn
+ *  figure is shown instead. At 60fps this is about two seconds. */
+const BLANK_LIMIT_FRAMES = 120;
+
 type Particle = {
   x: number;
   y: number;
@@ -120,6 +124,8 @@ export function ParticlePortrait({
     const loading = new Set<string>();
     let targets: Float32Array = new Float32Array(0);
     let showing: string | null = null;
+    // Frames spent waiting for the current person's targets.
+    let waiting = 0;
     let pointerX = -9999;
     let pointerY = -9999;
     let raf = 0;
@@ -207,12 +213,20 @@ export function ParticlePortrait({
 
       const key = wanted.current.photo ?? wanted.current.figure;
       if (showing !== key) {
-        const next = targetsFor(wanted.current);
+        waiting += 1;
+        // A photograph that never arrives must not leave an empty
+        // frame. After a couple of seconds of waiting, fall back to the
+        // drawn figure — late and wrong beats blank.
+        const next =
+          waiting > BLANK_LIMIT_FRAMES
+            ? figureTargets(wanted.current.figure)
+            : targetsFor(wanted.current);
         // Null means a photograph is still decoding. Hold the current
         // figure and try again next frame.
         if (next) {
           showing = key;
           targets = next;
+          waiting = 0;
         }
         if (next && next.length) {
           // Kick the cloud apart on a change, so the new figure is
@@ -233,6 +247,13 @@ export function ParticlePortrait({
 
       const t = now / 1000;
       for (const p of particles) {
+        if (reduced) {
+          const at = Math.min(pairs - 1, Math.floor(p.at * pairs)) * 2;
+          p.x = targets[at];
+          p.y = targets[at + 1];
+          ctx.fillRect(p.x, p.y, DOT, DOT);
+          continue;
+        }
         const at = Math.min(pairs - 1, Math.floor(p.at * pairs)) * 2;
         // Breathing: a small circular wander around the target, unique
         // per particle, so a settled figure is never perfectly still.
@@ -269,30 +290,19 @@ export function ParticlePortrait({
     layout();
     seed();
 
-    // Reduced motion gets the figure, held still, with no wander and no
-    // repulsion: the shape is information, the movement is not.
-    if (reduced) {
-      let cancelled = false;
-      const paintStill = () => {
-        const still = targetsFor(wanted.current);
-        if (cancelled) return;
-        if (!still) {
-          // Still decoding a photograph. Poll on a frame rather than
-          // rendering the fallback and then replacing it.
-          requestAnimationFrame(paintStill);
-          return;
-        }
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = 'rgba(240,240,238,0.85)';
-        for (let i = 0; i < still.length; i += 2) {
-          ctx.fillRect(still[i], still[i + 1], DOT, DOT);
-        }
-      };
-      paintStill();
-      return () => {
-        cancelled = true;
-      };
-    }
+    // Reduced motion is handled inside the loop below rather than by
+    // painting once and returning.
+    //
+    // Painting once was wrong in a way that only shows on a machine
+    // with the setting on: the effect does not re-run when the crew
+    // member changes, so the portrait was frozen on whoever happened
+    // to be first, forever. Worse, if the photograph had not decoded
+    // by that single paint, the retry was a lone rAF chain that a
+    // cleanup could cancel — and then the canvas stayed empty for the
+    // rest of the session with nothing to restart it.
+    //
+    // In the loop, reduced motion simply means the particles are
+    // placed on their targets instead of travelling to them.
 
     // Only draw while the section is actually on screen. Everything in
     // this file is cheap per particle and expensive per frame, and a
@@ -311,6 +321,19 @@ export function ParticlePortrait({
       seed();
     };
     window.addEventListener('resize', onResize);
+    // The canvas can change size without the window doing so — a pin
+    // spacer being built, a font landing, a layout settling after
+    // hydration. Watching the element itself catches those; watching
+    // only the window left the targets sampled for a box that no
+    // longer exists.
+    const box = new ResizeObserver(() => {
+      const rect = canvas.getBoundingClientRect();
+      if (Math.abs(rect.width - width) < 1 && Math.abs(rect.height - height) < 1) {
+        return;
+      }
+      onResize();
+    });
+    box.observe(canvas);
     window.addEventListener('pointermove', onPointer, { passive: true });
     window.addEventListener('pointerleave', onLeave);
     raf = requestAnimationFrame(frame);
@@ -318,6 +341,7 @@ export function ParticlePortrait({
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      box.disconnect();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('pointerleave', onLeave);

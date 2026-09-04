@@ -1036,33 +1036,63 @@ test('the bay door covers the page before the route swaps, then clears', async (
   // The door does not exist between navigations.
   await expect(page.locator('[data-route-door]')).toHaveCount(0);
 
+  // The ordering is recorded inside the page, on frames, rather than
+  // polled from here. The door reaching full cover and the route
+  // swapping happen in the same instant by design — the swap is what
+  // the cover is for — so a poll across the process boundary cannot
+  // resolve which came first, and reports whichever it happened to
+  // sample. This watches both from the same frame loop.
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      __order: { covered: number | null; swapped: number | null };
+    };
+    w.__order = { covered: null, swapped: null };
+    const started = performance.now();
+    const tick = () => {
+      const door = document.querySelector('[data-route-door]');
+      if (door && w.__order.covered === null) {
+        if (Math.abs(door.getBoundingClientRect().top) < 1) {
+          w.__order.covered = performance.now() - started;
+        }
+      }
+      if (location.pathname !== '/' && w.__order.swapped === null) {
+        w.__order.swapped = performance.now() - started;
+      }
+      if (performance.now() - started < 4000) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
   await page.getByRole('link', { name: 'About', exact: true }).first().click();
 
   const door = page.locator('[data-route-door]');
   await door.waitFor({ timeout: 4000 });
 
-  // It reaches full cover, and it does so *before* the URL changes —
-  // that ordering is the whole point: the new page must never be
-  // visible mid-swap.
-  await expect
-    .poll(
-      async () =>
-        door.evaluate((el) => el.getBoundingClientRect().top).catch(() => null),
-      { timeout: 4000 },
-    )
-    .toBe(0);
-  expect(new URL(page.url()).pathname).toBe('/');
-
   // Composited: the door moves on a transform, not on `top` or a
   // clip-path, so a long task during the route change cannot stutter it.
   const how = await door.evaluate((el) => {
-    const s = getComputedStyle(el);
-    return { prop: s.transitionProperty, clip: s.clipPath };
+    const style = getComputedStyle(el);
+    return { prop: style.transitionProperty, clip: style.clipPath };
   });
   expect(how.prop).toContain('transform');
   expect(how.clip).toBe('none');
 
   await page.waitForURL('**/about', { timeout: 6000 });
+
+  const order = await page.evaluate(
+    () =>
+      (window as unknown as {
+        __order: { covered: number | null; swapped: number | null };
+      }).__order,
+  );
+  // Both were seen, and the page was fully covered before the swap. If
+  // this ever fails the other way round, the new page was briefly
+  // visible mid-navigation, which is the one thing the door exists to
+  // prevent.
+  expect(order.covered).not.toBeNull();
+  expect(order.swapped).not.toBeNull();
+  expect(order.covered!).toBeLessThanOrEqual(order.swapped!);
+
   await expect(page.locator('[data-route-door]')).toHaveCount(0, {
     timeout: 6000,
   });
@@ -1251,13 +1281,22 @@ test('the crew portrait resolves into a figure and changes with scroll', async (
   await expect.poll(active, { timeout: 6000 }).not.toBe(first);
 });
 
-test('the closing field pours in under a feathered surface', async ({
+test('the field pours in under a feathered surface, in the footer', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/about');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
-  await page.locator('[data-glyph-field]').scrollIntoViewIfNeeded();
+
+  // It lives in the footer now, not behind the closing CTA, where it
+  // tangled with the ribbon road running through that section.
+  const inFooter = await page
+    .locator('[data-glyph-field]')
+    .evaluate((el) => !!el.closest('footer'));
+  expect(inFooter).toBe(true);
+  expect(await page.locator('#quote [data-glyph-field]').count()).toBe(0);
+
+  await page.locator('footer').scrollIntoViewIfNeeded();
   await page.waitForTimeout(1200);
 
   const bands = await page
@@ -1281,4 +1320,69 @@ test('the closing field pours in under a feathered surface', async ({
   expect(bands[0]).toBeLessThan(bands[9] * 0.15);
   expect(bands[9]).toBeGreaterThan(500);
   expect(bands[5]).toBeGreaterThan(bands[2]);
+});
+
+test('flicking the cursor through the field throws the marks, and they drift back', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('footer').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+
+  const field = page.locator('[data-glyph-field]');
+  const box = (await field.boundingBox())!;
+
+  // Centre of mass of a band across the middle of the field. A straight
+  // shove moves marks apart symmetrically and barely shifts the centre;
+  // a throw carries them along the flick, which is what this measures.
+  //
+  // Both the flick and the window stay well inside the canvas. Running
+  // the flick out to the right-hand edge measured the opposite of the
+  // truth: marks thrown past the edge are clipped and stop being
+  // drawn, so losing them from the right read as the mass moving left.
+  const centre = () =>
+    field.evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext('2d')!;
+      const { data } = ctx.getImageData(0, 0, el.width, el.height);
+      let n = 0;
+      let sx = 0;
+      const from = Math.floor(el.height * 0.45);
+      const to = Math.floor(el.height * 0.8);
+      const left = Math.floor(el.width * 0.06);
+      const right = Math.floor(el.width * 0.82);
+      for (let y = from; y < to; y += 2) {
+        for (let x = left; x < right; x += 2) {
+          if (data[(y * el.width + x) * 4 + 3] > 20) {
+            n += 1;
+            sx += x;
+          }
+        }
+      }
+      return n ? sx / n : 0;
+    });
+
+  const before = await centre();
+
+  const y = box.y + box.height * 0.62;
+  const startX = box.x + box.width * 0.15;
+  const step = (box.width * 0.4) / 18;
+  await page.mouse.move(startX, y);
+  for (let i = 1; i <= 18; i += 1) {
+    await page.mouse.move(startX + i * step, y);
+  }
+  const during = await centre();
+
+  // Thrown along the flick.
+  expect(during - before).toBeGreaterThan(2);
+
+  // And they come home. Loose and floaty by design, so this is given
+  // real time rather than a frame or two.
+  await page.mouse.move(box.x + box.width / 2, box.y - 250);
+  await page.waitForTimeout(2500);
+  const after = await centre();
+  // Most of the way home. Not exactly home: the swell keeps moving, so
+  // an equality here would be testing the wave, not the spring.
+  expect(Math.abs(after - before)).toBeLessThan(Math.abs(during - before) * 0.4);
 });

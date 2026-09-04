@@ -3,7 +3,6 @@ import { RevealText } from "@/components/ui/RevealText";
 import { MagneticButton } from "@/components/ui/MagneticButton";
 import { FadeUp } from "@/components/ui/FadeUp";
 import { GlassPanel } from "@/components/ui/GlassPanel";
-import { GlyphField } from "@/components/ui/GlyphField";
 
 /**
  * The closing call to action.
@@ -19,12 +18,7 @@ import { GlyphField } from "@/components/ui/GlyphField";
 export function ClosingCTA() {
   return (
     <section id="quote" data-ribbon-zone="drift" className="relative px-6 py-40">
-      {/* The field sits behind the copy and above the page's own
-          background, filling the lower part of the section. It is
-          pointer-events-none so it cannot swallow a click on the two
-          buttons standing in it. */}
-      <GlyphField className="pointer-events-none absolute inset-x-0 bottom-0 -z-0 h-[78%] w-full" />
-      <div className="relative mx-auto max-w-4xl text-center">
+      <div className="mx-auto max-w-4xl text-center">
         <RevealText
           as="h2"
           variant="fall"

@@ -54,10 +54,25 @@ const FULL_SPEED = 22;
  * bounds it in *space* instead: roughly a fixed number of pixels of
  * track behind the cursor, whatever speed it is going.
  */
-const FADE_BASE = 0.05;
-const FADE_PER_PX = 0.004;
-/** Frames the loop keeps running after the last mark, to fade it out. */
-const FADE_FRAMES = 40;
+/*
+ * Both were roughly halved after the track proved too faint to notice:
+ * it was gone almost as soon as it was laid, so the effect only really
+ * existed during the movement that made it. Halving the distance term
+ * is what actually lengthens the track — it is the term that sets how
+ * many pixels of it stand behind the cursor — and the time term comes
+ * down with it so a track left by a pointer that has stopped lingers
+ * for about the same extra beat.
+ *
+ * This is the constant that caused the trail to accumulate into a
+ * scribble when it was too low, so it is deliberately still well under
+ * the value where continuous movement outruns the fade.
+ */
+const FADE_BASE = 0.026;
+const FADE_PER_PX = 0.0021;
+/** Frames the loop keeps running after the last mark, to fade it out.
+ *  Scaled with the fade, or the loop now stops while there is still
+ *  visible track on the canvas and freezes it there. */
+const FADE_FRAMES = 78;
 
 type Puff = { x: number; y: number; vx: number; vy: number; r: number; life: number };
 

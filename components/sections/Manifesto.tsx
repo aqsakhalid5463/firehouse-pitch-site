@@ -1,4 +1,4 @@
-import { MANIFESTO, TRUST_MARKS } from "@/lib/content";
+import { ABOUT, TRUST_MARKS } from "@/lib/content";
 import { RevealText } from "@/components/ui/RevealText";
 import { ScrubText } from "@/components/ui/ScrubText";
 import { FadeUp } from "@/components/ui/FadeUp";
@@ -21,19 +21,25 @@ export function Manifesto() {
     <section className="relative px-6 py-32">
       <div className="mx-auto max-w-5xl">
         <p className="text-xs font-semibold tracking-[0.3em] text-fire uppercase">
-          Who we are
+          {ABOUT.model.eyebrow}
         </p>
         <RevealText
           as="h2"
           variant="wipe"
           className="mt-6 max-w-3xl text-[clamp(1.75rem,3.6vw,2.75rem)]"
         >
-          A moving company built by people who kept needing one
+          {ABOUT.model.headline}
         </RevealText>
 
         <ScrubText className="mt-12 text-[clamp(1.4rem,3vw,2.4rem)] leading-[1.35] font-medium tracking-tight text-bone">
-          {MANIFESTO}
+          {ABOUT.model.lead}
         </ScrubText>
+
+        <FadeUp delay={0.1}>
+          <p className="mt-10 max-w-3xl text-lg leading-relaxed opacity-60">
+            {ABOUT.model.body}
+          </p>
+        </FadeUp>
 
         {/* The client's own trust marks, run as a band rather than a
             list so they read as a single credential line. */}

@@ -4,9 +4,8 @@ import { Footer } from '@/components/ui/Footer';
 import { AboutHero } from '@/components/sections/AboutHero';
 import { Manifesto } from '@/components/sections/Manifesto';
 import { Story } from '@/components/sections/Story';
-import { Values } from '@/components/sections/Values';
 import { Crew } from '@/components/sections/Crew';
-import { Credentials } from '@/components/sections/Credentials';
+import { Network } from '@/components/sections/Network';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { Ribbon } from '@/components/ui/Ribbon';
 import { PageField } from '@/components/ui/PageField';
@@ -34,9 +33,8 @@ export default function About() {
           <AboutHero />
           <Manifesto />
           <Story />
-          <Values />
+          <Network />
           <Crew />
-          <Credentials />
           <ClosingCTA />
         </div>
       </main>

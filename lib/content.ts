@@ -137,6 +137,15 @@ export const PILLARS = [
 ] as const;
 
 /**
+/**
+ * Removed from the About page at the client's request, along with the
+ * credentials grid that sat below it — both said what any mover's site
+ * says. The data is kept because it is drawn from the client's own
+ * published copy and the content-integrity tests below still guard it,
+ * so the section can be restored without re-deriving any of it. Same
+ * arrangement as EXTRAS.
+ */
+/*
  * Service commitments, each tied to something the client publishes:
  * "Licensed & Insured", "Trained Moving Experts", their full-service
  * range, and the commercial promise of minimal downtime. The previous
@@ -343,3 +352,57 @@ export const CREW = [
 ] as const;
 
 export type CrewFigure = (typeof CREW)[number]['figure'];
+
+/**
+ * The About page, in the client's own words.
+ *
+ * Taken verbatim from the reference build in the repo root rather than
+ * written here. That file is the client's own copy deck, and the whole
+ * point of a pitch site is that the words are theirs — the previous
+ * About headline was a tagline lifted off their home page, which is not
+ * the same thing as a statement about who they are.
+ */
+export const ABOUT = {
+  eyebrow: 'Founded in Lewisville. Franchising across Texas.',
+  headline: 'The crew is the whole product.',
+  intro:
+    "Anyone can rent a truck. What you're paying for is who gets out of it — and whether they've been trained, backed and held to a standard.",
+  model: {
+    eyebrow: 'The model',
+    headline: 'Why the firehouse model works.',
+    lead: "Drilled routine, clear roles, equipment checked before it's needed.",
+    body: "A firehouse doesn't find out its ladder is broken during the call. We built the company on the same three things: crews that train together and stay together, trucks serviced on a schedule rather than on a hunch, and one lead who owns each job from the walkthrough to the last signature.",
+  },
+} as const;
+
+/**
+ * The two organisations named as standing behind a Firehouse move.
+ *
+ * ⚠️ These are claims about third parties — a named commercial
+ * programme and a named sister company — and they carry more weight
+ * than anything else on the page: naming Ford Pro asserts a
+ * relationship with Ford. The copy comes from the client's own
+ * reference build, so it is theirs rather than invented here, but it
+ * has not been verified against anything and must be confirmed before
+ * this is shown externally.
+ */
+export const PARTNERS = [
+  {
+    label: 'Fleet partner',
+    title: 'Fleet maintained with Ford Pro',
+    body: "Every truck in the fleet runs on Ford Pro's maintenance and telematics program — scheduled service, real diagnostics, and no surprises on moving day.",
+  },
+  {
+    label: 'Sister company',
+    title: '4 Alarm Restoration',
+    body: 'Our sister company handles what comes after the boxes: TV mounting, duct cleaning and restoration work, held to the same standard you already hired us for.',
+  },
+] as const;
+
+/** Names run as a marquee band above the partners, the way the
+ *  reference build does. */
+export const NETWORK_MARQUEE = [
+  { name: 'Firehouse Movers', role: 'Full-service relocation' },
+  { name: 'Ford Pro', role: 'Fleet maintenance & telematics' },
+  { name: '4 Alarm Restoration', role: 'Mounting, ducts, restoration' },
+] as const;

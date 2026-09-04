@@ -17,19 +17,28 @@ function visibleText(html: string): string {
     .replace(/\s+/g, ' ');
 }
 
-test('about page renders its story and credentials in server HTML', async ({
+test('about page renders its copy and registrations in server HTML', async ({
   request,
 }) => {
   const text = visibleText(await (await request.get('/about')).text());
-  expect(text).toContain('The moving service we needed, so we built it for you');
+  expect(text).toContain('The crew is the whole product.');
+  expect(text).toContain('Why the firehouse model works.');
   expect(text).toContain('What Firehouse actually is');
-  expect(text).toContain('Federally licensed');
+  expect(text).toContain('Who stands behind the move.');
+  expect(text).toContain('Fleet maintained with Ford Pro');
   expect(text).toContain('(972) 992-1969');
-  // The public registrations should reach the server HTML, since the
-  // licensing claims above are only checkable because of them.
+  // The registrations must reach the server HTML. They moved to the
+  // footer when the credentials section was removed, and they are the
+  // one claim on this site a visitor can independently check — an
+  // interaction or a canvas decal is not crawlable or readable by
+  // assistive tech, so they have to exist as plain text somewhere.
   expect(text).toContain('USDOT 1939062');
+  expect(text).toContain('TXDMV 000570404B');
   // The invented founding story must not come back.
   expect(text).not.toContain('one truck, one crew');
+  // Nor may the two removed sections.
+  expect(text).not.toContain('What you actually get');
+  expect(text).not.toContain('Credentials that matter on moving day');
 });
 
 test('about page loads with no console errors', async ({ page }) => {
@@ -50,9 +59,9 @@ test('nav links move between the two pages', async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
-// About's sub-headings (the pillars, the value cards, the credentials)
-// were plain <h3> elements while every h2 on the page animated, so the
-// page went flat below each section title. They now run the same
+// About's sub-headings (the pillars, then the network partners) were
+// plain <h3> elements while every h2 on the page animated, so the page
+// went flat below each section title. They now run the same
 // per-character entrance, which — like every heading — replays whenever
 // it comes back into view.
 test('about sub-headings animate and replay', async ({ page }) => {
@@ -79,9 +88,19 @@ test('about sub-headings animate and replay', async ({ page }) => {
     }
   };
 
-  // The h3 bands (pillars, then value cards, then credentials) sit
-  // roughly 1200-3600px down at this viewport.
-  await wheel(8, 400);
+  // Driven off where the headings actually are rather than a fixed
+  // scroll distance. The old version wheeled a magic 3200px, which
+  // happened to land on an h3 band until two sections were removed from
+  // the page and it silently stopped pointing at anything.
+  const firstBand = await page.evaluate(() => {
+    const el = document.querySelector('h3 [data-char]');
+    if (!el) return -1;
+    return el.getBoundingClientRect().top + window.scrollY;
+  });
+  expect(firstBand).toBeGreaterThan(0);
+
+  const clicks = Math.max(1, Math.round((firstBand - 400) / 400));
+  await wheel(clicks, 400);
   await page.waitForTimeout(150);
   expect(await midFlip()).toBe(true);
 

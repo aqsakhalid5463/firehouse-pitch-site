@@ -63,7 +63,18 @@ export function Footer() {
           </TransitionLink>
         </div>
       </div>
-      <p className="relative mx-auto mt-16 max-w-7xl text-xs opacity-40">
+      {/* The registrations, as plain selectable text.
+          
+          They used to live in the About page's credentials section,
+          which has been removed. TxDMV requires the licence number to
+          appear in advertising, and they are the one claim on this site
+          a visitor can independently verify, so they move here rather
+          than going with the section — the footer is on every page,
+          which is strictly better than one of them. */}
+      <p className="relative mx-auto mt-16 max-w-7xl font-mono text-[0.7rem] tracking-[0.14em] opacity-45">
+        {BUSINESS.usdot} &nbsp;·&nbsp; {BUSINESS.txdmv}
+      </p>
+      <p className="relative mx-auto mt-3 max-w-7xl text-xs opacity-40">
         © {new Date().getFullYear()} {BUSINESS.name}. Licensed and insured for
         interstate moving.
       </p>

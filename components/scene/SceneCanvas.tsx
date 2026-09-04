@@ -13,6 +13,7 @@ import { useCanvasEnabled } from '@/lib/use-canvas-enabled';
 import { COLORS } from '@/lib/constants';
 import { StaticBackdrop } from './StaticBackdrop';
 import { FirstFrame } from './FirstFrame';
+import { VanishingPoint } from './VanishingPoint';
 import { markReady, usePreloadStore } from '@/lib/preload-store';
 
 export function SceneCanvas() {
@@ -58,6 +59,7 @@ export function SceneCanvas() {
           onIncline={() => setDegraded(false)}
         />
         <FirstFrame />
+        <VanishingPoint />
         <ThemeSync />
         <CameraRig />
         <ambientLight intensity={0.4} />

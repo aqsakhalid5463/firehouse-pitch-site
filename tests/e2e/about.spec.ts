@@ -139,69 +139,95 @@ test('about sub-headings animate and replay', async ({ page }) => {
   await catchAnimation();
 });
 
-test('the copy rides the route: it moves sideways as you scroll', async ({
+test('content travels away down the road as it scrolls out of view', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/about');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1000);
 
-  await expect(page.locator('[data-route-spine]')).toHaveCount(1);
+  // Everything that rides the road, with where it is and what has been
+  // done to it. Scale is read off the computed matrix rather than the
+  // inline string, so this tests what the browser actually applied.
+  const sample = () =>
+    page.evaluate(() => {
+      const vh = window.innerHeight;
+      return [...document.querySelectorAll<HTMLElement>('[data-route-rider]')]
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+          return {
+            centre: r.top + r.height / 2,
+            scale: m.a,
+            dx: m.e,
+            dy: m.f,
+            opacity: Number(getComputedStyle(el).opacity),
+            vh,
+          };
+        })
+        .filter((r) => r.centre > -400 && r.centre < vh + 400);
+    });
 
-  // Follow one block down the page and record where it sits.
-  const rider = page.locator('[data-route-rider]').nth(2);
-  // Sampled every 200px of scroll. The first version sampled every
-  // 800px, which is far too coarse to say anything about smoothness:
-  // at that spacing a single interval legitimately covers most of a
-  // bend, and the test failed a glide for looking like a jump.
-  const xs: number[] = [];
-  for (let step = 0; step < 18; step += 1) {
-    await page.mouse.wheel(0, 200);
-    await page.waitForTimeout(90);
-    const box = await rider.boundingBox();
-    if (box) xs.push(box.x);
+  let receding: Awaited<ReturnType<typeof sample>>[number] | undefined;
+  let settled: Awaited<ReturnType<typeof sample>>[number] | undefined;
+
+  for (let step = 0; step < 14 && !(receding && settled); step += 1) {
+    for (const r of await sample()) {
+      // Well up the screen: should be smaller, dimmer, and pulled away.
+      if (r.centre < r.vh * 0.35 && r.centre > 0 && !receding) receding = r;
+      // Down in the reading band: must be untouched, or the copy would
+      // be distorted exactly where someone is trying to read it.
+      if (r.centre > r.vh * 0.75 && !settled) settled = r;
+    }
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(120);
   }
 
-  expect(xs.length).toBeGreaterThan(12);
-  const travel = Math.max(...xs) - Math.min(...xs);
-  // It genuinely travels sideways, and by an amount you would notice —
-  // a static curved layout would give zero here, which is the failure
-  // mode this is guarding against.
-  expect(travel).toBeGreaterThan(30);
+  expect(settled).toBeDefined();
+  expect(settled!.scale).toBeCloseTo(1, 2);
+  expect(settled!.opacity).toBeCloseTo(1, 2);
 
-  // And it is a glide, not a jump: no single scroll step may throw the
-  // block across the page.
-  const steps = xs.slice(1).map((x, i) => Math.abs(x - xs[i]));
-  expect(Math.max(...steps)).toBeLessThan(travel * 0.5);
+  expect(receding).toBeDefined();
+  // Smaller and dimmer, and displaced — a block that only shrank in
+  // place would read as a zoom, not as distance.
+  expect(receding!.scale).toBeLessThan(0.95);
+  expect(receding!.opacity).toBeLessThan(0.85);
+  expect(Math.abs(receding!.dx) + Math.abs(receding!.dy)).toBeGreaterThan(8);
+  // Still legible on its way out rather than blanked at the horizon,
+  // which left whole viewports with nothing on them.
+  expect(receding!.opacity).toBeGreaterThan(0.02);
 });
 
-test('the route runs in the margin and never crosses the copy', async ({
-  page,
-}) => {
+test('the road reports a horizon for the page to aim at', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/about');
   await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1200);
 
-  const clearance = await page.evaluate(() => {
-    const svg = document.querySelector('[data-route-spine] svg');
-    const path = svg?.querySelector('path') as SVGPathElement | null;
-    if (!path) return null;
-    const len = path.getTotalLength();
-    let widest = 0;
-    for (let i = 0; i <= 400; i += 1) {
-      widest = Math.max(widest, path.getPointAtLength((i / 400) * len).x);
-    }
-    // Left edge of the narrowest content column on the page.
-    const column = document.querySelector('[data-route-rider]');
-    const left = column ? column.getBoundingClientRect().left : 0;
-    return { widest, left };
+  // The recession aims at the 3D road's actual vanishing point, which
+  // moves as the About camera travels its spline. If the scene stopped
+  // publishing it the effect would silently fall back to a constant, so
+  // this checks the displacement really does point at a horizon that is
+  // on screen and above the copy.
+  const aim = await page.evaluate(() => {
+    const els = [...document.querySelectorAll<HTMLElement>('[data-route-rider]')];
+    const moved = els
+      .map((el) => {
+        const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+        const r = el.getBoundingClientRect();
+        return { m, r };
+      })
+      .filter((e) => e.m.a < 0.99 && Math.abs(e.m.f) > 1);
+    if (!moved.length) return null;
+    // Solve back for the point the block is being pulled toward.
+    const { m, r } = moved[0];
+    const cy = r.top + r.height / 2;
+    return { horizonY: cy + m.f / (1 - m.a), viewport: window.innerHeight };
   });
 
-  expect(clearance).not.toBeNull();
-  // The whole reason the road moved to the margin: the copy rides it
-  // rather than being crossed by it. The road's furthest reach right
-  // must still clear the content column.
-  expect(clearance!.widest).toBeLessThan(clearance!.left);
+  if (aim) {
+    expect(aim.horizonY).toBeGreaterThan(0);
+    expect(aim.horizonY).toBeLessThan(aim.viewport * 0.75);
+  }
 });

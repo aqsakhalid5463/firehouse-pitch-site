@@ -7,7 +7,7 @@ import { Story } from '@/components/sections/Story';
 import { Crew } from '@/components/sections/Crew';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { PageField } from '@/components/ui/PageField';
-import { RouteSpine } from '@/components/ui/RouteSpine';
+import { RoadTravel } from '@/components/ui/RoadTravel';
 import { ScrollHandoff } from '@/components/ui/ScrollHandoff';
 
 export const metadata: Metadata = {
@@ -21,17 +21,12 @@ export default function About() {
     <>
       <Nav />
       <main>
-        {/* About's road runs down the left margin rather than through
-            the middle of the page, and the content column is inset to
-            the right of it — the arrangement the home page's ribbon
-            cannot use, because there the road has to thread between
-            cards. Here nothing is crossed: the copy rides the road
-            instead. The inset only applies from md up; on a phone
-            there is no margin to give away, so the road is not drawn
-            at all. */}
-        <div className="relative z-10 md:pl-[15%] lg:pl-[17%]">
+        {/* The road here is the 3D highway in the background, not a
+            drawn one: the copy travels away along it as you scroll.
+            See components/ui/RoadTravel.tsx. */}
+        <div className="relative z-10">
           <PageField />
-          <RouteSpine seed={2.4} />
+          <RoadTravel />
           <AboutHero />
           <Manifesto />
           <Story />

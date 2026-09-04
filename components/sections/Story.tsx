@@ -51,13 +51,15 @@ export function Story() {
       className="relative px-6 py-32"
     >
       <div className="mx-auto max-w-4xl">
-        <RevealText
-          as="h2"
-          variant="fall"
-          className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)]"
-        >
-          What Firehouse actually is
-        </RevealText>
+        <div data-route-rider>
+          <RevealText
+            as="h2"
+            variant="fall"
+            className="mb-20 text-[clamp(2rem,4.5vw,3.5rem)]"
+          >
+            What Firehouse actually is
+          </RevealText>
+        </div>
 
         {/* The vertical rule draws down as you scroll. It reads as a
             spine connecting the four pillars, not as a timeline — these
@@ -71,20 +73,26 @@ export function Story() {
           />
           {PILLARS.map((entry) => (
             <div key={entry.label} data-entry className="relative pb-20">
-              <span className="bg-fire absolute top-2 -left-10 block h-2 w-2 -translate-x-1/2 rounded-full" />
-              <p className="text-xs font-semibold tracking-[0.2em] uppercase opacity-40">
-                {entry.label}
-              </p>
-              <RevealText
-                as="h3"
-                variant="rise"
-                className="mt-4 text-3xl font-semibold tracking-tight"
-              >
-                {entry.title}
-              </RevealText>
-              <p className="mt-4 text-lg leading-relaxed opacity-70">
-                {entry.body}
-              </p>
+              {/* Each pillar rides separately, so they arrive at the
+                  road at different moments instead of the block moving
+                  as one slab. The rider is inside data-entry because
+                  that element already carries an entrance tween. */}
+              <div data-route-rider>
+                <span className="bg-fire absolute top-2 -left-10 block h-2 w-2 -translate-x-1/2 rounded-full" />
+                <p className="text-xs font-semibold tracking-[0.2em] uppercase opacity-40">
+                  {entry.label}
+                </p>
+                <RevealText
+                  as="h3"
+                  variant="rise"
+                  className="mt-4 text-3xl font-semibold tracking-tight"
+                >
+                  {entry.title}
+                </RevealText>
+                <p className="mt-4 text-lg leading-relaxed opacity-70">
+                  {entry.body}
+                </p>
+              </div>
             </div>
           ))}
         </div>

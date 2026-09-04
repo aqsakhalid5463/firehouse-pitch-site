@@ -5,7 +5,10 @@ import { FadeUp } from "@/components/ui/FadeUp";
 export function AboutHero() {
   return (
     <section className="relative flex min-h-[80vh] items-center px-6 pt-32">
-      <div className="mx-auto w-full max-w-7xl">
+      {/* Rides the road. A wrapper of its own rather than the
+          animated elements inside it: the entrance tweens write their
+          own transforms, and two writers on one element fight. */}
+      <div data-route-rider className="mx-auto w-full max-w-7xl">
         <p className="mb-8 font-mono text-[0.7rem] tracking-[0.24em] uppercase opacity-45">
           {ABOUT.eyebrow}
         </p>

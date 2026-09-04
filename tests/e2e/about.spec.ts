@@ -138,3 +138,70 @@ test('about sub-headings animate and replay', async ({ page }) => {
   await wheel(5, 400);
   await catchAnimation();
 });
+
+test('the copy rides the route: it moves sideways as you scroll', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(800);
+
+  await expect(page.locator('[data-route-spine]')).toHaveCount(1);
+
+  // Follow one block down the page and record where it sits.
+  const rider = page.locator('[data-route-rider]').nth(2);
+  // Sampled every 200px of scroll. The first version sampled every
+  // 800px, which is far too coarse to say anything about smoothness:
+  // at that spacing a single interval legitimately covers most of a
+  // bend, and the test failed a glide for looking like a jump.
+  const xs: number[] = [];
+  for (let step = 0; step < 18; step += 1) {
+    await page.mouse.wheel(0, 200);
+    await page.waitForTimeout(90);
+    const box = await rider.boundingBox();
+    if (box) xs.push(box.x);
+  }
+
+  expect(xs.length).toBeGreaterThan(12);
+  const travel = Math.max(...xs) - Math.min(...xs);
+  // It genuinely travels sideways, and by an amount you would notice —
+  // a static curved layout would give zero here, which is the failure
+  // mode this is guarding against.
+  expect(travel).toBeGreaterThan(30);
+
+  // And it is a glide, not a jump: no single scroll step may throw the
+  // block across the page.
+  const steps = xs.slice(1).map((x, i) => Math.abs(x - xs[i]));
+  expect(Math.max(...steps)).toBeLessThan(travel * 0.5);
+});
+
+test('the route runs in the margin and never crosses the copy', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(800);
+
+  const clearance = await page.evaluate(() => {
+    const svg = document.querySelector('[data-route-spine] svg');
+    const path = svg?.querySelector('path') as SVGPathElement | null;
+    if (!path) return null;
+    const len = path.getTotalLength();
+    let widest = 0;
+    for (let i = 0; i <= 400; i += 1) {
+      widest = Math.max(widest, path.getPointAtLength((i / 400) * len).x);
+    }
+    // Left edge of the narrowest content column on the page.
+    const column = document.querySelector('[data-route-rider]');
+    const left = column ? column.getBoundingClientRect().left : 0;
+    return { widest, left };
+  });
+
+  expect(clearance).not.toBeNull();
+  // The whole reason the road moved to the margin: the copy rides it
+  // rather than being crossed by it. The road's furthest reach right
+  // must still clear the content column.
+  expect(clearance!.widest).toBeLessThan(clearance!.left);
+});

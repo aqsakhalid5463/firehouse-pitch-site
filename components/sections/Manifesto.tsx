@@ -19,7 +19,7 @@ import { FadeUp } from "@/components/ui/FadeUp";
 export function Manifesto() {
   return (
     <section className="relative px-6 py-32">
-      <div className="mx-auto max-w-5xl">
+      <div data-route-rider className="mx-auto max-w-5xl">
         <p className="text-xs font-semibold tracking-[0.3em] text-fire uppercase">
           {ABOUT.model.eyebrow}
         </p>

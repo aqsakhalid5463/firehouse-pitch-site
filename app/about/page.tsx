@@ -7,6 +7,7 @@ import { Story } from '@/components/sections/Story';
 import { Crew } from '@/components/sections/Crew';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
 import { PageField } from '@/components/ui/PageField';
+import { RouteSpine } from '@/components/ui/RouteSpine';
 import { ScrollHandoff } from '@/components/ui/ScrollHandoff';
 
 export const metadata: Metadata = {
@@ -20,13 +21,17 @@ export default function About() {
     <>
       <Nav />
       <main>
-        {/* The drifting field, and nothing else behind the copy.
-            About carries no ribbon road: the mini truck is the home
-            page's device, and threading it through a page that is
-            mostly long-form copy meant a road cutting across the text
-            it was supposed to be leading the eye down. */}
-        <div className="relative z-10">
+        {/* About's road runs down the left margin rather than through
+            the middle of the page, and the content column is inset to
+            the right of it — the arrangement the home page's ribbon
+            cannot use, because there the road has to thread between
+            cards. Here nothing is crossed: the copy rides the road
+            instead. The inset only applies from md up; on a phone
+            there is no margin to give away, so the road is not drawn
+            at all. */}
+        <div className="relative z-10 md:pl-[15%] lg:pl-[17%]">
           <PageField />
+          <RouteSpine seed={2.4} />
           <AboutHero />
           <Manifesto />
           <Story />

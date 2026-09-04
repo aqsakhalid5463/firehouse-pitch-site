@@ -18,7 +18,8 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
 export function ClosingCTA() {
   return (
     <section id="quote" data-ribbon-zone="drift" className="relative px-6 py-40">
-      <div className="mx-auto max-w-4xl text-center">
+      {/* Inert on the home page, which has no route spine to ride. */}
+      <div data-route-rider className="mx-auto max-w-4xl text-center">
         <RevealText
           as="h2"
           variant="fall"

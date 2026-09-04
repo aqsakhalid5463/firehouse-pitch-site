@@ -355,7 +355,12 @@ export const CREW = [
     // to load.
     photo: '/images/crew/brian.jpg',
   },
-  { name: 'Nikki Ingram', role: 'Co-founder', figure: 'plain' },
+  {
+    name: 'Nikki Ingram',
+    role: 'Co-founder',
+    figure: 'plain',
+    photo: '/images/crew/nikki.jpg',
+  },
   { name: 'Julian Hernandez', role: 'Dispatch Manager', figure: 'headset' },
   { name: 'Peter Taylor', role: 'Operations Supervisor', figure: 'hat' },
   { name: 'Leon Kaoma', role: 'Operations Manager', figure: 'crew' },

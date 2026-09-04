@@ -226,9 +226,15 @@ export function samplePortrait(
       // legible because of where the marks *cluster*, and what should
       // cluster is the features — eyes, mouth, the line of the jaw —
       // not the even expanse of a cheek or a shirt.
+      // The tone term is capped. Without a ceiling, a large flat dark
+      // mass — a head of dark hair, the body of a red shirt — claims a
+      // share of the budget in proportion to its area, and it is the
+      // least informative part of the picture. Capping it leaves those
+      // regions read as solid while freeing particles for the places
+      // that actually carry a likeness.
       const weight = Math.min(
         1,
-        Math.pow(1 - l, 1.7) * 0.35 + gradient * 3.2,
+        Math.min(0.24, Math.pow(1 - l, 1.7) * 0.35) + gradient * 3.2,
       );
       if (weight <= 0.02) continue;
       xs.push(x);

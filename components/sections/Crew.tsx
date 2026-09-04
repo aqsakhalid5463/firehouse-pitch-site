@@ -94,6 +94,7 @@ export function Crew() {
         <div className="relative mx-auto h-[46vh] w-[min(320px,70vw)] md:h-[60vh] md:w-[360px]">
           <ParticlePortrait
             figure={person.figure}
+            photo={'photo' in person ? person.photo : undefined}
             className="absolute inset-0 h-full w-full"
           />
         </div>

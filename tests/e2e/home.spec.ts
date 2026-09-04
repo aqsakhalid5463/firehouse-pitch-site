@@ -1244,7 +1244,7 @@ test('the crew portrait resolves into a figure and changes with scroll', async (
 
   const section = page.locator('[data-crew]');
   await section.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
 
   // The particles have to actually form a figure, not a cloud. A
   // silhouette is dense in the middle and empty at the corners; a blob
@@ -1257,27 +1257,45 @@ test('the crew portrait resolves into a figure and changes with scroll', async (
       const cols = 12;
       const rows = 16;
       const cell = new Array(cols * rows).fill(0);
+      let ink = 0;
+      let topRight = 0;
       for (let y = 0; y < el.height; y += 2) {
         for (let x = 0; x < el.width; x += 2) {
           if (data[(y * el.width + x) * 4 + 3] > 20) {
             const c = Math.min(cols - 1, Math.floor((x / el.width) * cols));
             const r = Math.min(rows - 1, Math.floor((y / el.height) * rows));
             cell[r * cols + c] += 1;
+            ink += 1;
+            if (x > el.width * 0.62 && y < el.height * 0.45) topRight += 1;
           }
         }
       }
       const filled = cell.filter((n) => n > 4).length;
-      // Bottom band: the bug that made this read as a blob was the
-      // lower part of every figure having no particles at all.
       const bottomBand = cell.slice((rows - 3) * cols).filter((n) => n > 4).length;
-      return { filled, bottomBand, cells: cols * rows };
+      return {
+        filled,
+        bottomBand,
+        cells: cols * rows,
+        // Share of the ink above the shoulder line and out to the right.
+        // A head-and-shoulders portrait leaves that corner nearly
+        // empty; a cloud that has not settled onto its targets fills it
+        // evenly. This is the check that catches the particles never
+        // reaching the photograph at all.
+        topRightShare: ink ? topRight / ink : 1,
+      };
     });
 
-  // Covers a real area of the box, but nothing like all of it.
   expect(shape.filled).toBeGreaterThan(20);
-  expect(shape.filled).toBeLessThan(shape.cells * 0.75);
-  // The torso reaches the bottom of the frame.
+  // Loosened from 0.75 when the first portrait became a photograph
+  // rather than a drawn figure: a stipple of a real person touches more
+  // of the frame than a flat silhouette does, and 145 of 192 cells is
+  // a portrait, not a blob. This is only a sanity bound now — the real
+  // guard against a cloud that never settled is topRightShare below,
+  // which is both tighter and specific to the shape a head and
+  // shoulders actually makes.
+  expect(shape.filled).toBeLessThan(shape.cells * 0.88);
   expect(shape.bottomBand).toBeGreaterThan(3);
+  expect(shape.topRightShare).toBeLessThan(0.06);
 
   // Scrolling through the pinned section advances the roster.
   const active = () =>
@@ -1289,6 +1307,62 @@ test('the crew portrait resolves into a figure and changes with scroll', async (
     await page.waitForTimeout(30);
   }
   await expect.poll(active, { timeout: 6000 }).not.toBe(first);
+});
+
+test("the founder's portrait is sampled from his photograph", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('[data-crew]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(2000);
+
+  // Compare the settled cloud against the photograph it claims to be
+  // drawn from: where the particles are dense, the photograph should
+  // not be blank studio backdrop. A generated figure would fail this,
+  // because its shape has nothing to do with the picture.
+  const agreement = await page.evaluate(async () => {
+    const canvas = document.querySelector(
+      '[data-particle-portrait]',
+    ) as HTMLCanvasElement;
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+      img.src = '/images/crew/brian.jpg';
+    });
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const ref = document.createElement('canvas');
+    ref.width = w;
+    ref.height = h;
+    const rctx = ref.getContext('2d')!;
+    const scale = Math.max(w / img.width, h / img.height);
+    rctx.drawImage(img, (w - img.width * scale) / 2, 0, img.width * scale, img.height * scale);
+    const photo = rctx.getImageData(0, 0, w, h).data;
+    const drawn = canvas.getContext('2d')!.getImageData(0, 0, w, h).data;
+
+    let particles = 0;
+    let onSubject = 0;
+    for (let y = 0; y < h; y += 2) {
+      for (let x = 0; x < w; x += 2) {
+        const i = (y * w + x) * 4;
+        if (drawn[i + 3] <= 20) continue;
+        particles += 1;
+        const l =
+          (photo[i] * 0.299 + photo[i + 1] * 0.587 + photo[i + 2] * 0.114) / 255;
+        // Anything darker than the backdrop is him.
+        if (l < 0.88) onSubject += 1;
+      }
+    }
+    return particles ? onSubject / particles : 0;
+  });
+
+  // Most of the cloud must land on the man rather than on the wall
+  // behind him.
+  expect(agreement).toBeGreaterThan(0.75);
 });
 
 test('the field pours in under a feathered surface, in the footer', async ({

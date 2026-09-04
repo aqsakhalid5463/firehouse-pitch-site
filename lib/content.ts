@@ -344,7 +344,17 @@ export const TRUST_MARKS = [
  * to this array and nothing else.
  */
 export const CREW = [
-  { name: 'Brian Kaoma', role: 'Co-founder', figure: 'cap' },
+  {
+    name: 'Brian Kaoma',
+    role: 'Co-founder',
+    figure: 'cap',
+    // A real photograph, sampled into the particle field rather than
+    // shown as a picture. Where a portrait exists the generated figure
+    // is never used — see components/ui/ParticlePortrait.tsx — and the
+    // `figure` above only survives as the fallback if the image fails
+    // to load.
+    photo: '/images/crew/brian.jpg',
+  },
   { name: 'Nikki Ingram', role: 'Co-founder', figure: 'plain' },
   { name: 'Julian Hernandez', role: 'Dispatch Manager', figure: 'headset' },
   { name: 'Peter Taylor', role: 'Operations Supervisor', figure: 'hat' },
@@ -352,6 +362,7 @@ export const CREW = [
 ] as const;
 
 export type CrewFigure = (typeof CREW)[number]['figure'];
+export type CrewMember = (typeof CREW)[number];
 
 /**
  * The About page, in the client's own words.

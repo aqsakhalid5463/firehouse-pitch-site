@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { sampleFigure } from '@/lib/silhouettes';
+import { loadPortrait, sampleFigure, samplePortrait } from '@/lib/silhouettes';
 import type { CrewFigure } from '@/lib/content';
 
 /**
@@ -75,9 +75,14 @@ type Particle = {
  */
 export function ParticlePortrait({
   figure,
+  photo,
   className,
 }: {
   figure: CrewFigure;
+  /** A real photograph of this person, sampled into the cloud. Where one
+   *  exists it replaces the generated figure entirely; the figure stays
+   *  as the fallback for a photograph that fails to load. */
+  photo?: string;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -85,10 +90,10 @@ export function ParticlePortrait({
   // figure does not tear down and rebuild the whole system — a change
   // of person must flow through the existing cloud, and reseeding it
   // would make every change a hard cut.
-  const wanted = useRef(figure);
+  const wanted = useRef({ figure, photo });
   useEffect(() => {
-    wanted.current = figure;
-  }, [figure]);
+    wanted.current = { figure, photo };
+  }, [figure, photo]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -106,15 +111,21 @@ export function ParticlePortrait({
     // Sampled point lists, one per figure, built on first use and kept.
     // Re-sampling on every change would mean a canvas allocation and a
     // getImageData — a synchronous readback — in the middle of a scroll.
-    const cache = new Map<CrewFigure, Float32Array>();
+    // Keyed by figure name or photo path, because both kinds of target
+    // live in the same cloud.
+    const cache = new Map<string, Float32Array>();
+    // Photographs are decoded asynchronously, so a request can be in
+    // flight while the previous person is still on screen. Tracked so a
+    // fast scroll cannot queue the same load repeatedly.
+    const loading = new Set<string>();
     let targets: Float32Array = new Float32Array(0);
-    let showing: CrewFigure | null = null;
+    let showing: string | null = null;
     let pointerX = -9999;
     let pointerY = -9999;
     let raf = 0;
     let visible = true;
 
-    const targetsFor = (which: CrewFigure) => {
+    const figureTargets = (which: CrewFigure) => {
       const hit = cache.get(which);
       if (hit) return hit;
       // Step chosen so a figure yields roughly the particle budget:
@@ -124,6 +135,36 @@ export function ParticlePortrait({
       const made = sampleFigure(which, width, height, step);
       cache.set(which, made);
       return made;
+    };
+
+    /**
+     * Targets for whoever is wanted, and whether they are ready.
+     *
+     * A photograph that has not decoded yet returns null rather than
+     * falling back to the generated figure: showing a stand-in for a
+     * frame and then swapping to the real portrait would read as the
+     * cloud changing its mind. The previous person simply stays up
+     * until the photograph is in.
+     */
+    const targetsFor = (which: { figure: CrewFigure; photo?: string }) => {
+      if (!which.photo) return figureTargets(which.figure);
+      const hit = cache.get(which.photo);
+      if (hit) return hit;
+      const src = which.photo;
+      if (!loading.has(src)) {
+        loading.add(src);
+        loadPortrait(src)
+          .then((img) => {
+            cache.set(src, samplePortrait(img, width, height, count));
+          })
+          .catch(() => {
+            // The photograph is unavailable; fall back to the drawn
+            // figure so the section is never empty.
+            cache.set(src, figureTargets(which.figure));
+          })
+          .finally(() => loading.delete(src));
+      }
+      return null;
     };
 
     const layout = () => {
@@ -164,10 +205,16 @@ export function ParticlePortrait({
       raf = requestAnimationFrame(frame);
       if (!visible) return;
 
-      if (showing !== wanted.current) {
-        showing = wanted.current;
-        targets = targetsFor(showing);
-        if (targets.length) {
+      const key = wanted.current.photo ?? wanted.current.figure;
+      if (showing !== key) {
+        const next = targetsFor(wanted.current);
+        // Null means a photograph is still decoding. Hold the current
+        // figure and try again next frame.
+        if (next) {
+          showing = key;
+          targets = next;
+        }
+        if (next && next.length) {
           // Kick the cloud apart on a change, so the new figure is
           // arrived at rather than morphed into. Without this the swap
           // reads as the old figure sagging into the new one.
@@ -225,14 +272,26 @@ export function ParticlePortrait({
     // Reduced motion gets the figure, held still, with no wander and no
     // repulsion: the shape is information, the movement is not.
     if (reduced) {
-      showing = wanted.current;
-      targets = targetsFor(showing);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = 'rgba(240,240,238,0.85)';
-      for (let i = 0; i < targets.length; i += 2) {
-        ctx.fillRect(targets[i], targets[i + 1], DOT, DOT);
-      }
-      return;
+      let cancelled = false;
+      const paintStill = () => {
+        const still = targetsFor(wanted.current);
+        if (cancelled) return;
+        if (!still) {
+          // Still decoding a photograph. Poll on a frame rather than
+          // rendering the fallback and then replacing it.
+          requestAnimationFrame(paintStill);
+          return;
+        }
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(240,240,238,0.85)';
+        for (let i = 0; i < still.length; i += 2) {
+          ctx.fillRect(still[i], still[i + 1], DOT, DOT);
+        }
+      };
+      paintStill();
+      return () => {
+        cancelled = true;
+      };
     }
 
     // Only draw while the section is actually on screen. Everything in

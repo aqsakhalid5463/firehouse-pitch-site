@@ -136,3 +136,135 @@ export function sampleFigure(
   }
   return new Float32Array(points);
 }
+
+/** Memoised image loads, so switching back to a crew member does not
+ *  re-fetch and re-decode their photograph. */
+const images = new Map<string, Promise<HTMLImageElement>>();
+
+export function loadPortrait(src: string): Promise<HTMLImageElement> {
+  const cached = images.get(src);
+  if (cached) return cached;
+  const pending = new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+  images.set(src, pending);
+  return pending;
+}
+
+/**
+ * A photograph, as particles.
+ *
+ * The generated figures elsewhere in this file are shapes, so sampling
+ * them is just "is this pixel painted". A photograph has no such
+ * answer: every pixel is painted, and taking all of them gives a grey
+ * rectangle rather than a person. What makes a face legible in a
+ * stipple is where the particles are *dense*, so each candidate point
+ * gets a weight and is kept in proportion to it.
+ *
+ * The weight is darkness plus local gradient, and the gradient term is
+ * the one that does the work. Darkness alone finds the hair and the
+ * shirt and almost nothing else — skin is bright, so a face weighted
+ * only by tone comes out as a hole between two dark masses. Gradient
+ * finds the edges: the jaw against the background, the line of the
+ * nose, the eyes, the mouth. Together they read as a portrait.
+ */
+export function samplePortrait(
+  img: HTMLImageElement,
+  w: number,
+  h: number,
+  count: number,
+): Float32Array {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(w));
+  canvas.height = Math.max(1, Math.round(h));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return new Float32Array(0);
+
+  // Cover-fit, top-aligned: portraits are framed head-first, so when
+  // the box is narrower than the photograph the crop should lose the
+  // bottom of the torso rather than the top of the head.
+  const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+  const dw = img.width * scale;
+  const dh = img.height * scale;
+  ctx.drawImage(img, (canvas.width - dw) / 2, 0, dw, dh);
+
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const W = canvas.width;
+  const H = canvas.height;
+  const luma = (x: number, y: number) => {
+    const i = (y * W + x) * 4;
+    return (
+      (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255
+    );
+  };
+
+  // Step 2 keeps the candidate grid fine enough to catch an eye without
+  // making the calibration below expensive.
+  const STEP = 2;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const weights: number[] = [];
+  for (let y = 2; y < H - 2; y += STEP) {
+    for (let x = 2; x < W - 2; x += STEP) {
+      const l = luma(x, y);
+      const gradient =
+        Math.abs(luma(x + 2, y) - luma(x - 2, y)) +
+        Math.abs(luma(x, y + 2) - luma(x, y - 2));
+      // Flat and bright is the studio backdrop. The thresholds are
+      // measured, not guessed: the backdrop in this photograph reads
+      // 0.96 luma with a gradient of exactly zero, while the lit side
+      // of a face reaches 0.97 with an average gradient of 0.033. A
+      // looser rule — the first version used gradient < 0.05 — deleted
+      // the brightest 80% of the face along with the wall behind it.
+      if (l > 0.9 && gradient < 0.012) continue;
+      // Tone is raised to a power so flat mid-tones thin out, and the
+      // gradient term is weighted well above it. A stipple portrait is
+      // legible because of where the marks *cluster*, and what should
+      // cluster is the features — eyes, mouth, the line of the jaw —
+      // not the even expanse of a cheek or a shirt.
+      const weight = Math.min(
+        1,
+        Math.pow(1 - l, 1.7) * 0.35 + gradient * 3.2,
+      );
+      if (weight <= 0.02) continue;
+      xs.push(x);
+      ys.push(y);
+      weights.push(weight);
+    }
+  }
+  if (!xs.length) return new Float32Array(0);
+
+  // Deterministic per-point value, so the portrait does not fizz when
+  // it is re-sampled — Math.random here would reshuffle which points
+  // survive on every resize.
+  const noise = (x: number, y: number) => {
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return n - Math.floor(n);
+  };
+
+  // Find the gain that keeps roughly `count` points. Solved rather than
+  // guessed: the right gain depends on how much of the frame the
+  // subject fills, which differs per photograph.
+  let low = 0;
+  let high = 6;
+  let gain = 1;
+  for (let pass = 0; pass < 24; pass++) {
+    gain = (low + high) / 2;
+    let kept = 0;
+    for (let i = 0; i < xs.length; i++) {
+      if (noise(xs[i], ys[i]) < weights[i] * gain) kept++;
+    }
+    if (kept > count) high = gain;
+    else low = gain;
+  }
+
+  const points: number[] = [];
+  for (let i = 0; i < xs.length; i++) {
+    if (noise(xs[i], ys[i]) < weights[i] * gain) points.push(xs[i], ys[i]);
+  }
+  return new Float32Array(points);
+}

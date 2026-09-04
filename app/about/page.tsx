@@ -5,9 +5,7 @@ import { AboutHero } from '@/components/sections/AboutHero';
 import { Manifesto } from '@/components/sections/Manifesto';
 import { Story } from '@/components/sections/Story';
 import { Crew } from '@/components/sections/Crew';
-import { Network } from '@/components/sections/Network';
 import { ClosingCTA } from '@/components/sections/ClosingCTA';
-import { Ribbon } from '@/components/ui/Ribbon';
 import { PageField } from '@/components/ui/PageField';
 import { ScrollHandoff } from '@/components/ui/ScrollHandoff';
 
@@ -22,18 +20,16 @@ export default function About() {
     <>
       <Nav />
       <main>
-        {/* Same background world as the home page: About has no 3D
-            set-piece of its own, so the ribbon starts at the top and
-            carries the whole page rather than picking up from a road. */}
+        {/* The drifting field, and nothing else behind the copy.
+            About carries no ribbon road: the mini truck is the home
+            page's device, and threading it through a page that is
+            mostly long-form copy meant a road cutting across the text
+            it was supposed to be leading the eye down. */}
         <div className="relative z-10">
           <PageField />
-          {/* A different seed from the home page's, so the two pages do
-              not repeat the same road. */}
-          <Ribbon seed={5512094} />
           <AboutHero />
           <Manifesto />
           <Story />
-          <Network />
           <Crew />
           <ClosingCTA />
         </div>

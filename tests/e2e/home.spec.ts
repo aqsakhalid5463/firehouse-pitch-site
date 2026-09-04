@@ -1058,7 +1058,17 @@ test('the bay door covers the page before the route swaps, then clears', async (
       if (location.pathname !== '/' && w.__order.swapped === null) {
         w.__order.swapped = performance.now() - started;
       }
-      if (performance.now() - started < 4000) requestAnimationFrame(tick);
+      // Runs until it has both readings, with a generous cap rather
+      // than a fixed window. A four-second window was enough when this
+      // test ran alone and not when the whole suite was running: the
+      // click's own actionability checks can eat most of it on a loaded
+      // machine, and the sampler then expired before the door had
+      // finished closing — reporting "never covered" for a door that
+      // covered perfectly well.
+      const done = w.__order.covered !== null && w.__order.swapped !== null;
+      if (!done && performance.now() - started < 15000) {
+        requestAnimationFrame(tick);
+      }
     };
     requestAnimationFrame(tick);
   });

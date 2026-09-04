@@ -30,9 +30,26 @@ const DRIVE_MS = 560;
  *  than on top of it. */
 const SHUTTER_DELAY_MS = 140;
 const CLOSE_MS = 560;
-/** Fully covered. Nothing may touch the page's visible state before
- *  this. */
-const COVER_AT_MS = SHUTTER_DELAY_MS + CLOSE_MS;
+
+/**
+ * Deadline for the door reporting itself shut, after which the
+ * navigation happens anyway.
+ *
+ * A deadline, not a schedule. The swap used to be fired by a timer set
+ * to the animation's nominal length, which is wrong for a reason that
+ * only shows under load: the timer starts when the click is handled,
+ * but the transition starts when React commits the phase change and the
+ * browser takes the style. Measured on a busy page those were 600ms
+ * apart — the timer said "covered" with the door still 185px short, the
+ * route swapped 100ms later with a 42px strip of the new page showing,
+ * and the door finished 180ms after that. The new page was visible
+ * mid-navigation, which is the one thing this component exists to
+ * prevent.
+ *
+ * So the door itself now says when it is shut, and this only catches
+ * the case where that signal never arrives.
+ */
+const COVER_DEADLINE_MS = 2500;
 
 /**
  * How long the new route is given to paint under the cover before the
@@ -96,13 +113,16 @@ const DOOR_PAINT =
 export function useRouteTransition() {
   const router = useRouter();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const watchers = useRef<(() => void)[]>([]);
 
-  useEffect(
-    () => () => {
-      timers.current.forEach(clearTimeout);
-    },
-    [],
-  );
+  useEffect(() => {
+    const pendingTimers = timers.current;
+    const pendingWatchers = watchers.current;
+    return () => {
+      pendingTimers.forEach(clearTimeout);
+      pendingWatchers.forEach((off) => off());
+    };
+  }, []);
 
   return useCallback(
     (
@@ -128,8 +148,11 @@ export function useRouteTransition() {
 
       begin(label);
 
-      after(COVER_AT_MS, () => {
-        setPhase('covered');
+      let swapped = false;
+      const onCovered = () => {
+        if (swapped) return;
+        swapped = true;
+        unwatch();
 
         // Under the cover, in this order: swap the route, put the page
         // back to the top, then let ScrollTrigger re-measure against the
@@ -230,6 +253,16 @@ export function useRouteTransition() {
         // the same failure the preloader guards against, for the same
         // reason.
         after(COVER_LIMIT_MS, open);
+      };
+
+      // The door reports itself shut by moving to the covered phase,
+      // which the overlay does on the transition actually ending.
+      const unwatch = useTransitionStore.subscribe((state) => {
+        if (state.phase === 'covered') onCovered();
+      });
+      watchers.current.push(unwatch);
+      after(COVER_DEADLINE_MS, () => {
+        if (!swapped) setPhase('covered');
       });
     },
     [router],
@@ -330,7 +363,16 @@ export function RouteTransition() {
         rig.style.transition = `transform ${DRIVE_MS}ms cubic-bezier(0.4, 0, 0.7, 0.35)`;
         rig.style.transform = 'translate3d(115vw, -50%, 0)';
       }
-      return;
+
+      // Say when the door is actually shut, rather than letting anything
+      // predict it from a duration. The route swap hangs off this.
+      const onShut = (event: TransitionEvent) => {
+        if (event.target !== el || event.propertyName !== 'transform') return;
+        el.removeEventListener('transitionend', onShut);
+        useTransitionStore.getState().setPhase('covered');
+      };
+      el.addEventListener('transitionend', onShut);
+      return () => el.removeEventListener('transitionend', onShut);
     }
 
     if (phase === 'opening') {

@@ -24,8 +24,6 @@ test('about page renders its copy and registrations in server HTML', async ({
   expect(text).toContain('The crew is the whole product.');
   expect(text).toContain('Why the firehouse model works.');
   expect(text).toContain('What Firehouse actually is');
-  expect(text).toContain('Who stands behind the move.');
-  expect(text).toContain('Fleet maintained with Ford Pro');
   expect(text).toContain('(972) 992-1969');
   // The registrations must reach the server HTML. They moved to the
   // footer when the credentials section was removed, and they are the
@@ -36,9 +34,25 @@ test('about page renders its copy and registrations in server HTML', async ({
   expect(text).toContain('TXDMV 000570404B');
   // The invented founding story must not come back.
   expect(text).not.toContain('one truck, one crew');
-  // Nor may the two removed sections.
+  // Nor may any of the removed sections.
   expect(text).not.toContain('What you actually get');
   expect(text).not.toContain('Credentials that matter on moving day');
+  expect(text).not.toContain('Who stands behind the move');
+  // The partner claims are the ones that most need to stay gone: they
+  // assert a relationship with a named third party.
+  expect(text).not.toContain('Ford Pro');
+  expect(text).not.toContain('4 Alarm Restoration');
+});
+
+test('about carries no ribbon road', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/about');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  // Given time to mount: the roads are built in an effect after the
+  // zones are measured, so an immediate check would pass even if the
+  // ribbon were still there.
+  await page.waitForTimeout(1500);
+  expect(await page.locator('[data-ribbon-road]').count()).toBe(0);
 });
 
 test('about page loads with no console errors', async ({ page }) => {
@@ -59,9 +73,9 @@ test('nav links move between the two pages', async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
-// About's sub-headings (the pillars, then the network partners) were
-// plain <h3> elements while every h2 on the page animated, so the page
-// went flat below each section title. They now run the same
+// About's sub-headings (the pillars) were plain <h3> elements while
+// every h2 on the page animated, so the page went flat below each
+// section title. They now run the same
 // per-character entrance, which — like every heading — replays whenever
 // it comes back into view.
 test('about sub-headings animate and replay', async ({ page }) => {
@@ -99,15 +113,28 @@ test('about sub-headings animate and replay', async ({ page }) => {
   });
   expect(firstBand).toBeGreaterThan(0);
 
+  // Polled rather than sampled once.
+  //
+  // A single reading 150ms after the scroll passed alone and failed in
+  // the full run, which is the signature of a race and not of a broken
+  // animation: the entrance lasts well under a second, so one
+  // instantaneous look can land before it starts or after it finishes
+  // depending on how loaded the machine is. Polling asks the only
+  // question that matters — was this heading ever seen mid-flight —
+  // and cannot be lost between two samples.
+  const catchAnimation = async () =>
+    expect
+      .poll(midFlip, { timeout: 3000, intervals: [30] })
+      .toBe(true);
+
   const clicks = Math.max(1, Math.round((firstBand - 400) / 400));
   await wheel(clicks, 400);
-  await page.waitForTimeout(150);
-  expect(await midFlip()).toBe(true);
+  await catchAnimation();
 
-  await page.waitForTimeout(1500);
+  // And it replays: away, back, and animating again.
+  await page.waitForTimeout(1200);
   await wheel(5, -400);
   await page.waitForTimeout(600);
   await wheel(5, 400);
-  await page.waitForTimeout(120);
-  expect(await midFlip()).toBe(true);
+  await catchAnimation();
 });

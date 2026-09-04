@@ -378,13 +378,17 @@ export const ABOUT = {
 /**
  * The two organisations named as standing behind a Firehouse move.
  *
+ * Removed from the About page at the client's request; kept here the
+ * same way EXTRAS and VALUES are, so the section can be restored
+ * without re-deriving the copy.
+ *
  * ⚠️ These are claims about third parties — a named commercial
  * programme and a named sister company — and they carry more weight
- * than anything else on the page: naming Ford Pro asserts a
+ * than anything else that was on the page: naming Ford Pro asserts a
  * relationship with Ford. The copy comes from the client's own
  * reference build, so it is theirs rather than invented here, but it
- * has not been verified against anything and must be confirmed before
- * this is shown externally.
+ * has not been verified against anything, and nothing should put it
+ * back on a public page until it has been.
  */
 export const PARTNERS = [
   {

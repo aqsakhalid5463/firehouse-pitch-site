@@ -323,7 +323,12 @@ function buildWaypoints(
 ): [number, number][] {
   const rand = seeded(seed);
   const pts: [number, number][] = [];
-  const loopR = 0.085;
+  const loopR = 0.1;
+  // One loop per stretch. Two circles in a single section reads as the
+  // road losing its way rather than as a flourish — the second one has
+  // nothing left to say. One larger circle is the better version of the
+  // same idea.
+  let looped = false;
 
   let x = -0.22;
   // Entry height is drawn from the seed, not fixed at the top.
@@ -427,7 +432,7 @@ function buildWaypoints(
     // readily than the run between the service cards does. A loop needs
     // a clear disc to turn in: wrapped around a heading it looks like a
     // mistake rather than a flourish.
-    if (y < 0.78 && rand() > loopChance) {
+    if (!looped && y < 0.7 && rand() > loopChance) {
       const dir: 1 | -1 = x > 0.5 ? -1 : 1;
       const lx = Math.min(0.82, Math.max(0.18, x));
       const drop = loopR * aspect * 1.2;
@@ -458,8 +463,25 @@ function buildWaypoints(
   // before it reaches the side, and the run-out is then clipped off at
   // the bottom of the section instead of visibly leaving the frame.
   let out = heading;
-  for (let k = 0; k < 8 && x < 1.2; k++) {
+  for (let k = 0; k < 10 && x < 1.2; k++) {
     out += (1.5 - out) * 0.8;
+    // Stride grows as the heading flattens.
+    //
+    // A constant stride spends its first step still pointing downward,
+    // and that one step was a quarter of the section's height — which is
+    // how 13% of the closing road ended up below its own section, hidden
+    // under the footer. Hidden road is worse than it sounds: the truck
+    // drives into it and disappears while there is still scroll left, so
+    // the route looks like it finished early.
+    const stride = 0.3 * Math.max(0.15, Math.sin(Math.max(0, out)));
+    // Descent is also capped by what is left of the section, taking a
+    // fixed fraction of the remaining room each step. The road therefore
+    // flattens as it approaches the bottom instead of running through
+    // it — which is what a road leaving sideways should do anyway, so it
+    // costs nothing in looks and keeps every pixel of it on its own
+    // section.
+    const room = Math.max(0, 0.97 - y);
+    const drop = (c: number) => Math.min(Math.cos(c) * stride, room * 0.4);
     // Steered like the rest of the walk. The run-out used to bend to the
     // edge regardless of what was in the way, which on the closing
     // section drove it straight through the headline — the road's
@@ -469,20 +491,22 @@ function buildWaypoints(
     let go = out;
     for (const dev of [0, -0.3, 0.3, -0.6, 0.6]) {
       const h = out + dev;
-      const nx = x + Math.sin(h) * 0.3 * lean;
-      const ny = y + Math.cos(h) * 0.3;
+      const nx = x + Math.sin(h) * stride * lean;
+      const ny = y + drop(h);
       if (nx > x && !legBlocked(obstacles, x, y, nx, ny, padX, padY)) {
         go = h;
         break;
       }
     }
     out = go;
-    x += Math.sin(out) * 0.3 * lean;
-    y += Math.cos(out) * 0.3;
+    x += Math.sin(out) * stride * lean;
+    y += drop(out);
     pts.push([x, y]);
   }
-  // Guaranteed clear of the frame however the run-out went.
-  pts.push([Math.max(1.22, x + 0.1), y + 0.02]);
+  // Guaranteed clear of the frame however the run-out went, and kept
+  // inside the section's own height so none of it is painted under the
+  // next one.
+  pts.push([Math.max(1.22, x + 0.1), Math.min(0.99, y + 0.02)]);
   return pts;
 }
 
@@ -1106,8 +1130,21 @@ function RoadSegment({
         0,
         document.documentElement.scrollHeight - window.innerHeight,
       );
-      const from = pageTop - window.innerHeight;
-      const to = Math.min(pageTop + r.height, maxScroll);
+      // Measured against the middle of the screen, not its edges.
+      //
+      // Starting when the section's top merely touches the bottom of the
+      // viewport means the first half of the road is driven while it is
+      // still below the fold — the truck runs its whole route off-screen
+      // and the section appears with the road already drawn. On the
+      // closing section, where the page runs out of scroll, that was the
+      // entire run: the truck was never visible on it once.
+      //
+      // Anchoring both ends to the viewport's centre line drives each
+      // stretch over its own height of scroll, with the truck tracking
+      // the middle band of the screen.
+      const half = window.innerHeight * 0.5;
+      const from = pageTop - half;
+      const to = Math.min(pageTop + r.height - half, maxScroll);
       const span = Math.max(1, to - from);
       const want = length * clamp01((window.scrollY - from) / span);
 

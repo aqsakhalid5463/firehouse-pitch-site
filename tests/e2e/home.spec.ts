@@ -914,11 +914,16 @@ test('the truck drives at a consistent speed through bends and loops', async ({
 
   // The circling stretch, because it is the hard case: a loop covers
   // hundreds of pixels of road in almost no page height.
-  const top = await page.evaluate(
-    () =>
-      document.querySelector('[data-ribbon-zone="circles"]')!.getBoundingClientRect()
-        .top + window.scrollY,
-  );
+  // The scroll window this stretch is actually driven over: from its top
+  // reaching the middle of the screen to its bottom reaching the middle.
+  // Sampled from inside that, so no reading is taken at a clamped end.
+  const drive = await page.evaluate(() => {
+    const r = document
+      .querySelector('[data-ribbon-zone="circles"]')!
+      .getBoundingClientRect();
+    const top = r.top + window.scrollY - window.innerHeight * 0.5;
+    return { from: top + 40, step: (r.height - 80) / 9 };
+  });
 
   // How far along the road the truck is, in path pixels, found by
   // matching its drawn position back to the path.
@@ -948,8 +953,8 @@ test('the truck drives at a consistent speed through bends and loops', async ({
     });
 
   const seen: number[] = [];
-  for (let i = 0; i < 12; i += 1) {
-    await page.evaluate((y) => window.scrollTo(0, y), top - 700 + i * 110);
+  for (let i = 0; i < 10; i += 1) {
+    await page.evaluate((y) => window.scrollTo(0, y), drive.from + i * drive.step);
     await page.waitForTimeout(900);
     const a = await arc();
     if (a !== null) seen.push(a);
@@ -957,15 +962,66 @@ test('the truck drives at a consistent speed through bends and loops', async ({
 
   // Road covered per equal step of scroll. Even steps mean even speed —
   // which is the whole point: this used to range from 4 to 1136 path
-  // pixels for the same 110px of scroll, because the truck was pinned to
-  // the viewport centre and the road's length per pixel of page varies
+  // pixels for the same step, because the truck was pinned to the
+  // viewport centre and the road's length per pixel of page varies
   // wildly through a bend.
   const steps = seen
     .slice(1)
     .map((v, i) => v - seen[i])
     .filter((d) => d > 5);
   expect(steps.length).toBeGreaterThan(5);
-  // Drop the last, which is the tail where the road runs out.
-  const even = steps.slice(0, -1);
-  expect(Math.max(...even) / Math.min(...even)).toBeLessThan(1.3);
+  expect(Math.max(...steps) / Math.min(...steps)).toBeLessThan(1.15);
+});
+
+test('each road loops at most once and stays inside its own section', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+  await page.locator('[data-ribbon-road]').first().waitFor({ timeout: 10000 });
+  await page.waitForTimeout(1500);
+
+  const roads = await page.evaluate(() => {
+    const seg = (a: DOMPoint, b: DOMPoint, c: DOMPoint, d: DOMPoint) => {
+      const s1x = b.x - a.x;
+      const s1y = b.y - a.y;
+      const s2x = d.x - c.x;
+      const s2y = d.y - c.y;
+      const den = -s2x * s1y + s1x * s2y;
+      if (!den) return false;
+      const s = (-s1y * (a.x - c.x) + s1x * (a.y - c.y)) / den;
+      const t = (s2x * (a.y - c.y) - s2y * (a.x - c.x)) / den;
+      return s > 0 && s < 1 && t > 0 && t < 1;
+    };
+
+    return [...document.querySelectorAll('[data-ribbon-road]')].map((host) => {
+      const path = host.querySelector('svg path') as SVGPathElement;
+      const box = host.getBoundingClientRect();
+      const len = path.getTotalLength();
+      const N = 600;
+      const pts = Array.from({ length: N + 1 }, (_, i) =>
+        path.getPointAtLength((i / N) * len),
+      );
+      let crossings = 0;
+      for (let i = 0; i < N; i += 3)
+        for (let j = i + 9; j < N; j += 3)
+          if (seg(pts[i], pts[i + 3], pts[j], pts[j + 3])) crossings += 1;
+      return {
+        mode: (host as HTMLElement).dataset.ribbonRoad,
+        // A full loop shows up as the road crossing itself once.
+        crossings,
+        // Road painted outside its own band is hidden under whatever
+        // section follows, and the truck drives into it and vanishes
+        // while there is still scroll left.
+        outside: pts.filter((p) => p.y < 0 || p.y > box.height).length,
+      };
+    });
+  });
+
+  expect(roads).toHaveLength(3);
+  for (const road of roads) {
+    expect(road.crossings).toBeLessThanOrEqual(1);
+    expect(road.outside).toBe(0);
+  }
 });

@@ -1082,3 +1082,55 @@ test('reduced motion navigates with no door at all', async ({ browser }) => {
   await expect(page.locator('[data-route-door]')).toHaveCount(0);
   await context.close();
 });
+
+test('scrolling past the end of the home page carries on into About', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.locator('.preloader').waitFor({ state: 'detached', timeout: 20000 });
+
+  const hint = page.locator('[data-scroll-to-next]');
+  // Not offered until there is nothing left to scroll.
+  await expect(hint).toHaveAttribute('data-at-end', 'false');
+
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  );
+  await expect(hint).toHaveAttribute('data-at-end', 'true', { timeout: 5000 });
+
+  // Landing at the bottom must not by itself navigate — only continuing
+  // to push does.
+  await page.waitForTimeout(600);
+  expect(new URL(page.url()).pathname).toBe('/');
+
+  // A short push is not enough either.
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(200);
+  expect(new URL(page.url()).pathname).toBe('/');
+
+  // Nor is a long push that arrives inside the settle window — that is
+  // the shape a trackpad's momentum tail has, and it must not be able
+  // to navigate on the visitor's behalf.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(300);
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  );
+  for (let i = 0; i < 8; i += 1) {
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(20);
+  }
+  expect(new URL(page.url()).pathname).toBe('/');
+  await page.waitForTimeout(500);
+
+  // Continuing past the threshold hands over, through the same door the
+  // nav links use.
+  for (let i = 0; i < 6; i += 1) {
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(40);
+  }
+  await page.locator('[data-route-door]').waitFor({ timeout: 4000 });
+  await page.waitForURL('**/about', { timeout: 8000 });
+});
